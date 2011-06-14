@@ -47,25 +47,33 @@ void HGMarkdownHighlighter::setDefaultStyles()
 {
     QVector<HighlightingStyle> *styles = new QVector<HighlightingStyle>();
 
-    QTextCharFormat headers; headers.setForeground(QBrush(Qt::darkBlue));
-    headers.setBackground(QBrush(QColor(230,230,240)));
-    STY(H1, headers);
-    STY(H2, headers);
-    STY(H3, headers);
-    STY(H4, headers);
-    STY(H5, headers);
-    STY(H6, headers);
+    QTextCharFormat header1; header1.setForeground(QBrush(Qt::black));
+    header1.setBackground(QBrush(QColor(178,178,207)));
+    header1.setFontWeight(QFont::Bold);
+    STY(H1, header1);
+
+    QTextCharFormat header2; header2.setForeground(QBrush(Qt::darkBlue));
+    header2.setBackground(QBrush(QColor(204,204,227)));
+    header2.setFontWeight(QFont::Bold);
+    STY(H2, header2);
+
+    QTextCharFormat smallerHeaders; smallerHeaders.setForeground(QBrush(Qt::darkBlue));
+    smallerHeaders.setBackground(QBrush(QColor(230,230,240)));
+    STY(H3, smallerHeaders);
+    STY(H4, smallerHeaders);
+    STY(H5, smallerHeaders);
+    STY(H6, smallerHeaders);
 
     QTextCharFormat hrule; hrule.setForeground(QBrush(Qt::darkGray));
     hrule.setBackground(QBrush(Qt::lightGray));
     STY(HRULE, hrule);
 
-    QTextCharFormat list; list.setForeground(QBrush(Qt::magenta));
+    QTextCharFormat list; list.setForeground(QBrush(Qt::darkMagenta));
     STY(LIST_BULLET, list);
     STY(LIST_ENUMERATOR, list);
 
     QTextCharFormat link; link.setForeground(QBrush(Qt::darkCyan));
-    link.setBackground(QBrush(QColor(205,240,240)));
+    link.setBackground(QBrush(QColor(237,241,242)));
     STY(LINK, link);
     STY(AUTO_LINK_URL, link);
     STY(AUTO_LINK_EMAIL, link);
@@ -78,7 +86,7 @@ void HGMarkdownHighlighter::setDefaultStyles()
     STY(REFERENCE, ref);
 
     QTextCharFormat code; code.setForeground(QBrush(Qt::darkGreen));
-    code.setBackground(QBrush(QColor(217,231,217)));
+    code.setBackground(QBrush(QColor(235,242,235)));
     STY(CODE, code);
     STY(VERBATIM, code);
 
@@ -86,7 +94,7 @@ void HGMarkdownHighlighter::setDefaultStyles()
     emph.setFontItalic(true);
     STY(EMPH, emph);
 
-    QTextCharFormat strong; strong.setForeground(QBrush(Qt::magenta));
+    QTextCharFormat strong; strong.setForeground(QBrush(QColor(115,50,115)));
     strong.setFontWeight(QFont::Bold);
     STY(STRONG, strong);
 
