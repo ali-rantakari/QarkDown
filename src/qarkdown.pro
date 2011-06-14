@@ -12,3 +12,11 @@ SOURCES         = markdown_parser.c\
 
 FORMS += \
     preferencesdialog.ui
+
+QMAKE_INFO_PLIST = Info.plist
+
+OTHER_FILES += \
+    win.rc \
+    Info.plist
+
+win32:RC_FILE += win.rc
