@@ -5,9 +5,6 @@
 
 /*
 TODO:
-- Strip styles upon copy/paste
-- Not saved -indicator
-- Opening files with Windows' "Open with..."
 - Tabbed interface; multiple files open
 - Changing styles settings
 */
@@ -34,6 +31,8 @@ MainWindow::~MainWindow()
 void MainWindow::newFile()
 {
     editor->clear();
+    openFilePath = QString();
+    setDirty(false);
 }
 
 void MainWindow::openFile(const QString &path)
@@ -131,8 +130,11 @@ void MainWindow::preferencesUpdated()
 void MainWindow::setDirty(bool value)
 {
     openFileIsDirty = value;
-    setWindowTitle(QFileInfo(openFilePath).fileName()
-                   + (openFileIsDirty ? " **" : ""));
+    QString dirtyFlagStr = (openFileIsDirty ? " **" : "");
+    if (!openFilePath.isNull())
+        setWindowTitle(QFileInfo(openFilePath).fileName()+dirtyFlagStr);
+    else
+        setWindowTitle("<untitled>"+dirtyFlagStr);
 }
 
 
