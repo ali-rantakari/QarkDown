@@ -6,7 +6,6 @@
 /*
 TODO:
 - Strip styles upon copy/paste
-- Tab width = 4
 - Not saved -indicator
 - Opening files with Windows' "Open with..."
 - Tabbed interface; multiple files open
@@ -54,11 +53,10 @@ void MainWindow::openFile(const QString &path)
 
     editor->setPlainText(file.readAll());
     openFilePath = fileName;
-    setWindowTitle(QFileInfo(openFilePath).fileName());
 
     file.close();
     settings->setValue(SETTING_LAST_FILE, QVariant(openFilePath));
-    openFileIsDirty = false;
+    setDirty(false);
 }
 
 void MainWindow::saveFile()
@@ -77,7 +75,7 @@ void MainWindow::saveFile()
 
     openFilePath = saveFilePath;
     setWindowTitle(QFileInfo(openFilePath).fileName());
-    openFileIsDirty = false;
+    setDirty(false);
 }
 
 void MainWindow::persistFontInfo()
@@ -130,6 +128,12 @@ void MainWindow::preferencesUpdated()
     applyPersistedFontInfo();
 }
 
+void MainWindow::setDirty(bool value)
+{
+    openFileIsDirty = value;
+    setWindowTitle(QFileInfo(openFilePath).fileName()
+                   + (openFileIsDirty ? " **" : ""));
+}
 
 
 void MainWindow::setupEditor()
@@ -227,5 +231,5 @@ void MainWindow::aboutToQuitHandler()
 void MainWindow::handleContentsChange(int position, int charsRemoved, int charsAdded)
 {
     Q_UNUSED(position); Q_UNUSED(charsRemoved); Q_UNUSED(charsAdded);
-    openFileIsDirty = true;
+    setDirty(true);
 }
