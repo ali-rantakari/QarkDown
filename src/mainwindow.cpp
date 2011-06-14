@@ -1,21 +1,23 @@
 #include <QtGui>
 
 #include "mainwindow.h"
+#include "defines.h"
 
 /*
 TODO:
+- Strip styles upon copy/paste
+- Tab width = 4
+- Not saved -indicator
 - Opening files with Windows' "Open with..."
 - Tabbed interface; multiple files open
 - Changing styles settings
 */
 
-#define MARKDOWN_FILES_FILTER "Markdown Files (*.mdtext *.md *.markdown *.txt *.text)"
-#define SETTING_FONT "Font"
-#define SETTING_LAST_FILE "LastFile"
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     settings = new QSettings("org.hasseg", "QarkDown");
+    preferencesDialog = new PreferencesDialog(settings);
     openFileIsDirty = false;
 
     setupFileMenu();
@@ -27,6 +29,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 MainWindow::~MainWindow()
 {
     delete settings;
+    delete preferencesDialog;
 }
 
 void MainWindow::newFile()
@@ -83,17 +86,22 @@ void MainWindow::persistFontInfo()
 }
 void MainWindow::applyPersistedFontInfo()
 {
+    // font
     QFont font;
-
     if (settings->contains(SETTING_FONT))
         font.fromString(settings->value(SETTING_FONT).toString());
     else {
-        font.setFamily("Courier");
+        font.setFamily(DEF_FONT_FAMILY);
+        font.setPointSize(DEF_FONT_SIZE);
         font.setFixedPitch(true);
-        font.setPointSize(12);
     }
-
     editor->setFont(font);
+
+    // tab stop width
+    int tabWidthInChars = settings->value(SETTING_TAB_WIDTH,
+                                          QVariant(DEF_TAB_WIDTH)).toInt();
+    QFontMetrics fontMetrics(font);
+    editor->setTabStopWidth(fontMetrics.charWidth("m", 0) * tabWidthInChars);
 }
 
 void MainWindow::increaseFontSize()
@@ -112,15 +120,16 @@ void MainWindow::decreaseFontSize()
     persistFontInfo();
 }
 
-void MainWindow::changeFont()
+void MainWindow::showPreferences()
 {
-    bool ok;
-    QFont newFont = QFontDialog::getFont(&ok, editor->font(), this, tr("Select New Font"));
-    if (!ok)
-        return;
-    editor->setFont(newFont);
-    persistFontInfo();
+    preferencesDialog->show();
 }
+
+void MainWindow::preferencesUpdated()
+{
+    applyPersistedFontInfo();
+}
+
 
 
 void MainWindow::setupEditor()
@@ -143,15 +152,16 @@ void MainWindow::setupFileMenu()
     fileMenu->addAction(tr("E&xit"), qApp, SLOT(quit()),
                         QKeySequence::Quit);
 
-    QMenu *fontOptionsMenu = new QMenu(tr("&Font"), this);
-    menuBar()->addMenu(fontOptionsMenu);
+    QMenu *toolsMenu = new QMenu(tr("&Tools"), this);
+    menuBar()->addMenu(toolsMenu);
     QKeySequence increaseFontSizeKey("Ctrl++");
-    fontOptionsMenu->addAction(tr("Increase Font Size"), this, SLOT(increaseFontSize()),
-                        increaseFontSizeKey);
+    toolsMenu->addAction(tr("Increase Font Size"), this, SLOT(increaseFontSize()),
+                         increaseFontSizeKey);
     QKeySequence decreaseFontSizeKey("Ctrl+-");
-    fontOptionsMenu->addAction(tr("Decrease Font Size"), this, SLOT(decreaseFontSize()),
-                        decreaseFontSizeKey);
-    fontOptionsMenu->addAction(tr("Select Font"), this, SLOT(changeFont()));
+    toolsMenu->addAction(tr("Decrease Font Size"), this, SLOT(decreaseFontSize()),
+                         decreaseFontSizeKey);
+    toolsMenu->addAction(tr("Preferences..."), this, SLOT(showPreferences()),
+                         QKeySequence::Preferences);
 }
 
 void MainWindow::performStartupTasks()
@@ -167,6 +177,8 @@ void MainWindow::performStartupTasks()
             this, SLOT(aboutToQuitHandler()), Qt::DirectConnection);
     connect(editor->document(), SIGNAL(contentsChange(int,int,int)),
             this, SLOT(handleContentsChange(int,int,int)));
+    connect(preferencesDialog, SIGNAL(updated()),
+            this, SLOT(preferencesUpdated()));
 }
 
 void MainWindow::commitDataHandler(QSessionManager &manager)

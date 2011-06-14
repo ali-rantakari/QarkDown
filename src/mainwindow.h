@@ -6,6 +6,7 @@
 #include <QSessionManager>
 
 #include "highlighter.h"
+#include "preferencesdialog.h"
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
@@ -23,9 +24,13 @@ public slots:
     void newFile();
     void openFile(const QString &path = QString());
     void saveFile();
+
     void increaseFontSize();
     void decreaseFontSize();
-    void changeFont();
+    void showPreferences();
+
+    void preferencesUpdated();
+
     void commitDataHandler(QSessionManager &manager);
     void aboutToQuitHandler();
     void handleContentsChange(int position, int charsRemoved, int charsAdded);
@@ -37,6 +42,7 @@ private:
     void persistFontInfo();
     void applyPersistedFontInfo();
 
+    PreferencesDialog *preferencesDialog;
     QSettings *settings;
     QTextEdit *editor;
     HGMarkdownHighlighter *highlighter;
