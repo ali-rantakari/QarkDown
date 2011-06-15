@@ -20,6 +20,41 @@ void QarkdownTextEdit::setIndentString(QString value)
 }
 
 
+bool QarkdownTextEdit::selectionContainsOnlyFullLines(QTextCursor selection)
+{
+    QChar startChar = this->document()->characterAt(selection.anchor()-1);
+    QChar lastChar = this->document()->characterAt(selection.position()-1);
+    QChar afterLastChar = this->document()->characterAt(selection.position());
+    bool startsAtLineStart = (startChar.isNull()
+                              || startChar.unicode() == QChar::ParagraphSeparator
+                              || startChar.unicode() == QChar::LineSeparator
+                              );
+    bool endsAtLineEnd = (afterLastChar.isNull()
+                          || lastChar.unicode() == QChar::ParagraphSeparator
+                          || lastChar.unicode() == QChar::LineSeparator
+                          );
+    return (startsAtLineStart && endsAtLineEnd);
+}
+
+QList<int> QarkdownTextEdit::getLineStartPositionsInSelection(QTextCursor selection)
+{
+    QList<int> lineStarts;
+    QTextCursor c(document());
+    c.setPosition(selection.selectionStart());
+    QTextBlock b = c.block();
+    int pos = b.position();
+    while (pos < selection.selectionEnd())
+    {
+        lineStarts.append(pos);
+        b = b.next();
+        if (!b.isValid())
+            break;
+        pos = b.position();
+    }
+    return lineStarts;
+}
+
+
 bool QarkdownTextEdit::event(QEvent *e)
 {
     if (e->type() != QEvent::KeyPress)
@@ -36,25 +71,9 @@ bool QarkdownTextEdit::event(QEvent *e)
         return QTextEdit::event(e);
 
     // Tab pressed with a 'normal' selection:
-    bool onlyFullLinesSelected = false;
-
-    QChar startChar = this->document()->characterAt(cursor.anchor()-1);
-    QChar lastChar = this->document()->characterAt(cursor.position()-1);
-    QChar afterLastChar = this->document()->characterAt(cursor.position());
-    bool startsAtLineStart = (startChar.isNull()
-                              || startChar.unicode() == QChar::ParagraphSeparator
-                              || startChar.unicode() == QChar::LineSeparator
-                              );
-    bool endsAtLineEnd = (afterLastChar.isNull()
-                          || lastChar.unicode() == QChar::ParagraphSeparator
-                          || lastChar.unicode() == QChar::LineSeparator
-                          );
-
-    if (startsAtLineStart && endsAtLineEnd)
-        onlyFullLinesSelected = true;
-
-    if (!onlyFullLinesSelected) {
+    if (!selectionContainsOnlyFullLines(cursor)) {
         cursor.clearSelection();
+        setTextCursor(cursor);
         return true;
     }
 
@@ -69,20 +88,7 @@ void QarkdownTextEdit::indentSelectedLines()
 {
     QTextCursor cursor = this->textCursor();
 
-    // Find line start positions
-    QList<int> lineStarts;
-    QTextCursor c(document());
-    c.setPosition(cursor.selectionStart());
-    QTextBlock b = c.block();
-    int pos = b.position();
-    while (pos < cursor.selectionEnd())
-    {
-        lineStarts.append(pos);
-        b = b.next();
-        if (!b.isValid())
-            break;
-        pos = b.position();
-    }
+    QList<int> lineStarts = getLineStartPositionsInSelection(cursor);
 
     // Insert indentString to line start positions
     QTextCursor insertCursor(document());

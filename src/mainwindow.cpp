@@ -5,6 +5,8 @@
 
 /*
 TODO:
+- De-indent with shift-tab
+- Preference: indent with spaces/tabs (if spaces, use tab width pref)
 - Tabbed interface; multiple files open
 - Changing styles settings
 */

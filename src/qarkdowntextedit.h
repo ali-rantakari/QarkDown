@@ -15,6 +15,8 @@ public:
 protected:
     bool event(QEvent *e);
     QString _indentString;
+    bool selectionContainsOnlyFullLines(QTextCursor selection);
+    QList<int> getLineStartPositionsInSelection(QTextCursor selection);
     void indentSelectedLines();
 
 signals:
