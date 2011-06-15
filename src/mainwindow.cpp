@@ -14,7 +14,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     settings = new QSettings("org.hasseg", "QarkDown");
     preferencesDialog = new PreferencesDialog(settings);
-    openFileIsDirty = false;
 
     setupFileMenu();
     setupEditor();
@@ -137,8 +136,8 @@ void MainWindow::preferencesUpdated()
 
 void MainWindow::setDirty(bool value)
 {
-    openFileIsDirty = value;
-    QString dirtyFlagStr = (openFileIsDirty ? " **" : "");
+    editor->document()->setModified(value);
+    QString dirtyFlagStr = (value ? " **" : "");
     if (!openFilePath.isNull())
         setWindowTitle(QFileInfo(openFilePath).fileName()+dirtyFlagStr);
     else
@@ -199,9 +198,9 @@ void MainWindow::performStartupTasks()
 
 void MainWindow::commitDataHandler(QSessionManager &manager)
 {
-    qDebug() << "commitDataHandler. dirty =" << openFileIsDirty;
+    qDebug() << "commitDataHandler. dirty =" << editor->document()->isModified();
 
-    if (!openFileIsDirty)
+    if (!editor->document()->isModified())
         return;
 
     if (manager.allowsInteraction())

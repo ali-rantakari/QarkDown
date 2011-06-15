@@ -49,7 +49,6 @@ private:
     QTextEdit *editor;
     HGMarkdownHighlighter *highlighter;
     QString openFilePath;
-    bool openFileIsDirty;
 };
 
 #endif
