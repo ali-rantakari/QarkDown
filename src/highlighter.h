@@ -33,9 +33,10 @@ class HGMarkdownHighlighter : public QObject
     Q_OBJECT
 
 public:
-    HGMarkdownHighlighter(QTextDocument *parent = 0, int aWaitInterval = 2000);
+    HGMarkdownHighlighter(QTextDocument *parent = 0, double aWaitInterval = 1);
     void setStyles(QVector<HighlightingStyle> &styles);
-    int waitInterval;
+    double waitInterval();
+    void setWaitInterval(double value);
 
 protected:
 
@@ -45,6 +46,7 @@ private slots:
     void timerTimeout();
 
 private:
+    int _waitIntervalMilliseconds;
     QTimer *timer;
     QTextDocument *document;
     WorkerThread *workerThread;

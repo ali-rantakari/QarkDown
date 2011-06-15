@@ -19,15 +19,15 @@ void WorkerThread::run()
 
 
 HGMarkdownHighlighter::HGMarkdownHighlighter(QTextDocument *parent,
-                                             int aWaitInterval) : QObject(parent)
+                                             double aWaitInterval) : QObject(parent)
 {
     highlightingStyles = NULL;
     workerThread = NULL;
     cached_elements = NULL;
-    waitInterval = aWaitInterval;
+    _waitIntervalMilliseconds = (int)(aWaitInterval*1000);
     timer = new QTimer(this);
     timer->setSingleShot(true);
-    timer->setInterval(aWaitInterval);
+    timer->setInterval(_waitIntervalMilliseconds);
     connect(timer, SIGNAL(timeout()), this, SLOT(timerTimeout()));
     document = parent;
     connect(document, SIGNAL(contentsChange(int,int,int)),
@@ -40,6 +40,17 @@ void HGMarkdownHighlighter::setStyles(QVector<HighlightingStyle> &styles)
 {
     this->highlightingStyles = &styles;
 }
+
+double HGMarkdownHighlighter::waitInterval()
+{
+    return ((double)this->_waitIntervalMilliseconds)/1000.0;
+}
+void HGMarkdownHighlighter::setWaitInterval(double value)
+{
+    this->_waitIntervalMilliseconds = (int)(value*1000);
+    timer->setInterval(_waitIntervalMilliseconds);
+}
+
 
 
 #define STY(type, format) styles->append((HighlightingStyle){type, format})
@@ -219,6 +230,7 @@ void HGMarkdownHighlighter::threadFinished()
 void HGMarkdownHighlighter::handleContentsChange(int position, int charsRemoved,
                                                  int charsAdded)
 {
+    Q_UNUSED(position);
     if (charsRemoved == 0 && charsAdded == 0)
         return;
     //qDebug() << "contents changed. chars removed/added:" << charsRemoved << charsAdded;

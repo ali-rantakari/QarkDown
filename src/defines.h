@@ -5,9 +5,11 @@
 #define SETTING_FONT "Font"
 #define SETTING_TAB_WIDTH "TabWidth"
 #define SETTING_LAST_FILE "LastFile"
+#define SETTING_HIGHLIGHT_INTERVAL "HighlightInterval"
 
-#define DEF_FONT_FAMILY "Courier"
-#define DEF_FONT_SIZE   12
-#define DEF_TAB_WIDTH   4
+#define DEF_FONT_FAMILY         "Courier"
+#define DEF_FONT_SIZE           12
+#define DEF_TAB_WIDTH           4
+#define DEF_HIGHLIGHT_INTERVAL  0.5
 
 #endif // DEFAULTPREFERENCES_H

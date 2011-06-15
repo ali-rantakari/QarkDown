@@ -41,6 +41,7 @@ private:
     void performStartupTasks();
     void persistFontInfo();
     void applyPersistedFontInfo();
+    void applyHighlighterPreferences();
     void setDirty(bool value);
 
     PreferencesDialog *preferencesDialog;

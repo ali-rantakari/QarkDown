@@ -55,12 +55,18 @@ void PreferencesDialog::updateUIFromSettings()
     int tabWidthInChars = settings->value(SETTING_TAB_WIDTH,
                                           QVariant(DEF_TAB_WIDTH)).toInt();
     ui->tabWidthSpinBox->setValue(tabWidthInChars);
+
+    // highlight interval
+    double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
+                                               QVariant(DEF_HIGHLIGHT_INTERVAL)).toDouble();
+    ui->highlightIntervalSpinBox->setValue(highlightInterval);
 }
 
 void PreferencesDialog::updateSettingsFromUI()
 {
     settings->setValue(SETTING_FONT, ui->fontLabel->font().toString());
     settings->setValue(SETTING_TAB_WIDTH, ui->tabWidthSpinBox->value());
+    settings->setValue(SETTING_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox->value());
     settings->sync();
 }
 

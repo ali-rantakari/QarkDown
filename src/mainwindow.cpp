@@ -117,6 +117,13 @@ void MainWindow::decreaseFontSize()
     persistFontInfo();
 }
 
+void MainWindow::applyHighlighterPreferences()
+{
+    double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
+                                               QVariant(DEF_HIGHLIGHT_INTERVAL)).toDouble();
+    highlighter->setWaitInterval(highlightInterval);
+}
+
 void MainWindow::showPreferences()
 {
     preferencesDialog->show();
@@ -125,6 +132,7 @@ void MainWindow::showPreferences()
 void MainWindow::preferencesUpdated()
 {
     applyPersistedFontInfo();
+    applyHighlighterPreferences();
 }
 
 void MainWindow::setDirty(bool value)
@@ -142,8 +150,9 @@ void MainWindow::setupEditor()
 {
     editor = new QTextEdit;
     editor->setAcceptRichText(false);
-    highlighter = new HGMarkdownHighlighter(editor->document(), 1000);
+    highlighter = new HGMarkdownHighlighter(editor->document());
     applyPersistedFontInfo();
+    applyHighlighterPreferences();
 }
 
 void MainWindow::setupFileMenu()
