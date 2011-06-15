@@ -11,6 +11,13 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
 {
     settings = appSettings;
     ui->setupUi(this);
+
+#ifdef Q_WS_WIN
+    QFont font = ui->infoLabel1->font();
+    font.setPointSize(7);
+    ui->infoLabel1->setFont(font);
+#endif
+
     setupConnections();
     updateUIFromSettings();
 }

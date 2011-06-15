@@ -208,7 +208,7 @@
        </layout>
       </item>
       <item>
-       <widget class="QLabel" name="label_4">
+       <widget class="QLabel" name="infoLabel1">
         <property name="font">
          <font>
           <pointsize>11</pointsize>
