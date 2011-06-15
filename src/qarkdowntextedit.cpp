@@ -8,6 +8,7 @@ QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
     QTextEdit(parent)
 {
     _indentString = "    ";
+    _spacesIndentWidthHint = 4;
 }
 
 QString QarkdownTextEdit::indentString()
@@ -17,6 +18,15 @@ QString QarkdownTextEdit::indentString()
 void QarkdownTextEdit::setIndentString(QString value)
 {
     _indentString = value;
+}
+
+int QarkdownTextEdit::spacesIndentWidthHint()
+{
+    return _spacesIndentWidthHint;
+}
+void QarkdownTextEdit::setSpacesIndentWidthHint(int value)
+{
+    _spacesIndentWidthHint = value;
 }
 
 
@@ -61,7 +71,8 @@ bool QarkdownTextEdit::event(QEvent *e)
         return QTextEdit::event(e);
 
     QKeyEvent *ke = static_cast<QKeyEvent *>(e);
-    if (ke->key() != Qt::Key_Tab)
+    if (ke->key() != Qt::Key_Tab
+        && ke->key() != Qt::Key_Backtab)
         return QTextEdit::event(e);
 
     QTextCursor cursor = this->textCursor();
@@ -70,16 +81,16 @@ bool QarkdownTextEdit::event(QEvent *e)
         || cursor.hasComplexSelection())
         return QTextEdit::event(e);
 
-    // Tab pressed with a 'normal' selection:
     if (!selectionContainsOnlyFullLines(cursor)) {
         cursor.clearSelection();
         setTextCursor(cursor);
         return true;
     }
 
-    // Only full lines are selected.
-    indentSelectedLines();
-
+    if (ke->key() == Qt::Key_Tab)
+        indentSelectedLines();
+    else // backtab
+        unindentSelectedLines();
     return true;
 }
 
@@ -107,5 +118,42 @@ void QarkdownTextEdit::indentSelectedLines()
     cursor.setPosition(cursor.selectionStart()-_indentString.length());
     cursor.setPosition(selEnd, QTextCursor::KeepAnchor);
     this->setTextCursor(cursor);
+}
+
+void QarkdownTextEdit::unindentSelectedLines()
+{
+    QTextCursor cursor = this->textCursor();
+
+    QList<int> lineStarts = getLineStartPositionsInSelection(cursor);
+
+    QTextCursor insertCursor(document());
+    insertCursor.beginEditBlock();
+    int deletedChars = 0;
+    foreach (int lineStart, lineStarts)
+    {
+        int adjustedStart = lineStart - deletedChars;
+        insertCursor.setPosition(adjustedStart);
+        if (document()->characterAt(adjustedStart) == QChar('\t'))
+        {
+            // line starts with tab -> just delete the tab.
+            insertCursor.deleteChar();
+            deletedChars++;
+        }
+        else if (document()->characterAt(adjustedStart) == QChar(' '))
+        {
+            // line starts with a space -> must guess how many spaces to delete.
+            int spacesToDelete = _spacesIndentWidthHint;
+            if (spacesToDelete == 0 && _indentString.startsWith(" "))
+                spacesToDelete = _indentString.length();
+
+            while (spacesToDelete > 0 && document()->characterAt(adjustedStart) == QChar(' '))
+            {
+                insertCursor.deleteChar();
+                deletedChars++;
+                spacesToDelete--;
+            }
+        }
+    }
+    insertCursor.endEditBlock();
 }
 
