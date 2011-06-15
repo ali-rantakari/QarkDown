@@ -147,7 +147,7 @@ void MainWindow::setDirty(bool value)
 
 void MainWindow::setupEditor()
 {
-    editor = new QTextEdit;
+    editor = new QarkdownTextEdit;
     editor->setAcceptRichText(false);
     highlighter = new HGMarkdownHighlighter(editor->document());
     applyPersistedFontInfo();

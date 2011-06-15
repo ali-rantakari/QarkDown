@@ -3,12 +3,14 @@ HEADERS         = markdown_parser.h \
                   highlighter.h \
     mainwindow.h \
     preferencesdialog.h \
-    defines.h
+    defines.h \
+    qarkdowntextedit.h
 SOURCES         = markdown_parser.c\
                   highlighter.cpp \
                   main.cpp \
     mainwindow.cpp \
-    preferencesdialog.cpp
+    preferencesdialog.cpp \
+    qarkdowntextedit.cpp
 
 FORMS += \
     preferencesdialog.ui

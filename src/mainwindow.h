@@ -7,6 +7,7 @@
 
 #include "highlighter.h"
 #include "preferencesdialog.h"
+#include "qarkdowntextedit.h"
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
@@ -46,7 +47,7 @@ private:
 
     PreferencesDialog *preferencesDialog;
     QSettings *settings;
-    QTextEdit *editor;
+    QarkdownTextEdit *editor;
     HGMarkdownHighlighter *highlighter;
     QString openFilePath;
 };
