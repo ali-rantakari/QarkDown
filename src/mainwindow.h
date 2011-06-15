@@ -43,6 +43,7 @@ private:
     void persistFontInfo();
     void applyPersistedFontInfo();
     void applyHighlighterPreferences();
+    void applyEditorPreferences();
     void setDirty(bool value);
 
     PreferencesDialog *preferencesDialog;

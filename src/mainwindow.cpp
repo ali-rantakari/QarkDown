@@ -5,7 +5,6 @@
 
 /*
 TODO:
-- Preference: indent with spaces/tabs (if spaces, use tab width pref)
 - Tabbed interface; multiple files open
 - Changing styles settings
 */
@@ -94,7 +93,7 @@ void MainWindow::applyPersistedFontInfo()
     }
     editor->setFont(font);
 
-    // tab stop width
+    // tab stop width (dependent on font)
     int tabWidthInChars = settings->value(SETTING_TAB_WIDTH,
                                           QVariant(DEF_TAB_WIDTH)).toInt();
     QFontMetrics fontMetrics(font);
@@ -124,6 +123,24 @@ void MainWindow::applyHighlighterPreferences()
     highlighter->setWaitInterval(highlightInterval);
 }
 
+void MainWindow::applyEditorPreferences()
+{
+    bool indentWithTabs = settings->value(SETTING_INDENT_WITH_TABS,
+                                          QVariant(DEF_INDENT_WITH_TABS)).toBool();
+    int tabWidthInChars = settings->value(SETTING_TAB_WIDTH,
+                                          QVariant(DEF_TAB_WIDTH)).toInt();
+    editor->setSpacesIndentWidthHint(tabWidthInChars);
+    if (indentWithTabs)
+        editor->setIndentString("\t");
+    else
+    {
+        QString indentStr = " ";
+        for (int i = 1; i < tabWidthInChars; i++)
+            indentStr += " ";
+        editor->setIndentString(indentStr);
+    }
+}
+
 void MainWindow::showPreferences()
 {
     preferencesDialog->show();
@@ -133,6 +150,7 @@ void MainWindow::preferencesUpdated()
 {
     applyPersistedFontInfo();
     applyHighlighterPreferences();
+    applyEditorPreferences();
 }
 
 void MainWindow::setDirty(bool value)
@@ -151,8 +169,10 @@ void MainWindow::setupEditor()
     editor = new QarkdownTextEdit;
     editor->setAcceptRichText(false);
     highlighter = new HGMarkdownHighlighter(editor->document());
+
     applyPersistedFontInfo();
     applyHighlighterPreferences();
+    applyEditorPreferences();
 }
 
 void MainWindow::setupFileMenu()
