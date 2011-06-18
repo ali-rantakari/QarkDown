@@ -4,21 +4,24 @@ HEADERS         = markdown_parser.h \
     mainwindow.h \
     preferencesdialog.h \
     defines.h \
-    qarkdowntextedit.h
+    qarkdowntextedit.h \
+    qarkdownapplication.h
 SOURCES         = markdown_parser.c\
                   highlighter.cpp \
                   main.cpp \
     mainwindow.cpp \
     preferencesdialog.cpp \
-    qarkdowntextedit.cpp
+    qarkdowntextedit.cpp \
+    qarkdownapplication.cpp
 
 FORMS += \
     preferencesdialog.ui
-
-QMAKE_INFO_PLIST = Info.plist
 
 OTHER_FILES += \
     win.rc \
     Info.plist
 
 win32:RC_FILE += win.rc
+
+mac:RC_FILE += gfx/icon.icns
+mac:QMAKE_INFO_PLIST = Info.plist
