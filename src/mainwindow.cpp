@@ -53,8 +53,11 @@ void MainWindow::openFile(const QString &path)
     openFilePath = fileName;
 
     file.close();
-    settings->setValue(SETTING_LAST_FILE, QVariant(openFilePath));
     setDirty(false);
+    bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
+                                            QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
+    if (rememberLastFile)
+        settings->setValue(SETTING_LAST_FILE, QVariant(openFilePath));
 }
 
 void MainWindow::saveFile()
@@ -202,7 +205,9 @@ void MainWindow::setupFileMenu()
 
 void MainWindow::performStartupTasks()
 {
-    if (settings->contains(SETTING_LAST_FILE))
+    bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
+                                            QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
+    if (rememberLastFile && settings->contains(SETTING_LAST_FILE))
         openFile(settings->value(SETTING_LAST_FILE).toString());
 
     //connect(qApp, SIGNAL(saveStateRequest(QSessionManager&)),

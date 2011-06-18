@@ -72,6 +72,11 @@ void PreferencesDialog::updateUIFromSettings()
     double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
                                                QVariant(DEF_HIGHLIGHT_INTERVAL)).toDouble();
     ui->highlightIntervalSpinBox->setValue(highlightInterval);
+
+    // remember last open file
+    bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
+                                            QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
+    ui->rememberLastFileCheckBox->setChecked(rememberLastFile);
 }
 
 void PreferencesDialog::updateSettingsFromUI()
@@ -80,6 +85,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_TAB_WIDTH, ui->tabWidthSpinBox->value());
     settings->setValue(SETTING_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox->value());
     settings->setValue(SETTING_INDENT_WITH_TABS, ui->indentRadioTabs->isChecked());
+    settings->setValue(SETTING_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox->isChecked());
     settings->sync();
 }
 
