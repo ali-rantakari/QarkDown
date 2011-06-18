@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 struct _GREG;
-#define YYRULECOUNT 239
+#define YYRULECOUNT 241
 
 /* PEG Markdown Highlight
  * Copyright 2011 Ali Rantakari -- http://hasseg.org
@@ -49,6 +49,12 @@ typedef struct
 	
 	/* Array of parsing result elements, indexed by type: */
 	element **head_elems;
+	
+	/* Whether we are parsing only references: */
+	bool parsing_only_references;
+	
+	/* List of reference elements: */
+	element *references;
 } parser_data;
 
 parser_data *mk_parser_data(char *charbuf, element *parsing_elems, unsigned long offset, int extensions, element **head_elems)
@@ -58,6 +64,8 @@ parser_data *mk_parser_data(char *charbuf, element *parsing_elems, unsigned long
 	p_data->charbuf = charbuf;
 	p_data->offset = offset;
 	p_data->elem_head = p_data->elem = parsing_elems;
+	p_data->references = NULL;
+	p_data->parsing_only_references = false;
 	if (head_elems != NULL)
 		p_data->head_elems = head_elems;
 	else {
@@ -70,8 +78,9 @@ parser_data *mk_parser_data(char *charbuf, element *parsing_elems, unsigned long
 }
 
 
-
+// Forward declarations
 void parse_markdown(parser_data *p_data);
+void parse_references(parser_data *p_data);
 
 
 
@@ -277,6 +286,14 @@ void markdown_to_elements(char *text, int extensions, element **out_result[])
 	
     if (*text_copy != '\0')
     {
+    	// Get reference definitions into p_data->references
+    	parse_references(p_data);
+    	
+    	// Reset parser state to beginning of input
+    	p_data->offset = 0;
+    	p_data->elem = p_data->elem_head;
+    	
+    	// Parse whole document
 		parse_markdown(p_data);
 		
 		#if MKD_DEBUG_OUTPUT
@@ -426,6 +443,22 @@ bool extension(parser_data *p_data, int ext)
     return ((p_data->extensions & ext) != 0);
 }
 
+/* return true if reference label exists */
+bool reference_exists(parser_data *p_data, char *label)
+{
+	if (!label)
+		return NULL;
+	
+    element *cursor = p_data->references;
+    while (cursor != NULL)
+    {
+    	if (cursor->label && strcmp(label, cursor->label) == 0)
+    		return true;
+    	cursor = cursor->next;
+    }
+    return false;
+}
+
 
 /* cons an element/list onto a list, returning pointer to new head */
 static element * cons(element *elem, element *list)
@@ -466,6 +499,7 @@ element * mk_element(parser_data *p_data, element_type type, long pos, long end)
     result->pos = pos;
     result->end = end;
     result->next = NULL;
+    result->label = result->text = NULL;
     
     element *old_all_elements_head = p_data->head_elems[ALL];
     p_data->head_elems[ALL] = result;
@@ -501,6 +535,8 @@ element *fix_offsets(parser_data *p_data, element *elem)
 		return mk_etext(p_data, elem->text);
 	
 	element *new_head = mk_element(p_data, elem->type, elem->pos, elem->end);
+	new_head->label = elem->label;
+	
 	element *tail = new_head;
 	element *prev = NULL;
 	
@@ -681,6 +717,9 @@ void yy_input_func(char *buf, int *result, int max_size, parser_data *p_data)
 #define etext(x)	mk_etext((parser_data *)G->data, x)
 #define ADD(x)		add((parser_data *)G->data, x)
 #define EXT(x)		extension((parser_data *)G->data, x)
+#define REF_EXISTS(x) reference_exists((parser_data *)G->data, x)
+#define PARSING_REFERENCES ((parser_data *)G->data)->parsing_only_references
+#define FREE_LABEL_TEXT(l) { free(l->label); l->label = NULL; }
 
 
 #ifndef YY_ALLOC
@@ -920,29 +959,31 @@ YY_LOCAL(void) yySet(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY
 
 #define YYACCEPT        yyAccept(G, yythunkpos0)
 
-YY_RULE(int) yy_RawNoteBlock(GREG *G); /* 239 */
-YY_RULE(int) yy_RawNoteReference(GREG *G); /* 238 */
-YY_RULE(int) yy_DoubleQuoteEnd(GREG *G); /* 237 */
-YY_RULE(int) yy_DoubleQuoteStart(GREG *G); /* 236 */
-YY_RULE(int) yy_SingleQuoteEnd(GREG *G); /* 235 */
-YY_RULE(int) yy_SingleQuoteStart(GREG *G); /* 234 */
-YY_RULE(int) yy_EnDash(GREG *G); /* 233 */
-YY_RULE(int) yy_EmDash(GREG *G); /* 232 */
-YY_RULE(int) yy_Apostrophe(GREG *G); /* 231 */
-YY_RULE(int) yy_DoubleQuoted(GREG *G); /* 230 */
-YY_RULE(int) yy_SingleQuoted(GREG *G); /* 229 */
-YY_RULE(int) yy_Dash(GREG *G); /* 228 */
-YY_RULE(int) yy_Ellipsis(GREG *G); /* 227 */
-YY_RULE(int) yy_Digit(GREG *G); /* 226 */
-YY_RULE(int) yy_ExtendedSpecialChar(GREG *G); /* 225 */
-YY_RULE(int) yy_AlphanumericAscii(GREG *G); /* 224 */
-YY_RULE(int) yy_Quoted(GREG *G); /* 223 */
-YY_RULE(int) yy_HtmlTag(GREG *G); /* 222 */
-YY_RULE(int) yy_Ticks5(GREG *G); /* 221 */
-YY_RULE(int) yy_Ticks4(GREG *G); /* 220 */
-YY_RULE(int) yy_Ticks3(GREG *G); /* 219 */
-YY_RULE(int) yy_Ticks2(GREG *G); /* 218 */
-YY_RULE(int) yy_Ticks1(GREG *G); /* 217 */
+YY_RULE(int) yy_RawNoteBlock(GREG *G); /* 241 */
+YY_RULE(int) yy_RawNoteReference(GREG *G); /* 240 */
+YY_RULE(int) yy_DoubleQuoteEnd(GREG *G); /* 239 */
+YY_RULE(int) yy_DoubleQuoteStart(GREG *G); /* 238 */
+YY_RULE(int) yy_SingleQuoteEnd(GREG *G); /* 237 */
+YY_RULE(int) yy_SingleQuoteStart(GREG *G); /* 236 */
+YY_RULE(int) yy_EnDash(GREG *G); /* 235 */
+YY_RULE(int) yy_EmDash(GREG *G); /* 234 */
+YY_RULE(int) yy_Apostrophe(GREG *G); /* 233 */
+YY_RULE(int) yy_DoubleQuoted(GREG *G); /* 232 */
+YY_RULE(int) yy_SingleQuoted(GREG *G); /* 231 */
+YY_RULE(int) yy_Dash(GREG *G); /* 230 */
+YY_RULE(int) yy_Ellipsis(GREG *G); /* 229 */
+YY_RULE(int) yy_Digit(GREG *G); /* 228 */
+YY_RULE(int) yy_ExtendedSpecialChar(GREG *G); /* 227 */
+YY_RULE(int) yy_AlphanumericAscii(GREG *G); /* 226 */
+YY_RULE(int) yy_Quoted(GREG *G); /* 225 */
+YY_RULE(int) yy_HtmlTag(GREG *G); /* 224 */
+YY_RULE(int) yy_Ticks5(GREG *G); /* 223 */
+YY_RULE(int) yy_Ticks4(GREG *G); /* 222 */
+YY_RULE(int) yy_Ticks3(GREG *G); /* 221 */
+YY_RULE(int) yy_Ticks2(GREG *G); /* 220 */
+YY_RULE(int) yy_Ticks1(GREG *G); /* 219 */
+YY_RULE(int) yy_SkipBlock(GREG *G); /* 218 */
+YY_RULE(int) yy_References(GREG *G); /* 217 */
 YY_RULE(int) yy_EmptyTitle(GREG *G); /* 216 */
 YY_RULE(int) yy_RefTitleParens(GREG *G); /* 215 */
 YY_RULE(int) yy_RefTitleDouble(GREG *G); /* 214 */
@@ -1214,18 +1255,49 @@ YY_ACTION(void) yy_1_Ticks1(GREG *G, char *yytext, int yyleng, yythunk *thunk, Y
   yyprintf((stderr, "do yy_1_Ticks1\n"));
    yy = elem(NO_TYPE); ;
 }
+YY_ACTION(void) yy_3_Label(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
+{
+#define i G->val[-1]
+#define s G->val[-2]
+  yyprintf((stderr, "do yy_3_Label\n"));
+  
+        	yy->pos = s->pos;
+        	yy->end = thunk->end;
+        ;
+#undef i
+#undef s
+}
+YY_ACTION(void) yy_2_Label(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
+{
+#define i G->val[-1]
+#define s G->val[-2]
+  yyprintf((stderr, "do yy_2_Label\n"));
+   yy->label = strdup(yytext); ;
+#undef i
+#undef s
+}
 YY_ACTION(void) yy_1_Label(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
-#define s G->val[-1]
+#define i G->val[-1]
+#define s G->val[-2]
   yyprintf((stderr, "do yy_1_Label\n"));
-   yy = elem_s(NO_TYPE); ;
+   yy = mk_notype; ;
+#undef i
 #undef s
 }
 YY_ACTION(void) yy_1_Reference(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
-#define s G->val[-1]
+#define l G->val[-1]
+#define s G->val[-2]
   yyprintf((stderr, "do yy_1_Reference\n"));
-   ADD(elem_s(REFERENCE)); ;
+  
+			    element *el = elem_s(REFERENCE);
+			    if (PARSING_REFERENCES)
+					el->label = strdup(l->label);
+			  	ADD(el);
+				FREE_LABEL_TEXT(l);
+			  ;
+#undef l
 #undef s
 }
 YY_ACTION(void) yy_1_AutoLinkEmail(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
@@ -1246,21 +1318,35 @@ YY_ACTION(void) yy_1_ExplicitLink(GREG *G, char *yytext, int yyleng, yythunk *th
 {
 #define s G->val[-1]
   yyprintf((stderr, "do yy_1_ExplicitLink\n"));
-   yy = elem_s(LINK); ;
+  
+					yy = elem_s(LINK);
+					FREE_LABEL_TEXT(s);
+				;
 #undef s
 }
 YY_ACTION(void) yy_1_ReferenceLinkSingle(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
 #define s G->val[-1]
   yyprintf((stderr, "do yy_1_ReferenceLinkSingle\n"));
-   yy = elem_s(LINK); ;
+  
+							if (REF_EXISTS(s->label))
+								yy = elem_s(LINK);
+							FREE_LABEL_TEXT(s);
+						;
 #undef s
 }
 YY_ACTION(void) yy_1_ReferenceLinkDouble(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
-#define s G->val[-1]
+#define l G->val[-1]
+#define s G->val[-2]
   yyprintf((stderr, "do yy_1_ReferenceLinkDouble\n"));
-   yy = elem_s(LINK); ;
+  
+							if (REF_EXISTS(l->label))
+								yy = elem_s(LINK);
+							FREE_LABEL_TEXT(s);
+							FREE_LABEL_TEXT(l);
+						;
+#undef l
 #undef s
 }
 YY_ACTION(void) yy_1_Link(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
@@ -1980,248 +2066,293 @@ YY_RULE(int) yy_Ticks1(GREG *G)
   yyprintf((stderr, "  fail %s @ %s\n", "Ticks1", G->buf+G->pos));
   return 0;
 }
-YY_RULE(int) yy_EmptyTitle(GREG *G)
+YY_RULE(int) yy_SkipBlock(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "EmptyTitle"));  if (!yymatchString(G, "")) goto l88;
-  yyprintf((stderr, "  ok   %s @ %s\n", "EmptyTitle", G->buf+G->pos));
+  yyprintf((stderr, "%s\n", "SkipBlock"));
+  {  int yypos89= G->pos, yythunkpos89= G->thunkpos;
+  {  int yypos93= G->pos, yythunkpos93= G->thunkpos;  if (!yy_BlankLine(G)) { goto l93; }  goto l90;
+  l93:;	  G->pos= yypos93; G->thunkpos= yythunkpos93;
+  }  if (!yy_RawLine(G)) { goto l90; }
+  l91:;	
+  {  int yypos92= G->pos, yythunkpos92= G->thunkpos;
+  {  int yypos94= G->pos, yythunkpos94= G->thunkpos;  if (!yy_BlankLine(G)) { goto l94; }  goto l92;
+  l94:;	  G->pos= yypos94; G->thunkpos= yythunkpos94;
+  }  if (!yy_RawLine(G)) { goto l92; }  goto l91;
+  l92:;	  G->pos= yypos92; G->thunkpos= yythunkpos92;
+  }
+  l95:;	
+  {  int yypos96= G->pos, yythunkpos96= G->thunkpos;  if (!yy_BlankLine(G)) { goto l96; }  goto l95;
+  l96:;	  G->pos= yypos96; G->thunkpos= yythunkpos96;
+  }  goto l89;
+  l90:;	  G->pos= yypos89; G->thunkpos= yythunkpos89;  if (!yy_BlankLine(G)) { goto l88; }
+  l97:;	
+  {  int yypos98= G->pos, yythunkpos98= G->thunkpos;  if (!yy_BlankLine(G)) { goto l98; }  goto l97;
+  l98:;	  G->pos= yypos98; G->thunkpos= yythunkpos98;
+  }
+  }
+  l89:;	
+  yyprintf((stderr, "  ok   %s @ %s\n", "SkipBlock", G->buf+G->pos));
   return 1;
   l88:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  yyprintf((stderr, "  fail %s @ %s\n", "SkipBlock", G->buf+G->pos));
+  return 0;
+}
+YY_RULE(int) yy_References(GREG *G)
+{
+  yyprintf((stderr, "%s\n", "References"));
+  l100:;	
+  {  int yypos101= G->pos, yythunkpos101= G->thunkpos;
+  {  int yypos102= G->pos, yythunkpos102= G->thunkpos;  if (!yy_Reference(G)) { goto l103; }  goto l102;
+  l103:;	  G->pos= yypos102; G->thunkpos= yythunkpos102;  if (!yy_SkipBlock(G)) { goto l101; }
+  }
+  l102:;	  goto l100;
+  l101:;	  G->pos= yypos101; G->thunkpos= yythunkpos101;
+  }
+  yyprintf((stderr, "  ok   %s @ %s\n", "References", G->buf+G->pos));
+  return 1;
+}
+YY_RULE(int) yy_EmptyTitle(GREG *G)
+{  int yypos0= G->pos, yythunkpos0= G->thunkpos;
+  yyprintf((stderr, "%s\n", "EmptyTitle"));  if (!yymatchString(G, "")) goto l104;
+  yyprintf((stderr, "  ok   %s @ %s\n", "EmptyTitle", G->buf+G->pos));
+  return 1;
+  l104:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "EmptyTitle", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_RefTitleParens(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "RefTitleParens"));  if (!yymatchChar(G, '(')) goto l89;
-  l90:;	
-  {  int yypos91= G->pos, yythunkpos91= G->thunkpos;
-  {  int yypos92= G->pos, yythunkpos92= G->thunkpos;
-  {  int yypos93= G->pos, yythunkpos93= G->thunkpos;  if (!yymatchChar(G, ')')) goto l94;  if (!yy_Sp(G)) { goto l94; }  if (!yy_Newline(G)) { goto l94; }  goto l93;
-  l94:;	  G->pos= yypos93; G->thunkpos= yythunkpos93;  if (!yy_Newline(G)) { goto l92; }
+  yyprintf((stderr, "%s\n", "RefTitleParens"));  if (!yy_Spnl(G)) { goto l105; }  if (!yymatchChar(G, '(')) goto l105;
+  l106:;	
+  {  int yypos107= G->pos, yythunkpos107= G->thunkpos;
+  {  int yypos108= G->pos, yythunkpos108= G->thunkpos;
+  {  int yypos109= G->pos, yythunkpos109= G->thunkpos;  if (!yymatchChar(G, ')')) goto l110;  if (!yy_Sp(G)) { goto l110; }  if (!yy_Newline(G)) { goto l110; }  goto l109;
+  l110:;	  G->pos= yypos109; G->thunkpos= yythunkpos109;  if (!yy_Newline(G)) { goto l108; }
   }
-  l93:;	  goto l91;
-  l92:;	  G->pos= yypos92; G->thunkpos= yythunkpos92;
-  }  if (!yymatchDot(G)) goto l91;  goto l90;
-  l91:;	  G->pos= yypos91; G->thunkpos= yythunkpos91;
-  }  if (!yymatchChar(G, ')')) goto l89;
+  l109:;	  goto l107;
+  l108:;	  G->pos= yypos108; G->thunkpos= yythunkpos108;
+  }  if (!yymatchDot(G)) goto l107;  goto l106;
+  l107:;	  G->pos= yypos107; G->thunkpos= yythunkpos107;
+  }  if (!yymatchChar(G, ')')) goto l105;
   yyprintf((stderr, "  ok   %s @ %s\n", "RefTitleParens", G->buf+G->pos));
   return 1;
-  l89:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l105:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "RefTitleParens", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_RefTitleDouble(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "RefTitleDouble"));  if (!yymatchChar(G, '"')) goto l95;
-  l96:;	
-  {  int yypos97= G->pos, yythunkpos97= G->thunkpos;
-  {  int yypos98= G->pos, yythunkpos98= G->thunkpos;
-  {  int yypos99= G->pos, yythunkpos99= G->thunkpos;  if (!yymatchChar(G, '"')) goto l100;  if (!yy_Sp(G)) { goto l100; }  if (!yy_Newline(G)) { goto l100; }  goto l99;
-  l100:;	  G->pos= yypos99; G->thunkpos= yythunkpos99;  if (!yy_Newline(G)) { goto l98; }
+  yyprintf((stderr, "%s\n", "RefTitleDouble"));  if (!yy_Spnl(G)) { goto l111; }  if (!yymatchChar(G, '"')) goto l111;
+  l112:;	
+  {  int yypos113= G->pos, yythunkpos113= G->thunkpos;
+  {  int yypos114= G->pos, yythunkpos114= G->thunkpos;
+  {  int yypos115= G->pos, yythunkpos115= G->thunkpos;  if (!yymatchChar(G, '"')) goto l116;  if (!yy_Sp(G)) { goto l116; }  if (!yy_Newline(G)) { goto l116; }  goto l115;
+  l116:;	  G->pos= yypos115; G->thunkpos= yythunkpos115;  if (!yy_Newline(G)) { goto l114; }
   }
-  l99:;	  goto l97;
-  l98:;	  G->pos= yypos98; G->thunkpos= yythunkpos98;
-  }  if (!yymatchDot(G)) goto l97;  goto l96;
-  l97:;	  G->pos= yypos97; G->thunkpos= yythunkpos97;
-  }  if (!yymatchChar(G, '"')) goto l95;
+  l115:;	  goto l113;
+  l114:;	  G->pos= yypos114; G->thunkpos= yythunkpos114;
+  }  if (!yymatchDot(G)) goto l113;  goto l112;
+  l113:;	  G->pos= yypos113; G->thunkpos= yythunkpos113;
+  }  if (!yymatchChar(G, '"')) goto l111;
   yyprintf((stderr, "  ok   %s @ %s\n", "RefTitleDouble", G->buf+G->pos));
   return 1;
-  l95:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l111:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "RefTitleDouble", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_RefTitleSingle(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "RefTitleSingle"));  if (!yymatchChar(G, '\'')) goto l101;
-  l102:;	
-  {  int yypos103= G->pos, yythunkpos103= G->thunkpos;
-  {  int yypos104= G->pos, yythunkpos104= G->thunkpos;
-  {  int yypos105= G->pos, yythunkpos105= G->thunkpos;  if (!yymatchChar(G, '\'')) goto l106;  if (!yy_Sp(G)) { goto l106; }  if (!yy_Newline(G)) { goto l106; }  goto l105;
-  l106:;	  G->pos= yypos105; G->thunkpos= yythunkpos105;  if (!yy_Newline(G)) { goto l104; }
+  yyprintf((stderr, "%s\n", "RefTitleSingle"));  if (!yy_Spnl(G)) { goto l117; }  if (!yymatchChar(G, '\'')) goto l117;
+  l118:;	
+  {  int yypos119= G->pos, yythunkpos119= G->thunkpos;
+  {  int yypos120= G->pos, yythunkpos120= G->thunkpos;
+  {  int yypos121= G->pos, yythunkpos121= G->thunkpos;  if (!yymatchChar(G, '\'')) goto l122;  if (!yy_Sp(G)) { goto l122; }  if (!yy_Newline(G)) { goto l122; }  goto l121;
+  l122:;	  G->pos= yypos121; G->thunkpos= yythunkpos121;  if (!yy_Newline(G)) { goto l120; }
   }
-  l105:;	  goto l103;
-  l104:;	  G->pos= yypos104; G->thunkpos= yythunkpos104;
-  }  if (!yymatchDot(G)) goto l103;  goto l102;
-  l103:;	  G->pos= yypos103; G->thunkpos= yythunkpos103;
-  }  if (!yymatchChar(G, '\'')) goto l101;
+  l121:;	  goto l119;
+  l120:;	  G->pos= yypos120; G->thunkpos= yythunkpos120;
+  }  if (!yymatchDot(G)) goto l119;  goto l118;
+  l119:;	  G->pos= yypos119; G->thunkpos= yythunkpos119;
+  }  if (!yymatchChar(G, '\'')) goto l117;
   yyprintf((stderr, "  ok   %s @ %s\n", "RefTitleSingle", G->buf+G->pos));
   return 1;
-  l101:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l117:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "RefTitleSingle", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_RefTitle(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "RefTitle"));
-  {  int yypos108= G->pos, yythunkpos108= G->thunkpos;  if (!yy_RefTitleSingle(G)) { goto l109; }  goto l108;
-  l109:;	  G->pos= yypos108; G->thunkpos= yythunkpos108;  if (!yy_RefTitleDouble(G)) { goto l110; }  goto l108;
-  l110:;	  G->pos= yypos108; G->thunkpos= yythunkpos108;  if (!yy_RefTitleParens(G)) { goto l111; }  goto l108;
-  l111:;	  G->pos= yypos108; G->thunkpos= yythunkpos108;  if (!yy_EmptyTitle(G)) { goto l107; }
+  {  int yypos124= G->pos, yythunkpos124= G->thunkpos;  if (!yy_RefTitleSingle(G)) { goto l125; }  goto l124;
+  l125:;	  G->pos= yypos124; G->thunkpos= yythunkpos124;  if (!yy_RefTitleDouble(G)) { goto l126; }  goto l124;
+  l126:;	  G->pos= yypos124; G->thunkpos= yythunkpos124;  if (!yy_RefTitleParens(G)) { goto l127; }  goto l124;
+  l127:;	  G->pos= yypos124; G->thunkpos= yythunkpos124;  if (!yy_EmptyTitle(G)) { goto l123; }
   }
-  l108:;	
+  l124:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "RefTitle", G->buf+G->pos));
   return 1;
-  l107:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l123:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "RefTitle", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_RefSrc(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "RefSrc"));  if (!yy_Nonspacechar(G)) { goto l112; }
-  l113:;	
-  {  int yypos114= G->pos, yythunkpos114= G->thunkpos;  if (!yy_Nonspacechar(G)) { goto l114; }  goto l113;
-  l114:;	  G->pos= yypos114; G->thunkpos= yythunkpos114;
+  yyprintf((stderr, "%s\n", "RefSrc"));  if (!yy_Nonspacechar(G)) { goto l128; }
+  l129:;	
+  {  int yypos130= G->pos, yythunkpos130= G->thunkpos;  if (!yy_Nonspacechar(G)) { goto l130; }  goto l129;
+  l130:;	  G->pos= yypos130; G->thunkpos= yythunkpos130;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "RefSrc", G->buf+G->pos));
   return 1;
-  l112:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l128:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "RefSrc", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AutoLinkEmail(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "AutoLinkEmail"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l115;  if (!yy_LocMarker(G)) { goto l115; }  yyDo(G, yySet, -1, 0);  if (!yymatchChar(G, '<')) goto l115;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\150\377\003\376\377\377\207\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l115;
-  l116:;	
-  {  int yypos117= G->pos, yythunkpos117= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\150\377\003\376\377\377\207\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l117;  goto l116;
-  l117:;	  G->pos= yypos117; G->thunkpos= yythunkpos117;
-  }  if (!yymatchChar(G, '@')) goto l115;
-  {  int yypos120= G->pos, yythunkpos120= G->thunkpos;  if (!yy_Newline(G)) { goto l120; }  goto l115;
-  l120:;	  G->pos= yypos120; G->thunkpos= yythunkpos120;
+  yyprintf((stderr, "%s\n", "AutoLinkEmail"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l131;  if (!yy_LocMarker(G)) { goto l131; }  yyDo(G, yySet, -1, 0);  if (!yymatchChar(G, '<')) goto l131;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\150\377\003\376\377\377\207\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l131;
+  l132:;	
+  {  int yypos133= G->pos, yythunkpos133= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\150\377\003\376\377\377\207\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l133;  goto l132;
+  l133:;	  G->pos= yypos133; G->thunkpos= yythunkpos133;
+  }  if (!yymatchChar(G, '@')) goto l131;
+  {  int yypos136= G->pos, yythunkpos136= G->thunkpos;  if (!yy_Newline(G)) { goto l136; }  goto l131;
+  l136:;	  G->pos= yypos136; G->thunkpos= yythunkpos136;
   }
-  {  int yypos121= G->pos, yythunkpos121= G->thunkpos;  if (!yymatchChar(G, '>')) goto l121;  goto l115;
-  l121:;	  G->pos= yypos121; G->thunkpos= yythunkpos121;
-  }  if (!yymatchDot(G)) goto l115;
-  l118:;	
-  {  int yypos119= G->pos, yythunkpos119= G->thunkpos;
-  {  int yypos122= G->pos, yythunkpos122= G->thunkpos;  if (!yy_Newline(G)) { goto l122; }  goto l119;
-  l122:;	  G->pos= yypos122; G->thunkpos= yythunkpos122;
+  {  int yypos137= G->pos, yythunkpos137= G->thunkpos;  if (!yymatchChar(G, '>')) goto l137;  goto l131;
+  l137:;	  G->pos= yypos137; G->thunkpos= yythunkpos137;
+  }  if (!yymatchDot(G)) goto l131;
+  l134:;	
+  {  int yypos135= G->pos, yythunkpos135= G->thunkpos;
+  {  int yypos138= G->pos, yythunkpos138= G->thunkpos;  if (!yy_Newline(G)) { goto l138; }  goto l135;
+  l138:;	  G->pos= yypos138; G->thunkpos= yythunkpos138;
   }
-  {  int yypos123= G->pos, yythunkpos123= G->thunkpos;  if (!yymatchChar(G, '>')) goto l123;  goto l119;
-  l123:;	  G->pos= yypos123; G->thunkpos= yythunkpos123;
-  }  if (!yymatchDot(G)) goto l119;  goto l118;
-  l119:;	  G->pos= yypos119; G->thunkpos= yythunkpos119;
-  }  if (!yymatchChar(G, '>')) goto l115;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l115;  yyDo(G, yy_1_AutoLinkEmail, G->begin, G->end);
+  {  int yypos139= G->pos, yythunkpos139= G->thunkpos;  if (!yymatchChar(G, '>')) goto l139;  goto l135;
+  l139:;	  G->pos= yypos139; G->thunkpos= yythunkpos139;
+  }  if (!yymatchDot(G)) goto l135;  goto l134;
+  l135:;	  G->pos= yypos135; G->thunkpos= yythunkpos135;
+  }  if (!yymatchChar(G, '>')) goto l131;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l131;  yyDo(G, yy_1_AutoLinkEmail, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "AutoLinkEmail", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l115:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l131:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AutoLinkEmail", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AutoLinkUrl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "AutoLinkUrl"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l124;  if (!yy_LocMarker(G)) { goto l124; }  yyDo(G, yySet, -1, 0);  if (!yymatchChar(G, '<')) goto l124;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\000\000\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l124;
-  l125:;	
-  {  int yypos126= G->pos, yythunkpos126= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\000\000\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l126;  goto l125;
-  l126:;	  G->pos= yypos126; G->thunkpos= yythunkpos126;
-  }  if (!yymatchString(G, "://")) goto l124;
-  {  int yypos129= G->pos, yythunkpos129= G->thunkpos;  if (!yy_Newline(G)) { goto l129; }  goto l124;
-  l129:;	  G->pos= yypos129; G->thunkpos= yythunkpos129;
+  yyprintf((stderr, "%s\n", "AutoLinkUrl"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l140;  if (!yy_LocMarker(G)) { goto l140; }  yyDo(G, yySet, -1, 0);  if (!yymatchChar(G, '<')) goto l140;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\000\000\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l140;
+  l141:;	
+  {  int yypos142= G->pos, yythunkpos142= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\000\000\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l142;  goto l141;
+  l142:;	  G->pos= yypos142; G->thunkpos= yythunkpos142;
+  }  if (!yymatchString(G, "://")) goto l140;
+  {  int yypos145= G->pos, yythunkpos145= G->thunkpos;  if (!yy_Newline(G)) { goto l145; }  goto l140;
+  l145:;	  G->pos= yypos145; G->thunkpos= yythunkpos145;
   }
-  {  int yypos130= G->pos, yythunkpos130= G->thunkpos;  if (!yymatchChar(G, '>')) goto l130;  goto l124;
-  l130:;	  G->pos= yypos130; G->thunkpos= yythunkpos130;
-  }  if (!yymatchDot(G)) goto l124;
-  l127:;	
-  {  int yypos128= G->pos, yythunkpos128= G->thunkpos;
-  {  int yypos131= G->pos, yythunkpos131= G->thunkpos;  if (!yy_Newline(G)) { goto l131; }  goto l128;
-  l131:;	  G->pos= yypos131; G->thunkpos= yythunkpos131;
+  {  int yypos146= G->pos, yythunkpos146= G->thunkpos;  if (!yymatchChar(G, '>')) goto l146;  goto l140;
+  l146:;	  G->pos= yypos146; G->thunkpos= yythunkpos146;
+  }  if (!yymatchDot(G)) goto l140;
+  l143:;	
+  {  int yypos144= G->pos, yythunkpos144= G->thunkpos;
+  {  int yypos147= G->pos, yythunkpos147= G->thunkpos;  if (!yy_Newline(G)) { goto l147; }  goto l144;
+  l147:;	  G->pos= yypos147; G->thunkpos= yythunkpos147;
   }
-  {  int yypos132= G->pos, yythunkpos132= G->thunkpos;  if (!yymatchChar(G, '>')) goto l132;  goto l128;
-  l132:;	  G->pos= yypos132; G->thunkpos= yythunkpos132;
-  }  if (!yymatchDot(G)) goto l128;  goto l127;
-  l128:;	  G->pos= yypos128; G->thunkpos= yythunkpos128;
-  }  if (!yymatchChar(G, '>')) goto l124;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l124;  yyDo(G, yy_1_AutoLinkUrl, G->begin, G->end);
+  {  int yypos148= G->pos, yythunkpos148= G->thunkpos;  if (!yymatchChar(G, '>')) goto l148;  goto l144;
+  l148:;	  G->pos= yypos148; G->thunkpos= yythunkpos148;
+  }  if (!yymatchDot(G)) goto l144;  goto l143;
+  l144:;	  G->pos= yypos144; G->thunkpos= yythunkpos144;
+  }  if (!yymatchChar(G, '>')) goto l140;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l140;  yyDo(G, yy_1_AutoLinkUrl, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "AutoLinkUrl", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l124:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l140:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AutoLinkUrl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_TitleDouble(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "TitleDouble"));  if (!yymatchChar(G, '"')) goto l133;
-  l134:;	
-  {  int yypos135= G->pos, yythunkpos135= G->thunkpos;
-  {  int yypos136= G->pos, yythunkpos136= G->thunkpos;  if (!yymatchChar(G, '"')) goto l136;  if (!yy_Sp(G)) { goto l136; }
-  {  int yypos137= G->pos, yythunkpos137= G->thunkpos;  if (!yymatchChar(G, ')')) goto l138;  goto l137;
-  l138:;	  G->pos= yypos137; G->thunkpos= yythunkpos137;  if (!yy_Newline(G)) { goto l136; }
+  yyprintf((stderr, "%s\n", "TitleDouble"));  if (!yymatchChar(G, '"')) goto l149;
+  l150:;	
+  {  int yypos151= G->pos, yythunkpos151= G->thunkpos;
+  {  int yypos152= G->pos, yythunkpos152= G->thunkpos;  if (!yymatchChar(G, '"')) goto l152;  if (!yy_Sp(G)) { goto l152; }
+  {  int yypos153= G->pos, yythunkpos153= G->thunkpos;  if (!yymatchChar(G, ')')) goto l154;  goto l153;
+  l154:;	  G->pos= yypos153; G->thunkpos= yythunkpos153;  if (!yy_Newline(G)) { goto l152; }
   }
-  l137:;	  goto l135;
-  l136:;	  G->pos= yypos136; G->thunkpos= yythunkpos136;
-  }  if (!yymatchDot(G)) goto l135;  goto l134;
-  l135:;	  G->pos= yypos135; G->thunkpos= yythunkpos135;
-  }  if (!yymatchChar(G, '"')) goto l133;
+  l153:;	  goto l151;
+  l152:;	  G->pos= yypos152; G->thunkpos= yythunkpos152;
+  }  if (!yymatchDot(G)) goto l151;  goto l150;
+  l151:;	  G->pos= yypos151; G->thunkpos= yythunkpos151;
+  }  if (!yymatchChar(G, '"')) goto l149;
   yyprintf((stderr, "  ok   %s @ %s\n", "TitleDouble", G->buf+G->pos));
   return 1;
-  l133:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l149:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "TitleDouble", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_TitleSingle(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "TitleSingle"));  if (!yymatchChar(G, '\'')) goto l139;
-  l140:;	
-  {  int yypos141= G->pos, yythunkpos141= G->thunkpos;
-  {  int yypos142= G->pos, yythunkpos142= G->thunkpos;  if (!yymatchChar(G, '\'')) goto l142;  if (!yy_Sp(G)) { goto l142; }
-  {  int yypos143= G->pos, yythunkpos143= G->thunkpos;  if (!yymatchChar(G, ')')) goto l144;  goto l143;
-  l144:;	  G->pos= yypos143; G->thunkpos= yythunkpos143;  if (!yy_Newline(G)) { goto l142; }
+  yyprintf((stderr, "%s\n", "TitleSingle"));  if (!yymatchChar(G, '\'')) goto l155;
+  l156:;	
+  {  int yypos157= G->pos, yythunkpos157= G->thunkpos;
+  {  int yypos158= G->pos, yythunkpos158= G->thunkpos;  if (!yymatchChar(G, '\'')) goto l158;  if (!yy_Sp(G)) { goto l158; }
+  {  int yypos159= G->pos, yythunkpos159= G->thunkpos;  if (!yymatchChar(G, ')')) goto l160;  goto l159;
+  l160:;	  G->pos= yypos159; G->thunkpos= yythunkpos159;  if (!yy_Newline(G)) { goto l158; }
   }
-  l143:;	  goto l141;
-  l142:;	  G->pos= yypos142; G->thunkpos= yythunkpos142;
-  }  if (!yymatchDot(G)) goto l141;  goto l140;
-  l141:;	  G->pos= yypos141; G->thunkpos= yythunkpos141;
-  }  if (!yymatchChar(G, '\'')) goto l139;
+  l159:;	  goto l157;
+  l158:;	  G->pos= yypos158; G->thunkpos= yythunkpos158;
+  }  if (!yymatchDot(G)) goto l157;  goto l156;
+  l157:;	  G->pos= yypos157; G->thunkpos= yythunkpos157;
+  }  if (!yymatchChar(G, '\'')) goto l155;
   yyprintf((stderr, "  ok   %s @ %s\n", "TitleSingle", G->buf+G->pos));
   return 1;
-  l139:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l155:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "TitleSingle", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Nonspacechar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Nonspacechar"));
-  {  int yypos146= G->pos, yythunkpos146= G->thunkpos;  if (!yy_Spacechar(G)) { goto l146; }  goto l145;
-  l146:;	  G->pos= yypos146; G->thunkpos= yythunkpos146;
+  {  int yypos162= G->pos, yythunkpos162= G->thunkpos;  if (!yy_Spacechar(G)) { goto l162; }  goto l161;
+  l162:;	  G->pos= yypos162; G->thunkpos= yythunkpos162;
   }
-  {  int yypos147= G->pos, yythunkpos147= G->thunkpos;  if (!yy_Newline(G)) { goto l147; }  goto l145;
-  l147:;	  G->pos= yypos147; G->thunkpos= yythunkpos147;
-  }  if (!yymatchDot(G)) goto l145;
+  {  int yypos163= G->pos, yythunkpos163= G->thunkpos;  if (!yy_Newline(G)) { goto l163; }  goto l161;
+  l163:;	  G->pos= yypos163; G->thunkpos= yythunkpos163;
+  }  if (!yymatchDot(G)) goto l161;
   yyprintf((stderr, "  ok   %s @ %s\n", "Nonspacechar", G->buf+G->pos));
   return 1;
-  l145:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l161:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Nonspacechar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_SourceContents(GREG *G)
 {
   yyprintf((stderr, "%s\n", "SourceContents"));
-  l149:;	
-  {  int yypos150= G->pos, yythunkpos150= G->thunkpos;
-  {  int yypos151= G->pos, yythunkpos151= G->thunkpos;
-  {  int yypos155= G->pos, yythunkpos155= G->thunkpos;  if (!yymatchChar(G, '(')) goto l155;  goto l152;
-  l155:;	  G->pos= yypos155; G->thunkpos= yythunkpos155;
+  l165:;	
+  {  int yypos166= G->pos, yythunkpos166= G->thunkpos;
+  {  int yypos167= G->pos, yythunkpos167= G->thunkpos;
+  {  int yypos171= G->pos, yythunkpos171= G->thunkpos;  if (!yymatchChar(G, '(')) goto l171;  goto l168;
+  l171:;	  G->pos= yypos171; G->thunkpos= yythunkpos171;
   }
-  {  int yypos156= G->pos, yythunkpos156= G->thunkpos;  if (!yymatchChar(G, ')')) goto l156;  goto l152;
-  l156:;	  G->pos= yypos156; G->thunkpos= yythunkpos156;
+  {  int yypos172= G->pos, yythunkpos172= G->thunkpos;  if (!yymatchChar(G, ')')) goto l172;  goto l168;
+  l172:;	  G->pos= yypos172; G->thunkpos= yythunkpos172;
   }
-  {  int yypos157= G->pos, yythunkpos157= G->thunkpos;  if (!yymatchChar(G, '>')) goto l157;  goto l152;
-  l157:;	  G->pos= yypos157; G->thunkpos= yythunkpos157;
-  }  if (!yy_Nonspacechar(G)) { goto l152; }
-  l153:;	
-  {  int yypos154= G->pos, yythunkpos154= G->thunkpos;
-  {  int yypos158= G->pos, yythunkpos158= G->thunkpos;  if (!yymatchChar(G, '(')) goto l158;  goto l154;
-  l158:;	  G->pos= yypos158; G->thunkpos= yythunkpos158;
+  {  int yypos173= G->pos, yythunkpos173= G->thunkpos;  if (!yymatchChar(G, '>')) goto l173;  goto l168;
+  l173:;	  G->pos= yypos173; G->thunkpos= yythunkpos173;
+  }  if (!yy_Nonspacechar(G)) { goto l168; }
+  l169:;	
+  {  int yypos170= G->pos, yythunkpos170= G->thunkpos;
+  {  int yypos174= G->pos, yythunkpos174= G->thunkpos;  if (!yymatchChar(G, '(')) goto l174;  goto l170;
+  l174:;	  G->pos= yypos174; G->thunkpos= yythunkpos174;
   }
-  {  int yypos159= G->pos, yythunkpos159= G->thunkpos;  if (!yymatchChar(G, ')')) goto l159;  goto l154;
-  l159:;	  G->pos= yypos159; G->thunkpos= yythunkpos159;
+  {  int yypos175= G->pos, yythunkpos175= G->thunkpos;  if (!yymatchChar(G, ')')) goto l175;  goto l170;
+  l175:;	  G->pos= yypos175; G->thunkpos= yythunkpos175;
   }
-  {  int yypos160= G->pos, yythunkpos160= G->thunkpos;  if (!yymatchChar(G, '>')) goto l160;  goto l154;
-  l160:;	  G->pos= yypos160; G->thunkpos= yythunkpos160;
-  }  if (!yy_Nonspacechar(G)) { goto l154; }  goto l153;
-  l154:;	  G->pos= yypos154; G->thunkpos= yythunkpos154;
-  }  goto l151;
-  l152:;	  G->pos= yypos151; G->thunkpos= yythunkpos151;  if (!yymatchChar(G, '(')) goto l150;  if (!yy_SourceContents(G)) { goto l150; }  if (!yymatchChar(G, ')')) goto l150;
+  {  int yypos176= G->pos, yythunkpos176= G->thunkpos;  if (!yymatchChar(G, '>')) goto l176;  goto l170;
+  l176:;	  G->pos= yypos176; G->thunkpos= yythunkpos176;
+  }  if (!yy_Nonspacechar(G)) { goto l170; }  goto l169;
+  l170:;	  G->pos= yypos170; G->thunkpos= yythunkpos170;
+  }  goto l167;
+  l168:;	  G->pos= yypos167; G->thunkpos= yythunkpos167;  if (!yymatchChar(G, '(')) goto l166;  if (!yy_SourceContents(G)) { goto l166; }  if (!yymatchChar(G, ')')) goto l166;
   }
-  l151:;	  goto l149;
-  l150:;	  G->pos= yypos150; G->thunkpos= yythunkpos150;
+  l167:;	  goto l165;
+  l166:;	  G->pos= yypos166; G->thunkpos= yythunkpos166;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "SourceContents", G->buf+G->pos));
   return 1;
@@ -2229,996 +2360,961 @@ YY_RULE(int) yy_SourceContents(GREG *G)
 YY_RULE(int) yy_Title(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Title"));
-  {  int yypos162= G->pos, yythunkpos162= G->thunkpos;  if (!yy_TitleSingle(G)) { goto l163; }  goto l162;
-  l163:;	  G->pos= yypos162; G->thunkpos= yythunkpos162;  if (!yy_TitleDouble(G)) { goto l164; }  goto l162;
-  l164:;	  G->pos= yypos162; G->thunkpos= yythunkpos162;  if (!yymatchString(G, "")) goto l161;
+  {  int yypos178= G->pos, yythunkpos178= G->thunkpos;  if (!yy_TitleSingle(G)) { goto l179; }  goto l178;
+  l179:;	  G->pos= yypos178; G->thunkpos= yythunkpos178;  if (!yy_TitleDouble(G)) { goto l180; }  goto l178;
+  l180:;	  G->pos= yypos178; G->thunkpos= yythunkpos178;  if (!yymatchString(G, "")) goto l177;
   }
-  l162:;	
+  l178:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Title", G->buf+G->pos));
   return 1;
-  l161:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l177:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Title", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Source(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Source"));
-  {  int yypos166= G->pos, yythunkpos166= G->thunkpos;  if (!yymatchChar(G, '<')) goto l167;  if (!yy_SourceContents(G)) { goto l167; }  if (!yymatchChar(G, '>')) goto l167;  goto l166;
-  l167:;	  G->pos= yypos166; G->thunkpos= yythunkpos166;  if (!yy_SourceContents(G)) { goto l165; }
+  {  int yypos182= G->pos, yythunkpos182= G->thunkpos;  if (!yymatchChar(G, '<')) goto l183;  if (!yy_SourceContents(G)) { goto l183; }  if (!yymatchChar(G, '>')) goto l183;  goto l182;
+  l183:;	  G->pos= yypos182; G->thunkpos= yythunkpos182;  if (!yy_SourceContents(G)) { goto l181; }
   }
-  l166:;	
+  l182:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Source", G->buf+G->pos));
   return 1;
-  l165:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l181:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Source", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Label(GREG *G)
-{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "Label"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l168;  if (!yy_LocMarker(G)) { goto l168; }  yyDo(G, yySet, -1, 0);  if (!yymatchChar(G, '[')) goto l168;
-  {  int yypos169= G->pos, yythunkpos169= G->thunkpos;
-  {  int yypos171= G->pos, yythunkpos171= G->thunkpos;  if (!yymatchChar(G, '^')) goto l171;  goto l170;
-  l171:;	  G->pos= yypos171; G->thunkpos= yythunkpos171;
-  }  yyText(G, G->begin, G->end);  if (!( EXT(EXT_NOTES) )) goto l170;  goto l169;
-  l170:;	  G->pos= yypos169; G->thunkpos= yythunkpos169;
-  {  int yypos172= G->pos, yythunkpos172= G->thunkpos;  if (!yymatchDot(G)) goto l168;  G->pos= yypos172; G->thunkpos= yythunkpos172;
-  }  yyText(G, G->begin, G->end);  if (!( !EXT(EXT_NOTES) )) goto l168;
+{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 2, 0);
+  yyprintf((stderr, "%s\n", "Label"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l184;  if (!yy_LocMarker(G)) { goto l184; }  yyDo(G, yySet, -2, 0);  yyDo(G, yy_1_Label, G->begin, G->end);  if (!yymatchChar(G, '[')) goto l184;
+  {  int yypos185= G->pos, yythunkpos185= G->thunkpos;
+  {  int yypos187= G->pos, yythunkpos187= G->thunkpos;  if (!yymatchChar(G, '^')) goto l187;  goto l186;
+  l187:;	  G->pos= yypos187; G->thunkpos= yythunkpos187;
+  }  yyText(G, G->begin, G->end);  if (!( EXT(EXT_NOTES) )) goto l186;  goto l185;
+  l186:;	  G->pos= yypos185; G->thunkpos= yythunkpos185;
+  {  int yypos188= G->pos, yythunkpos188= G->thunkpos;  if (!yymatchDot(G)) goto l184;  G->pos= yypos188; G->thunkpos= yythunkpos188;
+  }  yyText(G, G->begin, G->end);  if (!( !EXT(EXT_NOTES) )) goto l184;
   }
-  l169:;	
-  l173:;	
-  {  int yypos174= G->pos, yythunkpos174= G->thunkpos;
-  {  int yypos175= G->pos, yythunkpos175= G->thunkpos;  if (!yymatchChar(G, ']')) goto l175;  goto l174;
-  l175:;	  G->pos= yypos175; G->thunkpos= yythunkpos175;
-  }  if (!yy_Inline(G)) { goto l174; }  goto l173;
-  l174:;	  G->pos= yypos174; G->thunkpos= yythunkpos174;
-  }  if (!yymatchChar(G, ']')) goto l168;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l168;  yyDo(G, yy_1_Label, G->begin, G->end);
-  yyprintf((stderr, "  ok   %s @ %s\n", "Label", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
+  l185:;	  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l184;  if (!yy_LocMarker(G)) { goto l184; }  yyDo(G, yySet, -1, 0);
+  l189:;	
+  {  int yypos190= G->pos, yythunkpos190= G->thunkpos;
+  {  int yypos191= G->pos, yythunkpos191= G->thunkpos;  if (!yymatchChar(G, ']')) goto l191;  goto l190;
+  l191:;	  G->pos= yypos191; G->thunkpos= yythunkpos191;
+  }  if (!yy_Inline(G)) { goto l190; }  goto l189;
+  l190:;	  G->pos= yypos190; G->thunkpos= yythunkpos190;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l184;  yyDo(G, yy_2_Label, G->begin, G->end);  if (!yymatchChar(G, ']')) goto l184;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l184;  yyDo(G, yy_3_Label, G->begin, G->end);
+  yyprintf((stderr, "  ok   %s @ %s\n", "Label", G->buf+G->pos));  yyDo(G, yyPop, 2, 0);
   return 1;
-  l168:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l184:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Label", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ReferenceLinkSingle(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "ReferenceLinkSingle"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l176;  if (!yy_Label(G)) { goto l176; }  yyDo(G, yySet, -1, 0);
-  {  int yypos177= G->pos, yythunkpos177= G->thunkpos;  if (!yy_Spnl(G)) { goto l177; }  if (!yymatchString(G, "[]")) goto l177;  goto l178;
-  l177:;	  G->pos= yypos177; G->thunkpos= yythunkpos177;
+  yyprintf((stderr, "%s\n", "ReferenceLinkSingle"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l192;  if (!yy_Label(G)) { goto l192; }  yyDo(G, yySet, -1, 0);
+  {  int yypos193= G->pos, yythunkpos193= G->thunkpos;  if (!yy_Spnl(G)) { goto l193; }  if (!yymatchString(G, "[]")) goto l193;  goto l194;
+  l193:;	  G->pos= yypos193; G->thunkpos= yythunkpos193;
   }
-  l178:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l176;  yyDo(G, yy_1_ReferenceLinkSingle, G->begin, G->end);
+  l194:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l192;  yyDo(G, yy_1_ReferenceLinkSingle, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "ReferenceLinkSingle", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l176:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l192:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ReferenceLinkSingle", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ReferenceLinkDouble(GREG *G)
-{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "ReferenceLinkDouble"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l179;  if (!yy_Label(G)) { goto l179; }  yyDo(G, yySet, -1, 0);  if (!yy_Spnl(G)) { goto l179; }
-  {  int yypos180= G->pos, yythunkpos180= G->thunkpos;  if (!yymatchString(G, "[]")) goto l180;  goto l179;
-  l180:;	  G->pos= yypos180; G->thunkpos= yythunkpos180;
-  }  if (!yy_Label(G)) { goto l179; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l179;  yyDo(G, yy_1_ReferenceLinkDouble, G->begin, G->end);
-  yyprintf((stderr, "  ok   %s @ %s\n", "ReferenceLinkDouble", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
+{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 2, 0);
+  yyprintf((stderr, "%s\n", "ReferenceLinkDouble"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l195;  if (!yy_Label(G)) { goto l195; }  yyDo(G, yySet, -2, 0);  if (!yy_Spnl(G)) { goto l195; }
+  {  int yypos196= G->pos, yythunkpos196= G->thunkpos;  if (!yymatchString(G, "[]")) goto l196;  goto l195;
+  l196:;	  G->pos= yypos196; G->thunkpos= yythunkpos196;
+  }  if (!yy_Label(G)) { goto l195; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l195;  yyDo(G, yy_1_ReferenceLinkDouble, G->begin, G->end);
+  yyprintf((stderr, "  ok   %s @ %s\n", "ReferenceLinkDouble", G->buf+G->pos));  yyDo(G, yyPop, 2, 0);
   return 1;
-  l179:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l195:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ReferenceLinkDouble", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AutoLink(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "AutoLink"));
-  {  int yypos182= G->pos, yythunkpos182= G->thunkpos;  if (!yy_AutoLinkUrl(G)) { goto l183; }  goto l182;
-  l183:;	  G->pos= yypos182; G->thunkpos= yythunkpos182;  if (!yy_AutoLinkEmail(G)) { goto l181; }
+  {  int yypos198= G->pos, yythunkpos198= G->thunkpos;  if (!yy_AutoLinkUrl(G)) { goto l199; }  goto l198;
+  l199:;	  G->pos= yypos198; G->thunkpos= yythunkpos198;  if (!yy_AutoLinkEmail(G)) { goto l197; }
   }
-  l182:;	
+  l198:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "AutoLink", G->buf+G->pos));
   return 1;
-  l181:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l197:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AutoLink", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ReferenceLink(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "ReferenceLink"));
-  {  int yypos185= G->pos, yythunkpos185= G->thunkpos;  if (!yy_ReferenceLinkDouble(G)) { goto l186; }  goto l185;
-  l186:;	  G->pos= yypos185; G->thunkpos= yythunkpos185;  if (!yy_ReferenceLinkSingle(G)) { goto l184; }
+  {  int yypos201= G->pos, yythunkpos201= G->thunkpos;  if (!yy_ReferenceLinkDouble(G)) { goto l202; }  goto l201;
+  l202:;	  G->pos= yypos201; G->thunkpos= yythunkpos201;  if (!yy_ReferenceLinkSingle(G)) { goto l200; }
   }
-  l185:;	
+  l201:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "ReferenceLink", G->buf+G->pos));
   return 1;
-  l184:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l200:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ReferenceLink", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ExplicitLink(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "ExplicitLink"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l187;  if (!yy_Label(G)) { goto l187; }  yyDo(G, yySet, -1, 0);  if (!yy_Spnl(G)) { goto l187; }  if (!yymatchChar(G, '(')) goto l187;  if (!yy_Sp(G)) { goto l187; }  if (!yy_Source(G)) { goto l187; }  if (!yy_Spnl(G)) { goto l187; }  if (!yy_Title(G)) { goto l187; }  if (!yy_Sp(G)) { goto l187; }  if (!yymatchChar(G, ')')) goto l187;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l187;  yyDo(G, yy_1_ExplicitLink, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "ExplicitLink"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l203;  if (!yy_Label(G)) { goto l203; }  yyDo(G, yySet, -1, 0);  if (!yy_Spnl(G)) { goto l203; }  if (!yymatchChar(G, '(')) goto l203;  if (!yy_Sp(G)) { goto l203; }  if (!yy_Source(G)) { goto l203; }  if (!yy_Spnl(G)) { goto l203; }  if (!yy_Title(G)) { goto l203; }  if (!yy_Sp(G)) { goto l203; }  if (!yymatchChar(G, ')')) goto l203;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l203;  yyDo(G, yy_1_ExplicitLink, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "ExplicitLink", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l187:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l203:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ExplicitLink", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_TwoUlClose(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "TwoUlClose"));
-  {  int yypos189= G->pos, yythunkpos189= G->thunkpos;  if (!yy_Spacechar(G)) { goto l189; }  goto l188;
-  l189:;	  G->pos= yypos189; G->thunkpos= yythunkpos189;
+  {  int yypos205= G->pos, yythunkpos205= G->thunkpos;  if (!yy_Spacechar(G)) { goto l205; }  goto l204;
+  l205:;	  G->pos= yypos205; G->thunkpos= yythunkpos205;
   }
-  {  int yypos190= G->pos, yythunkpos190= G->thunkpos;  if (!yy_Newline(G)) { goto l190; }  goto l188;
-  l190:;	  G->pos= yypos190; G->thunkpos= yythunkpos190;
-  }  if (!yy_Inline(G)) { goto l188; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l188;  if (!yymatchString(G, "__")) goto l188;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l188;
-  {  int yypos191= G->pos, yythunkpos191= G->thunkpos;  if (!yy_Alphanumeric(G)) { goto l191; }  goto l188;
-  l191:;	  G->pos= yypos191; G->thunkpos= yythunkpos191;
+  {  int yypos206= G->pos, yythunkpos206= G->thunkpos;  if (!yy_Newline(G)) { goto l206; }  goto l204;
+  l206:;	  G->pos= yypos206; G->thunkpos= yythunkpos206;
+  }  if (!yy_Inline(G)) { goto l204; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l204;  if (!yymatchString(G, "__")) goto l204;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l204;
+  {  int yypos207= G->pos, yythunkpos207= G->thunkpos;  if (!yy_Alphanumeric(G)) { goto l207; }  goto l204;
+  l207:;	  G->pos= yypos207; G->thunkpos= yythunkpos207;
   }  yyDo(G, yy_1_TwoUlClose, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "TwoUlClose", G->buf+G->pos));
   return 1;
-  l188:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l204:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "TwoUlClose", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_TwoUlOpen(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "TwoUlOpen"));
-  {  int yypos193= G->pos, yythunkpos193= G->thunkpos;  if (!yy_UlLine(G)) { goto l193; }  goto l192;
-  l193:;	  G->pos= yypos193; G->thunkpos= yythunkpos193;
-  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l192;  if (!yymatchString(G, "__")) goto l192;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l192;
-  {  int yypos194= G->pos, yythunkpos194= G->thunkpos;  if (!yy_Spacechar(G)) { goto l194; }  goto l192;
-  l194:;	  G->pos= yypos194; G->thunkpos= yythunkpos194;
+  {  int yypos209= G->pos, yythunkpos209= G->thunkpos;  if (!yy_UlLine(G)) { goto l209; }  goto l208;
+  l209:;	  G->pos= yypos209; G->thunkpos= yythunkpos209;
+  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l208;  if (!yymatchString(G, "__")) goto l208;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l208;
+  {  int yypos210= G->pos, yythunkpos210= G->thunkpos;  if (!yy_Spacechar(G)) { goto l210; }  goto l208;
+  l210:;	  G->pos= yypos210; G->thunkpos= yythunkpos210;
   }
-  {  int yypos195= G->pos, yythunkpos195= G->thunkpos;  if (!yy_Newline(G)) { goto l195; }  goto l192;
-  l195:;	  G->pos= yypos195; G->thunkpos= yythunkpos195;
+  {  int yypos211= G->pos, yythunkpos211= G->thunkpos;  if (!yy_Newline(G)) { goto l211; }  goto l208;
+  l211:;	  G->pos= yypos211; G->thunkpos= yythunkpos211;
   }  yyDo(G, yy_1_TwoUlOpen, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "TwoUlOpen", G->buf+G->pos));
   return 1;
-  l192:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l208:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "TwoUlOpen", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_TwoStarClose(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "TwoStarClose"));
-  {  int yypos197= G->pos, yythunkpos197= G->thunkpos;  if (!yy_Spacechar(G)) { goto l197; }  goto l196;
-  l197:;	  G->pos= yypos197; G->thunkpos= yythunkpos197;
+  {  int yypos213= G->pos, yythunkpos213= G->thunkpos;  if (!yy_Spacechar(G)) { goto l213; }  goto l212;
+  l213:;	  G->pos= yypos213; G->thunkpos= yythunkpos213;
   }
-  {  int yypos198= G->pos, yythunkpos198= G->thunkpos;  if (!yy_Newline(G)) { goto l198; }  goto l196;
-  l198:;	  G->pos= yypos198; G->thunkpos= yythunkpos198;
-  }  if (!yy_Inline(G)) { goto l196; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l196;  if (!yymatchString(G, "**")) goto l196;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l196;  yyDo(G, yy_1_TwoStarClose, G->begin, G->end);
+  {  int yypos214= G->pos, yythunkpos214= G->thunkpos;  if (!yy_Newline(G)) { goto l214; }  goto l212;
+  l214:;	  G->pos= yypos214; G->thunkpos= yythunkpos214;
+  }  if (!yy_Inline(G)) { goto l212; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l212;  if (!yymatchString(G, "**")) goto l212;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l212;  yyDo(G, yy_1_TwoStarClose, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "TwoStarClose", G->buf+G->pos));
   return 1;
-  l196:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l212:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "TwoStarClose", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_TwoStarOpen(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "TwoStarOpen"));
-  {  int yypos200= G->pos, yythunkpos200= G->thunkpos;  if (!yy_StarLine(G)) { goto l200; }  goto l199;
-  l200:;	  G->pos= yypos200; G->thunkpos= yythunkpos200;
-  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l199;  if (!yymatchString(G, "**")) goto l199;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l199;
-  {  int yypos201= G->pos, yythunkpos201= G->thunkpos;  if (!yy_Spacechar(G)) { goto l201; }  goto l199;
-  l201:;	  G->pos= yypos201; G->thunkpos= yythunkpos201;
+  {  int yypos216= G->pos, yythunkpos216= G->thunkpos;  if (!yy_StarLine(G)) { goto l216; }  goto l215;
+  l216:;	  G->pos= yypos216; G->thunkpos= yythunkpos216;
+  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l215;  if (!yymatchString(G, "**")) goto l215;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l215;
+  {  int yypos217= G->pos, yythunkpos217= G->thunkpos;  if (!yy_Spacechar(G)) { goto l217; }  goto l215;
+  l217:;	  G->pos= yypos217; G->thunkpos= yythunkpos217;
   }
-  {  int yypos202= G->pos, yythunkpos202= G->thunkpos;  if (!yy_Newline(G)) { goto l202; }  goto l199;
-  l202:;	  G->pos= yypos202; G->thunkpos= yythunkpos202;
+  {  int yypos218= G->pos, yythunkpos218= G->thunkpos;  if (!yy_Newline(G)) { goto l218; }  goto l215;
+  l218:;	  G->pos= yypos218; G->thunkpos= yythunkpos218;
   }  yyDo(G, yy_1_TwoStarOpen, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "TwoStarOpen", G->buf+G->pos));
   return 1;
-  l199:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l215:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "TwoStarOpen", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StrongUl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "StrongUl"));  if (!yy_TwoUlOpen(G)) { goto l203; }  yyDo(G, yySet, -1, 0);
-  l204:;	
-  {  int yypos205= G->pos, yythunkpos205= G->thunkpos;
-  {  int yypos206= G->pos, yythunkpos206= G->thunkpos;  if (!yy_TwoUlClose(G)) { goto l206; }  goto l205;
-  l206:;	  G->pos= yypos206; G->thunkpos= yythunkpos206;
-  }  if (!yy_Inline(G)) { goto l205; }  goto l204;
-  l205:;	  G->pos= yypos205; G->thunkpos= yythunkpos205;
-  }  if (!yy_TwoUlClose(G)) { goto l203; }  yyDo(G, yy_1_StrongUl, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "StrongUl"));  if (!yy_TwoUlOpen(G)) { goto l219; }  yyDo(G, yySet, -1, 0);
+  l220:;	
+  {  int yypos221= G->pos, yythunkpos221= G->thunkpos;
+  {  int yypos222= G->pos, yythunkpos222= G->thunkpos;  if (!yy_TwoUlClose(G)) { goto l222; }  goto l221;
+  l222:;	  G->pos= yypos222; G->thunkpos= yythunkpos222;
+  }  if (!yy_Inline(G)) { goto l221; }  goto l220;
+  l221:;	  G->pos= yypos221; G->thunkpos= yythunkpos221;
+  }  if (!yy_TwoUlClose(G)) { goto l219; }  yyDo(G, yy_1_StrongUl, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StrongUl", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l203:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l219:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StrongUl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_OneUlClose(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "OneUlClose"));
-  {  int yypos208= G->pos, yythunkpos208= G->thunkpos;  if (!yy_Spacechar(G)) { goto l208; }  goto l207;
-  l208:;	  G->pos= yypos208; G->thunkpos= yythunkpos208;
+  {  int yypos224= G->pos, yythunkpos224= G->thunkpos;  if (!yy_Spacechar(G)) { goto l224; }  goto l223;
+  l224:;	  G->pos= yypos224; G->thunkpos= yythunkpos224;
   }
-  {  int yypos209= G->pos, yythunkpos209= G->thunkpos;  if (!yy_Newline(G)) { goto l209; }  goto l207;
-  l209:;	  G->pos= yypos209; G->thunkpos= yythunkpos209;
-  }  if (!yy_Inline(G)) { goto l207; }
-  {  int yypos210= G->pos, yythunkpos210= G->thunkpos;  if (!yy_StrongUl(G)) { goto l210; }  goto l207;
-  l210:;	  G->pos= yypos210; G->thunkpos= yythunkpos210;
-  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l207;  if (!yymatchChar(G, '_')) goto l207;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l207;
-  {  int yypos211= G->pos, yythunkpos211= G->thunkpos;  if (!yy_Alphanumeric(G)) { goto l211; }  goto l207;
-  l211:;	  G->pos= yypos211; G->thunkpos= yythunkpos211;
+  {  int yypos225= G->pos, yythunkpos225= G->thunkpos;  if (!yy_Newline(G)) { goto l225; }  goto l223;
+  l225:;	  G->pos= yypos225; G->thunkpos= yythunkpos225;
+  }  if (!yy_Inline(G)) { goto l223; }
+  {  int yypos226= G->pos, yythunkpos226= G->thunkpos;  if (!yy_StrongUl(G)) { goto l226; }  goto l223;
+  l226:;	  G->pos= yypos226; G->thunkpos= yythunkpos226;
+  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l223;  if (!yymatchChar(G, '_')) goto l223;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l223;
+  {  int yypos227= G->pos, yythunkpos227= G->thunkpos;  if (!yy_Alphanumeric(G)) { goto l227; }  goto l223;
+  l227:;	  G->pos= yypos227; G->thunkpos= yythunkpos227;
   }  yyDo(G, yy_1_OneUlClose, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "OneUlClose", G->buf+G->pos));
   return 1;
-  l207:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l223:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "OneUlClose", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_OneUlOpen(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "OneUlOpen"));
-  {  int yypos213= G->pos, yythunkpos213= G->thunkpos;  if (!yy_UlLine(G)) { goto l213; }  goto l212;
-  l213:;	  G->pos= yypos213; G->thunkpos= yythunkpos213;
-  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l212;  if (!yymatchChar(G, '_')) goto l212;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l212;
-  {  int yypos214= G->pos, yythunkpos214= G->thunkpos;  if (!yy_Spacechar(G)) { goto l214; }  goto l212;
-  l214:;	  G->pos= yypos214; G->thunkpos= yythunkpos214;
+  {  int yypos229= G->pos, yythunkpos229= G->thunkpos;  if (!yy_UlLine(G)) { goto l229; }  goto l228;
+  l229:;	  G->pos= yypos229; G->thunkpos= yythunkpos229;
+  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l228;  if (!yymatchChar(G, '_')) goto l228;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l228;
+  {  int yypos230= G->pos, yythunkpos230= G->thunkpos;  if (!yy_Spacechar(G)) { goto l230; }  goto l228;
+  l230:;	  G->pos= yypos230; G->thunkpos= yythunkpos230;
   }
-  {  int yypos215= G->pos, yythunkpos215= G->thunkpos;  if (!yy_Newline(G)) { goto l215; }  goto l212;
-  l215:;	  G->pos= yypos215; G->thunkpos= yythunkpos215;
+  {  int yypos231= G->pos, yythunkpos231= G->thunkpos;  if (!yy_Newline(G)) { goto l231; }  goto l228;
+  l231:;	  G->pos= yypos231; G->thunkpos= yythunkpos231;
   }  yyDo(G, yy_1_OneUlOpen, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "OneUlOpen", G->buf+G->pos));
   return 1;
-  l212:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l228:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "OneUlOpen", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StrongStar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "StrongStar"));  if (!yy_TwoStarOpen(G)) { goto l216; }  yyDo(G, yySet, -1, 0);
-  l217:;	
-  {  int yypos218= G->pos, yythunkpos218= G->thunkpos;
-  {  int yypos219= G->pos, yythunkpos219= G->thunkpos;  if (!yy_TwoStarClose(G)) { goto l219; }  goto l218;
-  l219:;	  G->pos= yypos219; G->thunkpos= yythunkpos219;
-  }  if (!yy_Inline(G)) { goto l218; }  goto l217;
-  l218:;	  G->pos= yypos218; G->thunkpos= yythunkpos218;
-  }  if (!yy_TwoStarClose(G)) { goto l216; }  yyDo(G, yy_1_StrongStar, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "StrongStar"));  if (!yy_TwoStarOpen(G)) { goto l232; }  yyDo(G, yySet, -1, 0);
+  l233:;	
+  {  int yypos234= G->pos, yythunkpos234= G->thunkpos;
+  {  int yypos235= G->pos, yythunkpos235= G->thunkpos;  if (!yy_TwoStarClose(G)) { goto l235; }  goto l234;
+  l235:;	  G->pos= yypos235; G->thunkpos= yythunkpos235;
+  }  if (!yy_Inline(G)) { goto l234; }  goto l233;
+  l234:;	  G->pos= yypos234; G->thunkpos= yythunkpos234;
+  }  if (!yy_TwoStarClose(G)) { goto l232; }  yyDo(G, yy_1_StrongStar, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StrongStar", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l216:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l232:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StrongStar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_OneStarClose(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "OneStarClose"));
-  {  int yypos221= G->pos, yythunkpos221= G->thunkpos;  if (!yy_Spacechar(G)) { goto l221; }  goto l220;
-  l221:;	  G->pos= yypos221; G->thunkpos= yythunkpos221;
+  {  int yypos237= G->pos, yythunkpos237= G->thunkpos;  if (!yy_Spacechar(G)) { goto l237; }  goto l236;
+  l237:;	  G->pos= yypos237; G->thunkpos= yythunkpos237;
   }
-  {  int yypos222= G->pos, yythunkpos222= G->thunkpos;  if (!yy_Newline(G)) { goto l222; }  goto l220;
-  l222:;	  G->pos= yypos222; G->thunkpos= yythunkpos222;
-  }  if (!yy_Inline(G)) { goto l220; }
-  {  int yypos223= G->pos, yythunkpos223= G->thunkpos;  if (!yy_StrongStar(G)) { goto l223; }  goto l220;
-  l223:;	  G->pos= yypos223; G->thunkpos= yythunkpos223;
-  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l220;  if (!yymatchChar(G, '*')) goto l220;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l220;  yyDo(G, yy_1_OneStarClose, G->begin, G->end);
+  {  int yypos238= G->pos, yythunkpos238= G->thunkpos;  if (!yy_Newline(G)) { goto l238; }  goto l236;
+  l238:;	  G->pos= yypos238; G->thunkpos= yythunkpos238;
+  }  if (!yy_Inline(G)) { goto l236; }
+  {  int yypos239= G->pos, yythunkpos239= G->thunkpos;  if (!yy_StrongStar(G)) { goto l239; }  goto l236;
+  l239:;	  G->pos= yypos239; G->thunkpos= yythunkpos239;
+  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l236;  if (!yymatchChar(G, '*')) goto l236;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l236;  yyDo(G, yy_1_OneStarClose, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "OneStarClose", G->buf+G->pos));
   return 1;
-  l220:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l236:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "OneStarClose", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_OneStarOpen(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "OneStarOpen"));
-  {  int yypos225= G->pos, yythunkpos225= G->thunkpos;  if (!yy_StarLine(G)) { goto l225; }  goto l224;
-  l225:;	  G->pos= yypos225; G->thunkpos= yythunkpos225;
-  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l224;  if (!yymatchChar(G, '*')) goto l224;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l224;
-  {  int yypos226= G->pos, yythunkpos226= G->thunkpos;  if (!yy_Spacechar(G)) { goto l226; }  goto l224;
-  l226:;	  G->pos= yypos226; G->thunkpos= yythunkpos226;
+  {  int yypos241= G->pos, yythunkpos241= G->thunkpos;  if (!yy_StarLine(G)) { goto l241; }  goto l240;
+  l241:;	  G->pos= yypos241; G->thunkpos= yythunkpos241;
+  }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l240;  if (!yymatchChar(G, '*')) goto l240;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l240;
+  {  int yypos242= G->pos, yythunkpos242= G->thunkpos;  if (!yy_Spacechar(G)) { goto l242; }  goto l240;
+  l242:;	  G->pos= yypos242; G->thunkpos= yythunkpos242;
   }
-  {  int yypos227= G->pos, yythunkpos227= G->thunkpos;  if (!yy_Newline(G)) { goto l227; }  goto l224;
-  l227:;	  G->pos= yypos227; G->thunkpos= yythunkpos227;
+  {  int yypos243= G->pos, yythunkpos243= G->thunkpos;  if (!yy_Newline(G)) { goto l243; }  goto l240;
+  l243:;	  G->pos= yypos243; G->thunkpos= yythunkpos243;
   }  yyDo(G, yy_1_OneStarOpen, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "OneStarOpen", G->buf+G->pos));
   return 1;
-  l224:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l240:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "OneStarOpen", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_EmphUl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "EmphUl"));  if (!yy_OneUlOpen(G)) { goto l228; }  yyDo(G, yySet, -1, 0);
-  l229:;	
-  {  int yypos230= G->pos, yythunkpos230= G->thunkpos;
-  {  int yypos231= G->pos, yythunkpos231= G->thunkpos;  if (!yy_OneUlClose(G)) { goto l231; }  goto l230;
-  l231:;	  G->pos= yypos231; G->thunkpos= yythunkpos231;
-  }  if (!yy_Inline(G)) { goto l230; }  goto l229;
-  l230:;	  G->pos= yypos230; G->thunkpos= yythunkpos230;
-  }  if (!yy_OneUlClose(G)) { goto l228; }  yyDo(G, yy_1_EmphUl, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "EmphUl"));  if (!yy_OneUlOpen(G)) { goto l244; }  yyDo(G, yySet, -1, 0);
+  l245:;	
+  {  int yypos246= G->pos, yythunkpos246= G->thunkpos;
+  {  int yypos247= G->pos, yythunkpos247= G->thunkpos;  if (!yy_OneUlClose(G)) { goto l247; }  goto l246;
+  l247:;	  G->pos= yypos247; G->thunkpos= yythunkpos247;
+  }  if (!yy_Inline(G)) { goto l246; }  goto l245;
+  l246:;	  G->pos= yypos246; G->thunkpos= yythunkpos246;
+  }  if (!yy_OneUlClose(G)) { goto l244; }  yyDo(G, yy_1_EmphUl, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "EmphUl", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l228:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l244:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "EmphUl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_EmphStar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "EmphStar"));  if (!yy_OneStarOpen(G)) { goto l232; }  yyDo(G, yySet, -1, 0);
-  l233:;	
-  {  int yypos234= G->pos, yythunkpos234= G->thunkpos;
-  {  int yypos235= G->pos, yythunkpos235= G->thunkpos;  if (!yy_OneStarClose(G)) { goto l235; }  goto l234;
-  l235:;	  G->pos= yypos235; G->thunkpos= yythunkpos235;
-  }  if (!yy_Inline(G)) { goto l234; }  goto l233;
-  l234:;	  G->pos= yypos234; G->thunkpos= yythunkpos234;
-  }  if (!yy_OneStarClose(G)) { goto l232; }  yyDo(G, yy_1_EmphStar, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "EmphStar"));  if (!yy_OneStarOpen(G)) { goto l248; }  yyDo(G, yySet, -1, 0);
+  l249:;	
+  {  int yypos250= G->pos, yythunkpos250= G->thunkpos;
+  {  int yypos251= G->pos, yythunkpos251= G->thunkpos;  if (!yy_OneStarClose(G)) { goto l251; }  goto l250;
+  l251:;	  G->pos= yypos251; G->thunkpos= yythunkpos251;
+  }  if (!yy_Inline(G)) { goto l250; }  goto l249;
+  l250:;	  G->pos= yypos250; G->thunkpos= yythunkpos250;
+  }  if (!yy_OneStarClose(G)) { goto l248; }  yyDo(G, yy_1_EmphStar, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "EmphStar", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l232:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l248:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "EmphStar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StarLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "StarLine"));
-  {  int yypos237= G->pos, yythunkpos237= G->thunkpos;  if (!yymatchString(G, "****")) goto l238;
-  l239:;	
-  {  int yypos240= G->pos, yythunkpos240= G->thunkpos;  if (!yymatchChar(G, '*')) goto l240;  goto l239;
-  l240:;	  G->pos= yypos240; G->thunkpos= yythunkpos240;
-  }  goto l237;
-  l238:;	  G->pos= yypos237; G->thunkpos= yythunkpos237;  if (!yy_Spacechar(G)) { goto l236; }  if (!yymatchChar(G, '*')) goto l236;
-  l241:;	
-  {  int yypos242= G->pos, yythunkpos242= G->thunkpos;  if (!yymatchChar(G, '*')) goto l242;  goto l241;
-  l242:;	  G->pos= yypos242; G->thunkpos= yythunkpos242;
+  {  int yypos253= G->pos, yythunkpos253= G->thunkpos;  if (!yymatchString(G, "****")) goto l254;
+  l255:;	
+  {  int yypos256= G->pos, yythunkpos256= G->thunkpos;  if (!yymatchChar(G, '*')) goto l256;  goto l255;
+  l256:;	  G->pos= yypos256; G->thunkpos= yythunkpos256;
+  }  goto l253;
+  l254:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yy_Spacechar(G)) { goto l252; }  if (!yymatchChar(G, '*')) goto l252;
+  l257:;	
+  {  int yypos258= G->pos, yythunkpos258= G->thunkpos;  if (!yymatchChar(G, '*')) goto l258;  goto l257;
+  l258:;	  G->pos= yypos258; G->thunkpos= yythunkpos258;
   }
-  {  int yypos243= G->pos, yythunkpos243= G->thunkpos;  if (!yy_Spacechar(G)) { goto l236; }  G->pos= yypos243; G->thunkpos= yythunkpos243;
+  {  int yypos259= G->pos, yythunkpos259= G->thunkpos;  if (!yy_Spacechar(G)) { goto l252; }  G->pos= yypos259; G->thunkpos= yythunkpos259;
   }
   }
-  l237:;	
+  l253:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "StarLine", G->buf+G->pos));
   return 1;
-  l236:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l252:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StarLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_UlLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "UlLine"));
-  {  int yypos245= G->pos, yythunkpos245= G->thunkpos;  if (!yymatchString(G, "____")) goto l246;
-  l247:;	
-  {  int yypos248= G->pos, yythunkpos248= G->thunkpos;  if (!yymatchChar(G, '_')) goto l248;  goto l247;
-  l248:;	  G->pos= yypos248; G->thunkpos= yythunkpos248;
-  }  goto l245;
-  l246:;	  G->pos= yypos245; G->thunkpos= yythunkpos245;  if (!yy_Spacechar(G)) { goto l244; }  if (!yymatchChar(G, '_')) goto l244;
-  l249:;	
-  {  int yypos250= G->pos, yythunkpos250= G->thunkpos;  if (!yymatchChar(G, '_')) goto l250;  goto l249;
-  l250:;	  G->pos= yypos250; G->thunkpos= yythunkpos250;
+  {  int yypos261= G->pos, yythunkpos261= G->thunkpos;  if (!yymatchString(G, "____")) goto l262;
+  l263:;	
+  {  int yypos264= G->pos, yythunkpos264= G->thunkpos;  if (!yymatchChar(G, '_')) goto l264;  goto l263;
+  l264:;	  G->pos= yypos264; G->thunkpos= yythunkpos264;
+  }  goto l261;
+  l262:;	  G->pos= yypos261; G->thunkpos= yythunkpos261;  if (!yy_Spacechar(G)) { goto l260; }  if (!yymatchChar(G, '_')) goto l260;
+  l265:;	
+  {  int yypos266= G->pos, yythunkpos266= G->thunkpos;  if (!yymatchChar(G, '_')) goto l266;  goto l265;
+  l266:;	  G->pos= yypos266; G->thunkpos= yythunkpos266;
   }
-  {  int yypos251= G->pos, yythunkpos251= G->thunkpos;  if (!yy_Spacechar(G)) { goto l244; }  G->pos= yypos251; G->thunkpos= yythunkpos251;
+  {  int yypos267= G->pos, yythunkpos267= G->thunkpos;  if (!yy_Spacechar(G)) { goto l260; }  G->pos= yypos267; G->thunkpos= yythunkpos267;
   }
   }
-  l245:;	
+  l261:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "UlLine", G->buf+G->pos));
   return 1;
-  l244:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l260:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "UlLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_SpecialChar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "SpecialChar"));
-  {  int yypos253= G->pos, yythunkpos253= G->thunkpos;  if (!yymatchChar(G, '*')) goto l254;  goto l253;
-  l254:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '_')) goto l255;  goto l253;
-  l255:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '`')) goto l256;  goto l253;
-  l256:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '&')) goto l257;  goto l253;
-  l257:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '[')) goto l258;  goto l253;
-  l258:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, ']')) goto l259;  goto l253;
-  l259:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '(')) goto l260;  goto l253;
-  l260:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, ')')) goto l261;  goto l253;
-  l261:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '<')) goto l262;  goto l253;
-  l262:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '!')) goto l263;  goto l253;
-  l263:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '#')) goto l264;  goto l253;
-  l264:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yymatchChar(G, '\\')) goto l265;  goto l253;
-  l265:;	  G->pos= yypos253; G->thunkpos= yythunkpos253;  if (!yy_ExtendedSpecialChar(G)) { goto l252; }
+  {  int yypos269= G->pos, yythunkpos269= G->thunkpos;  if (!yymatchChar(G, '*')) goto l270;  goto l269;
+  l270:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '_')) goto l271;  goto l269;
+  l271:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '`')) goto l272;  goto l269;
+  l272:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '&')) goto l273;  goto l269;
+  l273:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '[')) goto l274;  goto l269;
+  l274:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, ']')) goto l275;  goto l269;
+  l275:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '(')) goto l276;  goto l269;
+  l276:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, ')')) goto l277;  goto l269;
+  l277:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '<')) goto l278;  goto l269;
+  l278:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '!')) goto l279;  goto l269;
+  l279:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '#')) goto l280;  goto l269;
+  l280:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yymatchChar(G, '\\')) goto l281;  goto l269;
+  l281:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;  if (!yy_ExtendedSpecialChar(G)) { goto l268; }
   }
-  l253:;	
+  l269:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "SpecialChar", G->buf+G->pos));
   return 1;
-  l252:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l268:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "SpecialChar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Eof(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Eof"));
-  {  int yypos267= G->pos, yythunkpos267= G->thunkpos;  if (!yymatchDot(G)) goto l267;  goto l266;
-  l267:;	  G->pos= yypos267; G->thunkpos= yythunkpos267;
+  {  int yypos283= G->pos, yythunkpos283= G->thunkpos;  if (!yymatchDot(G)) goto l283;  goto l282;
+  l283:;	  G->pos= yypos283; G->thunkpos= yythunkpos283;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Eof", G->buf+G->pos));
   return 1;
-  l266:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l282:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Eof", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_NormalEndline(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "NormalEndline"));  if (!yy_Sp(G)) { goto l268; }  if (!yy_Newline(G)) { goto l268; }
-  {  int yypos269= G->pos, yythunkpos269= G->thunkpos;  if (!yy_BlankLine(G)) { goto l269; }  goto l268;
-  l269:;	  G->pos= yypos269; G->thunkpos= yythunkpos269;
+  yyprintf((stderr, "%s\n", "NormalEndline"));  if (!yy_Sp(G)) { goto l284; }  if (!yy_Newline(G)) { goto l284; }
+  {  int yypos285= G->pos, yythunkpos285= G->thunkpos;  if (!yy_BlankLine(G)) { goto l285; }  goto l284;
+  l285:;	  G->pos= yypos285; G->thunkpos= yythunkpos285;
   }
-  {  int yypos270= G->pos, yythunkpos270= G->thunkpos;  if (!yymatchChar(G, '>')) goto l270;  goto l268;
-  l270:;	  G->pos= yypos270; G->thunkpos= yythunkpos270;
+  {  int yypos286= G->pos, yythunkpos286= G->thunkpos;  if (!yymatchChar(G, '>')) goto l286;  goto l284;
+  l286:;	  G->pos= yypos286; G->thunkpos= yythunkpos286;
   }
-  {  int yypos271= G->pos, yythunkpos271= G->thunkpos;  if (!yy_AtxStart(G)) { goto l271; }  goto l268;
-  l271:;	  G->pos= yypos271; G->thunkpos= yythunkpos271;
+  {  int yypos287= G->pos, yythunkpos287= G->thunkpos;  if (!yy_AtxStart(G)) { goto l287; }  goto l284;
+  l287:;	  G->pos= yypos287; G->thunkpos= yythunkpos287;
   }
-  {  int yypos272= G->pos, yythunkpos272= G->thunkpos;  if (!yy_Line(G)) { goto l272; }
-  {  int yypos273= G->pos, yythunkpos273= G->thunkpos;  if (!yymatchString(G, "===")) goto l274;
-  l275:;	
-  {  int yypos276= G->pos, yythunkpos276= G->thunkpos;  if (!yymatchChar(G, '=')) goto l276;  goto l275;
-  l276:;	  G->pos= yypos276; G->thunkpos= yythunkpos276;
-  }  goto l273;
-  l274:;	  G->pos= yypos273; G->thunkpos= yythunkpos273;  if (!yymatchString(G, "---")) goto l272;
-  l277:;	
-  {  int yypos278= G->pos, yythunkpos278= G->thunkpos;  if (!yymatchChar(G, '-')) goto l278;  goto l277;
-  l278:;	  G->pos= yypos278; G->thunkpos= yythunkpos278;
+  {  int yypos288= G->pos, yythunkpos288= G->thunkpos;  if (!yy_Line(G)) { goto l288; }
+  {  int yypos289= G->pos, yythunkpos289= G->thunkpos;  if (!yymatchString(G, "===")) goto l290;
+  l291:;	
+  {  int yypos292= G->pos, yythunkpos292= G->thunkpos;  if (!yymatchChar(G, '=')) goto l292;  goto l291;
+  l292:;	  G->pos= yypos292; G->thunkpos= yythunkpos292;
+  }  goto l289;
+  l290:;	  G->pos= yypos289; G->thunkpos= yythunkpos289;  if (!yymatchString(G, "---")) goto l288;
+  l293:;	
+  {  int yypos294= G->pos, yythunkpos294= G->thunkpos;  if (!yymatchChar(G, '-')) goto l294;  goto l293;
+  l294:;	  G->pos= yypos294; G->thunkpos= yythunkpos294;
   }
   }
-  l273:;	  if (!yy_Newline(G)) { goto l272; }  goto l268;
-  l272:;	  G->pos= yypos272; G->thunkpos= yythunkpos272;
+  l289:;	  if (!yy_Newline(G)) { goto l288; }  goto l284;
+  l288:;	  G->pos= yypos288; G->thunkpos= yythunkpos288;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "NormalEndline", G->buf+G->pos));
   return 1;
-  l268:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l284:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "NormalEndline", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_TerminalEndline(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "TerminalEndline"));  if (!yy_Sp(G)) { goto l279; }  if (!yy_Newline(G)) { goto l279; }  if (!yy_Eof(G)) { goto l279; }
+  yyprintf((stderr, "%s\n", "TerminalEndline"));  if (!yy_Sp(G)) { goto l295; }  if (!yy_Newline(G)) { goto l295; }  if (!yy_Eof(G)) { goto l295; }
   yyprintf((stderr, "  ok   %s @ %s\n", "TerminalEndline", G->buf+G->pos));
   return 1;
-  l279:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l295:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "TerminalEndline", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_LineBreak(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "LineBreak"));  if (!yymatchString(G, "  ")) goto l280;  if (!yy_NormalEndline(G)) { goto l280; }
+  yyprintf((stderr, "%s\n", "LineBreak"));  if (!yymatchString(G, "  ")) goto l296;  if (!yy_NormalEndline(G)) { goto l296; }
   yyprintf((stderr, "  ok   %s @ %s\n", "LineBreak", G->buf+G->pos));
   return 1;
-  l280:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l296:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "LineBreak", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_CharEntity(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "CharEntity"));  if (!yymatchChar(G, '&')) goto l281;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l281;
-  l282:;	
-  {  int yypos283= G->pos, yythunkpos283= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l283;  goto l282;
-  l283:;	  G->pos= yypos283; G->thunkpos= yythunkpos283;
-  }  if (!yymatchChar(G, ';')) goto l281;
+  yyprintf((stderr, "%s\n", "CharEntity"));  if (!yymatchChar(G, '&')) goto l297;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l297;
+  l298:;	
+  {  int yypos299= G->pos, yythunkpos299= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l299;  goto l298;
+  l299:;	  G->pos= yypos299; G->thunkpos= yythunkpos299;
+  }  if (!yymatchChar(G, ';')) goto l297;
   yyprintf((stderr, "  ok   %s @ %s\n", "CharEntity", G->buf+G->pos));
   return 1;
-  l281:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l297:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "CharEntity", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_DecEntity(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "DecEntity"));  if (!yymatchChar(G, '&')) goto l284;  if (!yymatchChar(G, '#')) goto l284;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l284;
-  l285:;	
-  {  int yypos286= G->pos, yythunkpos286= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l286;  goto l285;
-  l286:;	  G->pos= yypos286; G->thunkpos= yythunkpos286;
-  }  if (!yymatchChar(G, ';')) goto l284;
+  yyprintf((stderr, "%s\n", "DecEntity"));  if (!yymatchChar(G, '&')) goto l300;  if (!yymatchChar(G, '#')) goto l300;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l300;
+  l301:;	
+  {  int yypos302= G->pos, yythunkpos302= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l302;  goto l301;
+  l302:;	  G->pos= yypos302; G->thunkpos= yythunkpos302;
+  }  if (!yymatchChar(G, ';')) goto l300;
   yyprintf((stderr, "  ok   %s @ %s\n", "DecEntity", G->buf+G->pos));
   return 1;
-  l284:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l300:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "DecEntity", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HexEntity(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HexEntity"));  if (!yymatchChar(G, '&')) goto l287;  if (!yymatchChar(G, '#')) goto l287;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\000\000\000\000\000\001\000\000\000\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l287;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\176\000\000\000\176\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l287;
-  l288:;	
-  {  int yypos289= G->pos, yythunkpos289= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\176\000\000\000\176\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l289;  goto l288;
-  l289:;	  G->pos= yypos289; G->thunkpos= yythunkpos289;
-  }  if (!yymatchChar(G, ';')) goto l287;
+  yyprintf((stderr, "%s\n", "HexEntity"));  if (!yymatchChar(G, '&')) goto l303;  if (!yymatchChar(G, '#')) goto l303;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\000\000\000\000\000\001\000\000\000\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l303;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\176\000\000\000\176\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l303;
+  l304:;	
+  {  int yypos305= G->pos, yythunkpos305= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\176\000\000\000\176\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l305;  goto l304;
+  l305:;	  G->pos= yypos305; G->thunkpos= yythunkpos305;
+  }  if (!yymatchChar(G, ';')) goto l303;
   yyprintf((stderr, "  ok   %s @ %s\n", "HexEntity", G->buf+G->pos));
   return 1;
-  l287:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l303:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HexEntity", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Alphanumeric(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Alphanumeric"));
-  {  int yypos291= G->pos, yythunkpos291= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l292;  goto l291;
-  l292:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\200")) goto l293;  goto l291;
-  l293:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\201")) goto l294;  goto l291;
-  l294:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\202")) goto l295;  goto l291;
-  l295:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\203")) goto l296;  goto l291;
-  l296:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\204")) goto l297;  goto l291;
-  l297:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\205")) goto l298;  goto l291;
-  l298:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\206")) goto l299;  goto l291;
-  l299:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\207")) goto l300;  goto l291;
-  l300:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\210")) goto l301;  goto l291;
-  l301:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\211")) goto l302;  goto l291;
-  l302:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\212")) goto l303;  goto l291;
-  l303:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\213")) goto l304;  goto l291;
-  l304:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\214")) goto l305;  goto l291;
-  l305:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\215")) goto l306;  goto l291;
-  l306:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\216")) goto l307;  goto l291;
-  l307:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\217")) goto l308;  goto l291;
-  l308:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\220")) goto l309;  goto l291;
-  l309:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\221")) goto l310;  goto l291;
-  l310:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\222")) goto l311;  goto l291;
-  l311:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\223")) goto l312;  goto l291;
-  l312:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\224")) goto l313;  goto l291;
-  l313:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\225")) goto l314;  goto l291;
-  l314:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\226")) goto l315;  goto l291;
-  l315:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\227")) goto l316;  goto l291;
-  l316:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\230")) goto l317;  goto l291;
-  l317:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\231")) goto l318;  goto l291;
-  l318:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\232")) goto l319;  goto l291;
-  l319:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\233")) goto l320;  goto l291;
-  l320:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\234")) goto l321;  goto l291;
-  l321:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\235")) goto l322;  goto l291;
-  l322:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\236")) goto l323;  goto l291;
-  l323:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\237")) goto l324;  goto l291;
-  l324:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\240")) goto l325;  goto l291;
-  l325:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\241")) goto l326;  goto l291;
-  l326:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\242")) goto l327;  goto l291;
-  l327:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\243")) goto l328;  goto l291;
-  l328:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\244")) goto l329;  goto l291;
-  l329:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\245")) goto l330;  goto l291;
-  l330:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\246")) goto l331;  goto l291;
-  l331:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\247")) goto l332;  goto l291;
-  l332:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\250")) goto l333;  goto l291;
-  l333:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\251")) goto l334;  goto l291;
-  l334:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\252")) goto l335;  goto l291;
-  l335:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\253")) goto l336;  goto l291;
-  l336:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\254")) goto l337;  goto l291;
-  l337:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\255")) goto l338;  goto l291;
-  l338:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\256")) goto l339;  goto l291;
-  l339:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\257")) goto l340;  goto l291;
-  l340:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\260")) goto l341;  goto l291;
-  l341:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\261")) goto l342;  goto l291;
-  l342:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\262")) goto l343;  goto l291;
-  l343:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\263")) goto l344;  goto l291;
-  l344:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\264")) goto l345;  goto l291;
-  l345:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\265")) goto l346;  goto l291;
-  l346:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\266")) goto l347;  goto l291;
-  l347:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\267")) goto l348;  goto l291;
-  l348:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\270")) goto l349;  goto l291;
-  l349:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\271")) goto l350;  goto l291;
-  l350:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\272")) goto l351;  goto l291;
-  l351:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\273")) goto l352;  goto l291;
-  l352:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\274")) goto l353;  goto l291;
-  l353:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\275")) goto l354;  goto l291;
-  l354:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\276")) goto l355;  goto l291;
-  l355:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\277")) goto l356;  goto l291;
-  l356:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\300")) goto l357;  goto l291;
-  l357:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\301")) goto l358;  goto l291;
-  l358:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\302")) goto l359;  goto l291;
-  l359:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\303")) goto l360;  goto l291;
-  l360:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\304")) goto l361;  goto l291;
-  l361:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\305")) goto l362;  goto l291;
-  l362:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\306")) goto l363;  goto l291;
-  l363:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\307")) goto l364;  goto l291;
-  l364:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\310")) goto l365;  goto l291;
-  l365:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\311")) goto l366;  goto l291;
-  l366:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\312")) goto l367;  goto l291;
-  l367:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\313")) goto l368;  goto l291;
-  l368:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\314")) goto l369;  goto l291;
-  l369:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\315")) goto l370;  goto l291;
-  l370:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\316")) goto l371;  goto l291;
-  l371:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\317")) goto l372;  goto l291;
-  l372:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\320")) goto l373;  goto l291;
-  l373:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\321")) goto l374;  goto l291;
-  l374:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\322")) goto l375;  goto l291;
-  l375:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\323")) goto l376;  goto l291;
-  l376:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\324")) goto l377;  goto l291;
-  l377:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\325")) goto l378;  goto l291;
-  l378:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\326")) goto l379;  goto l291;
-  l379:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\327")) goto l380;  goto l291;
-  l380:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\330")) goto l381;  goto l291;
-  l381:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\331")) goto l382;  goto l291;
-  l382:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\332")) goto l383;  goto l291;
-  l383:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\333")) goto l384;  goto l291;
-  l384:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\334")) goto l385;  goto l291;
-  l385:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\335")) goto l386;  goto l291;
-  l386:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\336")) goto l387;  goto l291;
-  l387:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\337")) goto l388;  goto l291;
-  l388:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\340")) goto l389;  goto l291;
-  l389:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\341")) goto l390;  goto l291;
-  l390:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\342")) goto l391;  goto l291;
-  l391:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\343")) goto l392;  goto l291;
-  l392:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\344")) goto l393;  goto l291;
-  l393:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\345")) goto l394;  goto l291;
-  l394:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\346")) goto l395;  goto l291;
-  l395:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\347")) goto l396;  goto l291;
-  l396:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\350")) goto l397;  goto l291;
-  l397:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\351")) goto l398;  goto l291;
-  l398:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\352")) goto l399;  goto l291;
-  l399:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\353")) goto l400;  goto l291;
-  l400:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\354")) goto l401;  goto l291;
-  l401:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\355")) goto l402;  goto l291;
-  l402:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\356")) goto l403;  goto l291;
-  l403:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\357")) goto l404;  goto l291;
-  l404:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\360")) goto l405;  goto l291;
-  l405:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\361")) goto l406;  goto l291;
-  l406:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\362")) goto l407;  goto l291;
-  l407:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\363")) goto l408;  goto l291;
-  l408:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\364")) goto l409;  goto l291;
-  l409:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\365")) goto l410;  goto l291;
-  l410:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\366")) goto l411;  goto l291;
-  l411:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\367")) goto l412;  goto l291;
-  l412:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\370")) goto l413;  goto l291;
-  l413:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\371")) goto l414;  goto l291;
-  l414:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\372")) goto l415;  goto l291;
-  l415:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\373")) goto l416;  goto l291;
-  l416:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\374")) goto l417;  goto l291;
-  l417:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\375")) goto l418;  goto l291;
-  l418:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\376")) goto l419;  goto l291;
-  l419:;	  G->pos= yypos291; G->thunkpos= yythunkpos291;  if (!yymatchString(G, "\377")) goto l290;
+  {  int yypos307= G->pos, yythunkpos307= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l308;  goto l307;
+  l308:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\200")) goto l309;  goto l307;
+  l309:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\201")) goto l310;  goto l307;
+  l310:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\202")) goto l311;  goto l307;
+  l311:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\203")) goto l312;  goto l307;
+  l312:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\204")) goto l313;  goto l307;
+  l313:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\205")) goto l314;  goto l307;
+  l314:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\206")) goto l315;  goto l307;
+  l315:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\207")) goto l316;  goto l307;
+  l316:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\210")) goto l317;  goto l307;
+  l317:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\211")) goto l318;  goto l307;
+  l318:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\212")) goto l319;  goto l307;
+  l319:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\213")) goto l320;  goto l307;
+  l320:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\214")) goto l321;  goto l307;
+  l321:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\215")) goto l322;  goto l307;
+  l322:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\216")) goto l323;  goto l307;
+  l323:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\217")) goto l324;  goto l307;
+  l324:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\220")) goto l325;  goto l307;
+  l325:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\221")) goto l326;  goto l307;
+  l326:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\222")) goto l327;  goto l307;
+  l327:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\223")) goto l328;  goto l307;
+  l328:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\224")) goto l329;  goto l307;
+  l329:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\225")) goto l330;  goto l307;
+  l330:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\226")) goto l331;  goto l307;
+  l331:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\227")) goto l332;  goto l307;
+  l332:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\230")) goto l333;  goto l307;
+  l333:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\231")) goto l334;  goto l307;
+  l334:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\232")) goto l335;  goto l307;
+  l335:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\233")) goto l336;  goto l307;
+  l336:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\234")) goto l337;  goto l307;
+  l337:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\235")) goto l338;  goto l307;
+  l338:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\236")) goto l339;  goto l307;
+  l339:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\237")) goto l340;  goto l307;
+  l340:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\240")) goto l341;  goto l307;
+  l341:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\241")) goto l342;  goto l307;
+  l342:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\242")) goto l343;  goto l307;
+  l343:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\243")) goto l344;  goto l307;
+  l344:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\244")) goto l345;  goto l307;
+  l345:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\245")) goto l346;  goto l307;
+  l346:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\246")) goto l347;  goto l307;
+  l347:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\247")) goto l348;  goto l307;
+  l348:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\250")) goto l349;  goto l307;
+  l349:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\251")) goto l350;  goto l307;
+  l350:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\252")) goto l351;  goto l307;
+  l351:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\253")) goto l352;  goto l307;
+  l352:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\254")) goto l353;  goto l307;
+  l353:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\255")) goto l354;  goto l307;
+  l354:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\256")) goto l355;  goto l307;
+  l355:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\257")) goto l356;  goto l307;
+  l356:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\260")) goto l357;  goto l307;
+  l357:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\261")) goto l358;  goto l307;
+  l358:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\262")) goto l359;  goto l307;
+  l359:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\263")) goto l360;  goto l307;
+  l360:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\264")) goto l361;  goto l307;
+  l361:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\265")) goto l362;  goto l307;
+  l362:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\266")) goto l363;  goto l307;
+  l363:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\267")) goto l364;  goto l307;
+  l364:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\270")) goto l365;  goto l307;
+  l365:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\271")) goto l366;  goto l307;
+  l366:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\272")) goto l367;  goto l307;
+  l367:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\273")) goto l368;  goto l307;
+  l368:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\274")) goto l369;  goto l307;
+  l369:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\275")) goto l370;  goto l307;
+  l370:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\276")) goto l371;  goto l307;
+  l371:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\277")) goto l372;  goto l307;
+  l372:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\300")) goto l373;  goto l307;
+  l373:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\301")) goto l374;  goto l307;
+  l374:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\302")) goto l375;  goto l307;
+  l375:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\303")) goto l376;  goto l307;
+  l376:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\304")) goto l377;  goto l307;
+  l377:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\305")) goto l378;  goto l307;
+  l378:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\306")) goto l379;  goto l307;
+  l379:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\307")) goto l380;  goto l307;
+  l380:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\310")) goto l381;  goto l307;
+  l381:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\311")) goto l382;  goto l307;
+  l382:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\312")) goto l383;  goto l307;
+  l383:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\313")) goto l384;  goto l307;
+  l384:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\314")) goto l385;  goto l307;
+  l385:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\315")) goto l386;  goto l307;
+  l386:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\316")) goto l387;  goto l307;
+  l387:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\317")) goto l388;  goto l307;
+  l388:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\320")) goto l389;  goto l307;
+  l389:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\321")) goto l390;  goto l307;
+  l390:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\322")) goto l391;  goto l307;
+  l391:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\323")) goto l392;  goto l307;
+  l392:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\324")) goto l393;  goto l307;
+  l393:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\325")) goto l394;  goto l307;
+  l394:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\326")) goto l395;  goto l307;
+  l395:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\327")) goto l396;  goto l307;
+  l396:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\330")) goto l397;  goto l307;
+  l397:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\331")) goto l398;  goto l307;
+  l398:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\332")) goto l399;  goto l307;
+  l399:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\333")) goto l400;  goto l307;
+  l400:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\334")) goto l401;  goto l307;
+  l401:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\335")) goto l402;  goto l307;
+  l402:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\336")) goto l403;  goto l307;
+  l403:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\337")) goto l404;  goto l307;
+  l404:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\340")) goto l405;  goto l307;
+  l405:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\341")) goto l406;  goto l307;
+  l406:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\342")) goto l407;  goto l307;
+  l407:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\343")) goto l408;  goto l307;
+  l408:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\344")) goto l409;  goto l307;
+  l409:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\345")) goto l410;  goto l307;
+  l410:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\346")) goto l411;  goto l307;
+  l411:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\347")) goto l412;  goto l307;
+  l412:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\350")) goto l413;  goto l307;
+  l413:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\351")) goto l414;  goto l307;
+  l414:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\352")) goto l415;  goto l307;
+  l415:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\353")) goto l416;  goto l307;
+  l416:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\354")) goto l417;  goto l307;
+  l417:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\355")) goto l418;  goto l307;
+  l418:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\356")) goto l419;  goto l307;
+  l419:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\357")) goto l420;  goto l307;
+  l420:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\360")) goto l421;  goto l307;
+  l421:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\361")) goto l422;  goto l307;
+  l422:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\362")) goto l423;  goto l307;
+  l423:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\363")) goto l424;  goto l307;
+  l424:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\364")) goto l425;  goto l307;
+  l425:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\365")) goto l426;  goto l307;
+  l426:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\366")) goto l427;  goto l307;
+  l427:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\367")) goto l428;  goto l307;
+  l428:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\370")) goto l429;  goto l307;
+  l429:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\371")) goto l430;  goto l307;
+  l430:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\372")) goto l431;  goto l307;
+  l431:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\373")) goto l432;  goto l307;
+  l432:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\374")) goto l433;  goto l307;
+  l433:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\375")) goto l434;  goto l307;
+  l434:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\376")) goto l435;  goto l307;
+  l435:;	  G->pos= yypos307; G->thunkpos= yythunkpos307;  if (!yymatchString(G, "\377")) goto l306;
   }
-  l291:;	
+  l307:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Alphanumeric", G->buf+G->pos));
   return 1;
-  l290:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l306:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Alphanumeric", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_NormalChar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "NormalChar"));
-  {  int yypos421= G->pos, yythunkpos421= G->thunkpos;
-  {  int yypos422= G->pos, yythunkpos422= G->thunkpos;  if (!yy_SpecialChar(G)) { goto l423; }  goto l422;
-  l423:;	  G->pos= yypos422; G->thunkpos= yythunkpos422;  if (!yy_Spacechar(G)) { goto l424; }  goto l422;
-  l424:;	  G->pos= yypos422; G->thunkpos= yythunkpos422;  if (!yy_Newline(G)) { goto l421; }
+  {  int yypos437= G->pos, yythunkpos437= G->thunkpos;
+  {  int yypos438= G->pos, yythunkpos438= G->thunkpos;  if (!yy_SpecialChar(G)) { goto l439; }  goto l438;
+  l439:;	  G->pos= yypos438; G->thunkpos= yythunkpos438;  if (!yy_Spacechar(G)) { goto l440; }  goto l438;
+  l440:;	  G->pos= yypos438; G->thunkpos= yythunkpos438;  if (!yy_Newline(G)) { goto l437; }
   }
-  l422:;	  goto l420;
-  l421:;	  G->pos= yypos421; G->thunkpos= yythunkpos421;
-  }  if (!yymatchDot(G)) goto l420;
+  l438:;	  goto l436;
+  l437:;	  G->pos= yypos437; G->thunkpos= yythunkpos437;
+  }  if (!yymatchDot(G)) goto l436;
   yyprintf((stderr, "  ok   %s @ %s\n", "NormalChar", G->buf+G->pos));
   return 1;
-  l420:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l436:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "NormalChar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Symbol(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Symbol"));  if (!yy_SpecialChar(G)) { goto l425; }
+  yyprintf((stderr, "%s\n", "Symbol"));  if (!yy_SpecialChar(G)) { goto l441; }
   yyprintf((stderr, "  ok   %s @ %s\n", "Symbol", G->buf+G->pos));
   return 1;
-  l425:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l441:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Symbol", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Smart(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Smart"));  yyText(G, G->begin, G->end);  if (!( EXT(EXT_SMART) )) goto l426;
-  {  int yypos427= G->pos, yythunkpos427= G->thunkpos;  if (!yy_Ellipsis(G)) { goto l428; }  goto l427;
-  l428:;	  G->pos= yypos427; G->thunkpos= yythunkpos427;  if (!yy_Dash(G)) { goto l429; }  goto l427;
-  l429:;	  G->pos= yypos427; G->thunkpos= yythunkpos427;  if (!yy_SingleQuoted(G)) { goto l430; }  goto l427;
-  l430:;	  G->pos= yypos427; G->thunkpos= yythunkpos427;  if (!yy_DoubleQuoted(G)) { goto l431; }  goto l427;
-  l431:;	  G->pos= yypos427; G->thunkpos= yythunkpos427;  if (!yy_Apostrophe(G)) { goto l426; }
+  yyprintf((stderr, "%s\n", "Smart"));  yyText(G, G->begin, G->end);  if (!( EXT(EXT_SMART) )) goto l442;
+  {  int yypos443= G->pos, yythunkpos443= G->thunkpos;  if (!yy_Ellipsis(G)) { goto l444; }  goto l443;
+  l444:;	  G->pos= yypos443; G->thunkpos= yythunkpos443;  if (!yy_Dash(G)) { goto l445; }  goto l443;
+  l445:;	  G->pos= yypos443; G->thunkpos= yythunkpos443;  if (!yy_SingleQuoted(G)) { goto l446; }  goto l443;
+  l446:;	  G->pos= yypos443; G->thunkpos= yythunkpos443;  if (!yy_DoubleQuoted(G)) { goto l447; }  goto l443;
+  l447:;	  G->pos= yypos443; G->thunkpos= yythunkpos443;  if (!yy_Apostrophe(G)) { goto l442; }
   }
-  l427:;	
+  l443:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Smart", G->buf+G->pos));
   return 1;
-  l426:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l442:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Smart", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_EscapedChar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "EscapedChar"));  if (!yymatchChar(G, '\\')) goto l432;
-  {  int yypos433= G->pos, yythunkpos433= G->thunkpos;  if (!yy_Newline(G)) { goto l433; }  goto l432;
-  l433:;	  G->pos= yypos433; G->thunkpos= yythunkpos433;
-  }  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\012\157\000\120\000\000\000\270\001\000\000\070\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l432;
+  yyprintf((stderr, "%s\n", "EscapedChar"));  if (!yymatchChar(G, '\\')) goto l448;
+  {  int yypos449= G->pos, yythunkpos449= G->thunkpos;  if (!yy_Newline(G)) { goto l449; }  goto l448;
+  l449:;	  G->pos= yypos449; G->thunkpos= yythunkpos449;
+  }  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\012\157\000\120\000\000\000\270\001\000\000\070\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l448;
   yyprintf((stderr, "  ok   %s @ %s\n", "EscapedChar", G->buf+G->pos));
   return 1;
-  l432:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l448:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "EscapedChar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Entity(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "Entity"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l434;  if (!yy_LocMarker(G)) { goto l434; }  yyDo(G, yySet, -1, 0);
-  {  int yypos435= G->pos, yythunkpos435= G->thunkpos;  if (!yy_HexEntity(G)) { goto l436; }  goto l435;
-  l436:;	  G->pos= yypos435; G->thunkpos= yythunkpos435;  if (!yy_DecEntity(G)) { goto l437; }  goto l435;
-  l437:;	  G->pos= yypos435; G->thunkpos= yythunkpos435;  if (!yy_CharEntity(G)) { goto l434; }
+  yyprintf((stderr, "%s\n", "Entity"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l450;  if (!yy_LocMarker(G)) { goto l450; }  yyDo(G, yySet, -1, 0);
+  {  int yypos451= G->pos, yythunkpos451= G->thunkpos;  if (!yy_HexEntity(G)) { goto l452; }  goto l451;
+  l452:;	  G->pos= yypos451; G->thunkpos= yythunkpos451;  if (!yy_DecEntity(G)) { goto l453; }  goto l451;
+  l453:;	  G->pos= yypos451; G->thunkpos= yythunkpos451;  if (!yy_CharEntity(G)) { goto l450; }
   }
-  l435:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l434;  yyDo(G, yy_1_Entity, G->begin, G->end);
+  l451:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l450;  yyDo(G, yy_1_Entity, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "Entity", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l434:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l450:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Entity", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_RawHtml(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "RawHtml"));
-  {  int yypos439= G->pos, yythunkpos439= G->thunkpos;  if (!yy_HtmlComment(G)) { goto l440; }  goto l439;
-  l440:;	  G->pos= yypos439; G->thunkpos= yythunkpos439;  if (!yy_HtmlTag(G)) { goto l438; }
+  {  int yypos455= G->pos, yythunkpos455= G->thunkpos;  if (!yy_HtmlComment(G)) { goto l456; }  goto l455;
+  l456:;	  G->pos= yypos455; G->thunkpos= yythunkpos455;  if (!yy_HtmlTag(G)) { goto l454; }
   }
-  l439:;	
+  l455:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "RawHtml", G->buf+G->pos));
   return 1;
-  l438:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l454:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "RawHtml", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Code(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "Code"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l441;
-  {  int yypos442= G->pos, yythunkpos442= G->thunkpos;  if (!yy_Ticks1(G)) { goto l443; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l443; }
-  {  int yypos446= G->pos, yythunkpos446= G->thunkpos;
-  {  int yypos450= G->pos, yythunkpos450= G->thunkpos;  if (!yymatchChar(G, '`')) goto l450;  goto l447;
-  l450:;	  G->pos= yypos450; G->thunkpos= yythunkpos450;
-  }  if (!yy_Nonspacechar(G)) { goto l447; }
-  l448:;	
-  {  int yypos449= G->pos, yythunkpos449= G->thunkpos;
-  {  int yypos451= G->pos, yythunkpos451= G->thunkpos;  if (!yymatchChar(G, '`')) goto l451;  goto l449;
-  l451:;	  G->pos= yypos451; G->thunkpos= yythunkpos451;
-  }  if (!yy_Nonspacechar(G)) { goto l449; }  goto l448;
-  l449:;	  G->pos= yypos449; G->thunkpos= yythunkpos449;
-  }  goto l446;
-  l447:;	  G->pos= yypos446; G->thunkpos= yythunkpos446;
-  {  int yypos453= G->pos, yythunkpos453= G->thunkpos;  if (!yy_Ticks1(G)) { goto l453; }  goto l452;
-  l453:;	  G->pos= yypos453; G->thunkpos= yythunkpos453;
-  }  if (!yymatchChar(G, '`')) goto l452;
-  l454:;	
-  {  int yypos455= G->pos, yythunkpos455= G->thunkpos;  if (!yymatchChar(G, '`')) goto l455;  goto l454;
-  l455:;	  G->pos= yypos455; G->thunkpos= yythunkpos455;
-  }  goto l446;
-  l452:;	  G->pos= yypos446; G->thunkpos= yythunkpos446;
-  {  int yypos456= G->pos, yythunkpos456= G->thunkpos;  if (!yy_Sp(G)) { goto l456; }  if (!yy_Ticks1(G)) { goto l456; }  goto l443;
-  l456:;	  G->pos= yypos456; G->thunkpos= yythunkpos456;
-  }
-  {  int yypos457= G->pos, yythunkpos457= G->thunkpos;  if (!yy_Spacechar(G)) { goto l458; }  goto l457;
-  l458:;	  G->pos= yypos457; G->thunkpos= yythunkpos457;  if (!yy_Newline(G)) { goto l443; }
-  {  int yypos459= G->pos, yythunkpos459= G->thunkpos;  if (!yy_BlankLine(G)) { goto l459; }  goto l443;
-  l459:;	  G->pos= yypos459; G->thunkpos= yythunkpos459;
-  }
-  }
-  l457:;	
-  }
-  l446:;	
-  l444:;	
-  {  int yypos445= G->pos, yythunkpos445= G->thunkpos;
-  {  int yypos460= G->pos, yythunkpos460= G->thunkpos;
-  {  int yypos464= G->pos, yythunkpos464= G->thunkpos;  if (!yymatchChar(G, '`')) goto l464;  goto l461;
-  l464:;	  G->pos= yypos464; G->thunkpos= yythunkpos464;
-  }  if (!yy_Nonspacechar(G)) { goto l461; }
-  l462:;	
-  {  int yypos463= G->pos, yythunkpos463= G->thunkpos;
-  {  int yypos465= G->pos, yythunkpos465= G->thunkpos;  if (!yymatchChar(G, '`')) goto l465;  goto l463;
-  l465:;	  G->pos= yypos465; G->thunkpos= yythunkpos465;
-  }  if (!yy_Nonspacechar(G)) { goto l463; }  goto l462;
-  l463:;	  G->pos= yypos463; G->thunkpos= yythunkpos463;
-  }  goto l460;
-  l461:;	  G->pos= yypos460; G->thunkpos= yythunkpos460;
-  {  int yypos467= G->pos, yythunkpos467= G->thunkpos;  if (!yy_Ticks1(G)) { goto l467; }  goto l466;
+  yyprintf((stderr, "%s\n", "Code"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l457;
+  {  int yypos458= G->pos, yythunkpos458= G->thunkpos;  if (!yy_Ticks1(G)) { goto l459; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l459; }
+  {  int yypos462= G->pos, yythunkpos462= G->thunkpos;
+  {  int yypos466= G->pos, yythunkpos466= G->thunkpos;  if (!yymatchChar(G, '`')) goto l466;  goto l463;
+  l466:;	  G->pos= yypos466; G->thunkpos= yythunkpos466;
+  }  if (!yy_Nonspacechar(G)) { goto l463; }
+  l464:;	
+  {  int yypos465= G->pos, yythunkpos465= G->thunkpos;
+  {  int yypos467= G->pos, yythunkpos467= G->thunkpos;  if (!yymatchChar(G, '`')) goto l467;  goto l465;
   l467:;	  G->pos= yypos467; G->thunkpos= yythunkpos467;
-  }  if (!yymatchChar(G, '`')) goto l466;
-  l468:;	
-  {  int yypos469= G->pos, yythunkpos469= G->thunkpos;  if (!yymatchChar(G, '`')) goto l469;  goto l468;
+  }  if (!yy_Nonspacechar(G)) { goto l465; }  goto l464;
+  l465:;	  G->pos= yypos465; G->thunkpos= yythunkpos465;
+  }  goto l462;
+  l463:;	  G->pos= yypos462; G->thunkpos= yythunkpos462;
+  {  int yypos469= G->pos, yythunkpos469= G->thunkpos;  if (!yy_Ticks1(G)) { goto l469; }  goto l468;
   l469:;	  G->pos= yypos469; G->thunkpos= yythunkpos469;
-  }  goto l460;
-  l466:;	  G->pos= yypos460; G->thunkpos= yythunkpos460;
-  {  int yypos470= G->pos, yythunkpos470= G->thunkpos;  if (!yy_Sp(G)) { goto l470; }  if (!yy_Ticks1(G)) { goto l470; }  goto l445;
-  l470:;	  G->pos= yypos470; G->thunkpos= yythunkpos470;
+  }  if (!yymatchChar(G, '`')) goto l468;
+  l470:;	
+  {  int yypos471= G->pos, yythunkpos471= G->thunkpos;  if (!yymatchChar(G, '`')) goto l471;  goto l470;
+  l471:;	  G->pos= yypos471; G->thunkpos= yythunkpos471;
+  }  goto l462;
+  l468:;	  G->pos= yypos462; G->thunkpos= yythunkpos462;
+  {  int yypos472= G->pos, yythunkpos472= G->thunkpos;  if (!yy_Sp(G)) { goto l472; }  if (!yy_Ticks1(G)) { goto l472; }  goto l459;
+  l472:;	  G->pos= yypos472; G->thunkpos= yythunkpos472;
   }
-  {  int yypos471= G->pos, yythunkpos471= G->thunkpos;  if (!yy_Spacechar(G)) { goto l472; }  goto l471;
-  l472:;	  G->pos= yypos471; G->thunkpos= yythunkpos471;  if (!yy_Newline(G)) { goto l445; }
-  {  int yypos473= G->pos, yythunkpos473= G->thunkpos;  if (!yy_BlankLine(G)) { goto l473; }  goto l445;
-  l473:;	  G->pos= yypos473; G->thunkpos= yythunkpos473;
-  }
-  }
-  l471:;	
-  }
-  l460:;	  goto l444;
-  l445:;	  G->pos= yypos445; G->thunkpos= yythunkpos445;
-  }  if (!yy_Sp(G)) { goto l443; }  if (!yy_Ticks1(G)) { goto l443; }  goto l442;
-  l443:;	  G->pos= yypos442; G->thunkpos= yythunkpos442;  if (!yy_Ticks2(G)) { goto l474; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l474; }
-  {  int yypos477= G->pos, yythunkpos477= G->thunkpos;
-  {  int yypos481= G->pos, yythunkpos481= G->thunkpos;  if (!yymatchChar(G, '`')) goto l481;  goto l478;
-  l481:;	  G->pos= yypos481; G->thunkpos= yythunkpos481;
-  }  if (!yy_Nonspacechar(G)) { goto l478; }
-  l479:;	
-  {  int yypos480= G->pos, yythunkpos480= G->thunkpos;
-  {  int yypos482= G->pos, yythunkpos482= G->thunkpos;  if (!yymatchChar(G, '`')) goto l482;  goto l480;
-  l482:;	  G->pos= yypos482; G->thunkpos= yythunkpos482;
-  }  if (!yy_Nonspacechar(G)) { goto l480; }  goto l479;
-  l480:;	  G->pos= yypos480; G->thunkpos= yythunkpos480;
-  }  goto l477;
-  l478:;	  G->pos= yypos477; G->thunkpos= yythunkpos477;
-  {  int yypos484= G->pos, yythunkpos484= G->thunkpos;  if (!yy_Ticks2(G)) { goto l484; }  goto l483;
-  l484:;	  G->pos= yypos484; G->thunkpos= yythunkpos484;
-  }  if (!yymatchChar(G, '`')) goto l483;
-  l485:;	
-  {  int yypos486= G->pos, yythunkpos486= G->thunkpos;  if (!yymatchChar(G, '`')) goto l486;  goto l485;
-  l486:;	  G->pos= yypos486; G->thunkpos= yythunkpos486;
-  }  goto l477;
-  l483:;	  G->pos= yypos477; G->thunkpos= yythunkpos477;
-  {  int yypos487= G->pos, yythunkpos487= G->thunkpos;  if (!yy_Sp(G)) { goto l487; }  if (!yy_Ticks2(G)) { goto l487; }  goto l474;
-  l487:;	  G->pos= yypos487; G->thunkpos= yythunkpos487;
-  }
-  {  int yypos488= G->pos, yythunkpos488= G->thunkpos;  if (!yy_Spacechar(G)) { goto l489; }  goto l488;
-  l489:;	  G->pos= yypos488; G->thunkpos= yythunkpos488;  if (!yy_Newline(G)) { goto l474; }
-  {  int yypos490= G->pos, yythunkpos490= G->thunkpos;  if (!yy_BlankLine(G)) { goto l490; }  goto l474;
-  l490:;	  G->pos= yypos490; G->thunkpos= yythunkpos490;
+  {  int yypos473= G->pos, yythunkpos473= G->thunkpos;  if (!yy_Spacechar(G)) { goto l474; }  goto l473;
+  l474:;	  G->pos= yypos473; G->thunkpos= yythunkpos473;  if (!yy_Newline(G)) { goto l459; }
+  {  int yypos475= G->pos, yythunkpos475= G->thunkpos;  if (!yy_BlankLine(G)) { goto l475; }  goto l459;
+  l475:;	  G->pos= yypos475; G->thunkpos= yythunkpos475;
   }
   }
-  l488:;	
+  l473:;	
   }
-  l477:;	
-  l475:;	
+  l462:;	
+  l460:;	
+  {  int yypos461= G->pos, yythunkpos461= G->thunkpos;
   {  int yypos476= G->pos, yythunkpos476= G->thunkpos;
-  {  int yypos491= G->pos, yythunkpos491= G->thunkpos;
-  {  int yypos495= G->pos, yythunkpos495= G->thunkpos;  if (!yymatchChar(G, '`')) goto l495;  goto l492;
-  l495:;	  G->pos= yypos495; G->thunkpos= yythunkpos495;
-  }  if (!yy_Nonspacechar(G)) { goto l492; }
-  l493:;	
-  {  int yypos494= G->pos, yythunkpos494= G->thunkpos;
-  {  int yypos496= G->pos, yythunkpos496= G->thunkpos;  if (!yymatchChar(G, '`')) goto l496;  goto l494;
-  l496:;	  G->pos= yypos496; G->thunkpos= yythunkpos496;
-  }  if (!yy_Nonspacechar(G)) { goto l494; }  goto l493;
-  l494:;	  G->pos= yypos494; G->thunkpos= yythunkpos494;
-  }  goto l491;
-  l492:;	  G->pos= yypos491; G->thunkpos= yythunkpos491;
-  {  int yypos498= G->pos, yythunkpos498= G->thunkpos;  if (!yy_Ticks2(G)) { goto l498; }  goto l497;
+  {  int yypos480= G->pos, yythunkpos480= G->thunkpos;  if (!yymatchChar(G, '`')) goto l480;  goto l477;
+  l480:;	  G->pos= yypos480; G->thunkpos= yythunkpos480;
+  }  if (!yy_Nonspacechar(G)) { goto l477; }
+  l478:;	
+  {  int yypos479= G->pos, yythunkpos479= G->thunkpos;
+  {  int yypos481= G->pos, yythunkpos481= G->thunkpos;  if (!yymatchChar(G, '`')) goto l481;  goto l479;
+  l481:;	  G->pos= yypos481; G->thunkpos= yythunkpos481;
+  }  if (!yy_Nonspacechar(G)) { goto l479; }  goto l478;
+  l479:;	  G->pos= yypos479; G->thunkpos= yythunkpos479;
+  }  goto l476;
+  l477:;	  G->pos= yypos476; G->thunkpos= yythunkpos476;
+  {  int yypos483= G->pos, yythunkpos483= G->thunkpos;  if (!yy_Ticks1(G)) { goto l483; }  goto l482;
+  l483:;	  G->pos= yypos483; G->thunkpos= yythunkpos483;
+  }  if (!yymatchChar(G, '`')) goto l482;
+  l484:;	
+  {  int yypos485= G->pos, yythunkpos485= G->thunkpos;  if (!yymatchChar(G, '`')) goto l485;  goto l484;
+  l485:;	  G->pos= yypos485; G->thunkpos= yythunkpos485;
+  }  goto l476;
+  l482:;	  G->pos= yypos476; G->thunkpos= yythunkpos476;
+  {  int yypos486= G->pos, yythunkpos486= G->thunkpos;  if (!yy_Sp(G)) { goto l486; }  if (!yy_Ticks1(G)) { goto l486; }  goto l461;
+  l486:;	  G->pos= yypos486; G->thunkpos= yythunkpos486;
+  }
+  {  int yypos487= G->pos, yythunkpos487= G->thunkpos;  if (!yy_Spacechar(G)) { goto l488; }  goto l487;
+  l488:;	  G->pos= yypos487; G->thunkpos= yythunkpos487;  if (!yy_Newline(G)) { goto l461; }
+  {  int yypos489= G->pos, yythunkpos489= G->thunkpos;  if (!yy_BlankLine(G)) { goto l489; }  goto l461;
+  l489:;	  G->pos= yypos489; G->thunkpos= yythunkpos489;
+  }
+  }
+  l487:;	
+  }
+  l476:;	  goto l460;
+  l461:;	  G->pos= yypos461; G->thunkpos= yythunkpos461;
+  }  if (!yy_Sp(G)) { goto l459; }  if (!yy_Ticks1(G)) { goto l459; }  goto l458;
+  l459:;	  G->pos= yypos458; G->thunkpos= yythunkpos458;  if (!yy_Ticks2(G)) { goto l490; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l490; }
+  {  int yypos493= G->pos, yythunkpos493= G->thunkpos;
+  {  int yypos497= G->pos, yythunkpos497= G->thunkpos;  if (!yymatchChar(G, '`')) goto l497;  goto l494;
+  l497:;	  G->pos= yypos497; G->thunkpos= yythunkpos497;
+  }  if (!yy_Nonspacechar(G)) { goto l494; }
+  l495:;	
+  {  int yypos496= G->pos, yythunkpos496= G->thunkpos;
+  {  int yypos498= G->pos, yythunkpos498= G->thunkpos;  if (!yymatchChar(G, '`')) goto l498;  goto l496;
   l498:;	  G->pos= yypos498; G->thunkpos= yythunkpos498;
-  }  if (!yymatchChar(G, '`')) goto l497;
-  l499:;	
-  {  int yypos500= G->pos, yythunkpos500= G->thunkpos;  if (!yymatchChar(G, '`')) goto l500;  goto l499;
+  }  if (!yy_Nonspacechar(G)) { goto l496; }  goto l495;
+  l496:;	  G->pos= yypos496; G->thunkpos= yythunkpos496;
+  }  goto l493;
+  l494:;	  G->pos= yypos493; G->thunkpos= yythunkpos493;
+  {  int yypos500= G->pos, yythunkpos500= G->thunkpos;  if (!yy_Ticks2(G)) { goto l500; }  goto l499;
   l500:;	  G->pos= yypos500; G->thunkpos= yythunkpos500;
-  }  goto l491;
-  l497:;	  G->pos= yypos491; G->thunkpos= yythunkpos491;
-  {  int yypos501= G->pos, yythunkpos501= G->thunkpos;  if (!yy_Sp(G)) { goto l501; }  if (!yy_Ticks2(G)) { goto l501; }  goto l476;
-  l501:;	  G->pos= yypos501; G->thunkpos= yythunkpos501;
+  }  if (!yymatchChar(G, '`')) goto l499;
+  l501:;	
+  {  int yypos502= G->pos, yythunkpos502= G->thunkpos;  if (!yymatchChar(G, '`')) goto l502;  goto l501;
+  l502:;	  G->pos= yypos502; G->thunkpos= yythunkpos502;
+  }  goto l493;
+  l499:;	  G->pos= yypos493; G->thunkpos= yythunkpos493;
+  {  int yypos503= G->pos, yythunkpos503= G->thunkpos;  if (!yy_Sp(G)) { goto l503; }  if (!yy_Ticks2(G)) { goto l503; }  goto l490;
+  l503:;	  G->pos= yypos503; G->thunkpos= yythunkpos503;
   }
-  {  int yypos502= G->pos, yythunkpos502= G->thunkpos;  if (!yy_Spacechar(G)) { goto l503; }  goto l502;
-  l503:;	  G->pos= yypos502; G->thunkpos= yythunkpos502;  if (!yy_Newline(G)) { goto l476; }
-  {  int yypos504= G->pos, yythunkpos504= G->thunkpos;  if (!yy_BlankLine(G)) { goto l504; }  goto l476;
-  l504:;	  G->pos= yypos504; G->thunkpos= yythunkpos504;
-  }
-  }
-  l502:;	
-  }
-  l491:;	  goto l475;
-  l476:;	  G->pos= yypos476; G->thunkpos= yythunkpos476;
-  }  if (!yy_Sp(G)) { goto l474; }  if (!yy_Ticks2(G)) { goto l474; }  goto l442;
-  l474:;	  G->pos= yypos442; G->thunkpos= yythunkpos442;  if (!yy_Ticks3(G)) { goto l505; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l505; }
-  {  int yypos508= G->pos, yythunkpos508= G->thunkpos;
-  {  int yypos512= G->pos, yythunkpos512= G->thunkpos;  if (!yymatchChar(G, '`')) goto l512;  goto l509;
-  l512:;	  G->pos= yypos512; G->thunkpos= yythunkpos512;
-  }  if (!yy_Nonspacechar(G)) { goto l509; }
-  l510:;	
-  {  int yypos511= G->pos, yythunkpos511= G->thunkpos;
-  {  int yypos513= G->pos, yythunkpos513= G->thunkpos;  if (!yymatchChar(G, '`')) goto l513;  goto l511;
-  l513:;	  G->pos= yypos513; G->thunkpos= yythunkpos513;
-  }  if (!yy_Nonspacechar(G)) { goto l511; }  goto l510;
-  l511:;	  G->pos= yypos511; G->thunkpos= yythunkpos511;
-  }  goto l508;
-  l509:;	  G->pos= yypos508; G->thunkpos= yythunkpos508;
-  {  int yypos515= G->pos, yythunkpos515= G->thunkpos;  if (!yy_Ticks3(G)) { goto l515; }  goto l514;
-  l515:;	  G->pos= yypos515; G->thunkpos= yythunkpos515;
-  }  if (!yymatchChar(G, '`')) goto l514;
-  l516:;	
-  {  int yypos517= G->pos, yythunkpos517= G->thunkpos;  if (!yymatchChar(G, '`')) goto l517;  goto l516;
-  l517:;	  G->pos= yypos517; G->thunkpos= yythunkpos517;
-  }  goto l508;
-  l514:;	  G->pos= yypos508; G->thunkpos= yythunkpos508;
-  {  int yypos518= G->pos, yythunkpos518= G->thunkpos;  if (!yy_Sp(G)) { goto l518; }  if (!yy_Ticks3(G)) { goto l518; }  goto l505;
-  l518:;	  G->pos= yypos518; G->thunkpos= yythunkpos518;
-  }
-  {  int yypos519= G->pos, yythunkpos519= G->thunkpos;  if (!yy_Spacechar(G)) { goto l520; }  goto l519;
-  l520:;	  G->pos= yypos519; G->thunkpos= yythunkpos519;  if (!yy_Newline(G)) { goto l505; }
-  {  int yypos521= G->pos, yythunkpos521= G->thunkpos;  if (!yy_BlankLine(G)) { goto l521; }  goto l505;
-  l521:;	  G->pos= yypos521; G->thunkpos= yythunkpos521;
+  {  int yypos504= G->pos, yythunkpos504= G->thunkpos;  if (!yy_Spacechar(G)) { goto l505; }  goto l504;
+  l505:;	  G->pos= yypos504; G->thunkpos= yythunkpos504;  if (!yy_Newline(G)) { goto l490; }
+  {  int yypos506= G->pos, yythunkpos506= G->thunkpos;  if (!yy_BlankLine(G)) { goto l506; }  goto l490;
+  l506:;	  G->pos= yypos506; G->thunkpos= yythunkpos506;
   }
   }
-  l519:;	
+  l504:;	
   }
-  l508:;	
-  l506:;	
+  l493:;	
+  l491:;	
+  {  int yypos492= G->pos, yythunkpos492= G->thunkpos;
   {  int yypos507= G->pos, yythunkpos507= G->thunkpos;
-  {  int yypos522= G->pos, yythunkpos522= G->thunkpos;
-  {  int yypos526= G->pos, yythunkpos526= G->thunkpos;  if (!yymatchChar(G, '`')) goto l526;  goto l523;
-  l526:;	  G->pos= yypos526; G->thunkpos= yythunkpos526;
-  }  if (!yy_Nonspacechar(G)) { goto l523; }
-  l524:;	
-  {  int yypos525= G->pos, yythunkpos525= G->thunkpos;
-  {  int yypos527= G->pos, yythunkpos527= G->thunkpos;  if (!yymatchChar(G, '`')) goto l527;  goto l525;
-  l527:;	  G->pos= yypos527; G->thunkpos= yythunkpos527;
-  }  if (!yy_Nonspacechar(G)) { goto l525; }  goto l524;
-  l525:;	  G->pos= yypos525; G->thunkpos= yythunkpos525;
-  }  goto l522;
-  l523:;	  G->pos= yypos522; G->thunkpos= yythunkpos522;
-  {  int yypos529= G->pos, yythunkpos529= G->thunkpos;  if (!yy_Ticks3(G)) { goto l529; }  goto l528;
+  {  int yypos511= G->pos, yythunkpos511= G->thunkpos;  if (!yymatchChar(G, '`')) goto l511;  goto l508;
+  l511:;	  G->pos= yypos511; G->thunkpos= yythunkpos511;
+  }  if (!yy_Nonspacechar(G)) { goto l508; }
+  l509:;	
+  {  int yypos510= G->pos, yythunkpos510= G->thunkpos;
+  {  int yypos512= G->pos, yythunkpos512= G->thunkpos;  if (!yymatchChar(G, '`')) goto l512;  goto l510;
+  l512:;	  G->pos= yypos512; G->thunkpos= yythunkpos512;
+  }  if (!yy_Nonspacechar(G)) { goto l510; }  goto l509;
+  l510:;	  G->pos= yypos510; G->thunkpos= yythunkpos510;
+  }  goto l507;
+  l508:;	  G->pos= yypos507; G->thunkpos= yythunkpos507;
+  {  int yypos514= G->pos, yythunkpos514= G->thunkpos;  if (!yy_Ticks2(G)) { goto l514; }  goto l513;
+  l514:;	  G->pos= yypos514; G->thunkpos= yythunkpos514;
+  }  if (!yymatchChar(G, '`')) goto l513;
+  l515:;	
+  {  int yypos516= G->pos, yythunkpos516= G->thunkpos;  if (!yymatchChar(G, '`')) goto l516;  goto l515;
+  l516:;	  G->pos= yypos516; G->thunkpos= yythunkpos516;
+  }  goto l507;
+  l513:;	  G->pos= yypos507; G->thunkpos= yythunkpos507;
+  {  int yypos517= G->pos, yythunkpos517= G->thunkpos;  if (!yy_Sp(G)) { goto l517; }  if (!yy_Ticks2(G)) { goto l517; }  goto l492;
+  l517:;	  G->pos= yypos517; G->thunkpos= yythunkpos517;
+  }
+  {  int yypos518= G->pos, yythunkpos518= G->thunkpos;  if (!yy_Spacechar(G)) { goto l519; }  goto l518;
+  l519:;	  G->pos= yypos518; G->thunkpos= yythunkpos518;  if (!yy_Newline(G)) { goto l492; }
+  {  int yypos520= G->pos, yythunkpos520= G->thunkpos;  if (!yy_BlankLine(G)) { goto l520; }  goto l492;
+  l520:;	  G->pos= yypos520; G->thunkpos= yythunkpos520;
+  }
+  }
+  l518:;	
+  }
+  l507:;	  goto l491;
+  l492:;	  G->pos= yypos492; G->thunkpos= yythunkpos492;
+  }  if (!yy_Sp(G)) { goto l490; }  if (!yy_Ticks2(G)) { goto l490; }  goto l458;
+  l490:;	  G->pos= yypos458; G->thunkpos= yythunkpos458;  if (!yy_Ticks3(G)) { goto l521; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l521; }
+  {  int yypos524= G->pos, yythunkpos524= G->thunkpos;
+  {  int yypos528= G->pos, yythunkpos528= G->thunkpos;  if (!yymatchChar(G, '`')) goto l528;  goto l525;
+  l528:;	  G->pos= yypos528; G->thunkpos= yythunkpos528;
+  }  if (!yy_Nonspacechar(G)) { goto l525; }
+  l526:;	
+  {  int yypos527= G->pos, yythunkpos527= G->thunkpos;
+  {  int yypos529= G->pos, yythunkpos529= G->thunkpos;  if (!yymatchChar(G, '`')) goto l529;  goto l527;
   l529:;	  G->pos= yypos529; G->thunkpos= yythunkpos529;
-  }  if (!yymatchChar(G, '`')) goto l528;
-  l530:;	
-  {  int yypos531= G->pos, yythunkpos531= G->thunkpos;  if (!yymatchChar(G, '`')) goto l531;  goto l530;
+  }  if (!yy_Nonspacechar(G)) { goto l527; }  goto l526;
+  l527:;	  G->pos= yypos527; G->thunkpos= yythunkpos527;
+  }  goto l524;
+  l525:;	  G->pos= yypos524; G->thunkpos= yythunkpos524;
+  {  int yypos531= G->pos, yythunkpos531= G->thunkpos;  if (!yy_Ticks3(G)) { goto l531; }  goto l530;
   l531:;	  G->pos= yypos531; G->thunkpos= yythunkpos531;
-  }  goto l522;
-  l528:;	  G->pos= yypos522; G->thunkpos= yythunkpos522;
-  {  int yypos532= G->pos, yythunkpos532= G->thunkpos;  if (!yy_Sp(G)) { goto l532; }  if (!yy_Ticks3(G)) { goto l532; }  goto l507;
-  l532:;	  G->pos= yypos532; G->thunkpos= yythunkpos532;
+  }  if (!yymatchChar(G, '`')) goto l530;
+  l532:;	
+  {  int yypos533= G->pos, yythunkpos533= G->thunkpos;  if (!yymatchChar(G, '`')) goto l533;  goto l532;
+  l533:;	  G->pos= yypos533; G->thunkpos= yythunkpos533;
+  }  goto l524;
+  l530:;	  G->pos= yypos524; G->thunkpos= yythunkpos524;
+  {  int yypos534= G->pos, yythunkpos534= G->thunkpos;  if (!yy_Sp(G)) { goto l534; }  if (!yy_Ticks3(G)) { goto l534; }  goto l521;
+  l534:;	  G->pos= yypos534; G->thunkpos= yythunkpos534;
   }
-  {  int yypos533= G->pos, yythunkpos533= G->thunkpos;  if (!yy_Spacechar(G)) { goto l534; }  goto l533;
-  l534:;	  G->pos= yypos533; G->thunkpos= yythunkpos533;  if (!yy_Newline(G)) { goto l507; }
-  {  int yypos535= G->pos, yythunkpos535= G->thunkpos;  if (!yy_BlankLine(G)) { goto l535; }  goto l507;
-  l535:;	  G->pos= yypos535; G->thunkpos= yythunkpos535;
-  }
-  }
-  l533:;	
-  }
-  l522:;	  goto l506;
-  l507:;	  G->pos= yypos507; G->thunkpos= yythunkpos507;
-  }  if (!yy_Sp(G)) { goto l505; }  if (!yy_Ticks3(G)) { goto l505; }  goto l442;
-  l505:;	  G->pos= yypos442; G->thunkpos= yythunkpos442;  if (!yy_Ticks4(G)) { goto l536; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l536; }
-  {  int yypos539= G->pos, yythunkpos539= G->thunkpos;
-  {  int yypos543= G->pos, yythunkpos543= G->thunkpos;  if (!yymatchChar(G, '`')) goto l543;  goto l540;
-  l543:;	  G->pos= yypos543; G->thunkpos= yythunkpos543;
-  }  if (!yy_Nonspacechar(G)) { goto l540; }
-  l541:;	
-  {  int yypos542= G->pos, yythunkpos542= G->thunkpos;
-  {  int yypos544= G->pos, yythunkpos544= G->thunkpos;  if (!yymatchChar(G, '`')) goto l544;  goto l542;
-  l544:;	  G->pos= yypos544; G->thunkpos= yythunkpos544;
-  }  if (!yy_Nonspacechar(G)) { goto l542; }  goto l541;
-  l542:;	  G->pos= yypos542; G->thunkpos= yythunkpos542;
-  }  goto l539;
-  l540:;	  G->pos= yypos539; G->thunkpos= yythunkpos539;
-  {  int yypos546= G->pos, yythunkpos546= G->thunkpos;  if (!yy_Ticks4(G)) { goto l546; }  goto l545;
-  l546:;	  G->pos= yypos546; G->thunkpos= yythunkpos546;
-  }  if (!yymatchChar(G, '`')) goto l545;
-  l547:;	
-  {  int yypos548= G->pos, yythunkpos548= G->thunkpos;  if (!yymatchChar(G, '`')) goto l548;  goto l547;
-  l548:;	  G->pos= yypos548; G->thunkpos= yythunkpos548;
-  }  goto l539;
-  l545:;	  G->pos= yypos539; G->thunkpos= yythunkpos539;
-  {  int yypos549= G->pos, yythunkpos549= G->thunkpos;  if (!yy_Sp(G)) { goto l549; }  if (!yy_Ticks4(G)) { goto l549; }  goto l536;
-  l549:;	  G->pos= yypos549; G->thunkpos= yythunkpos549;
-  }
-  {  int yypos550= G->pos, yythunkpos550= G->thunkpos;  if (!yy_Spacechar(G)) { goto l551; }  goto l550;
-  l551:;	  G->pos= yypos550; G->thunkpos= yythunkpos550;  if (!yy_Newline(G)) { goto l536; }
-  {  int yypos552= G->pos, yythunkpos552= G->thunkpos;  if (!yy_BlankLine(G)) { goto l552; }  goto l536;
-  l552:;	  G->pos= yypos552; G->thunkpos= yythunkpos552;
+  {  int yypos535= G->pos, yythunkpos535= G->thunkpos;  if (!yy_Spacechar(G)) { goto l536; }  goto l535;
+  l536:;	  G->pos= yypos535; G->thunkpos= yythunkpos535;  if (!yy_Newline(G)) { goto l521; }
+  {  int yypos537= G->pos, yythunkpos537= G->thunkpos;  if (!yy_BlankLine(G)) { goto l537; }  goto l521;
+  l537:;	  G->pos= yypos537; G->thunkpos= yythunkpos537;
   }
   }
-  l550:;	
+  l535:;	
   }
-  l539:;	
-  l537:;	
+  l524:;	
+  l522:;	
+  {  int yypos523= G->pos, yythunkpos523= G->thunkpos;
   {  int yypos538= G->pos, yythunkpos538= G->thunkpos;
-  {  int yypos553= G->pos, yythunkpos553= G->thunkpos;
-  {  int yypos557= G->pos, yythunkpos557= G->thunkpos;  if (!yymatchChar(G, '`')) goto l557;  goto l554;
-  l557:;	  G->pos= yypos557; G->thunkpos= yythunkpos557;
-  }  if (!yy_Nonspacechar(G)) { goto l554; }
-  l555:;	
-  {  int yypos556= G->pos, yythunkpos556= G->thunkpos;
-  {  int yypos558= G->pos, yythunkpos558= G->thunkpos;  if (!yymatchChar(G, '`')) goto l558;  goto l556;
-  l558:;	  G->pos= yypos558; G->thunkpos= yythunkpos558;
-  }  if (!yy_Nonspacechar(G)) { goto l556; }  goto l555;
-  l556:;	  G->pos= yypos556; G->thunkpos= yythunkpos556;
-  }  goto l553;
-  l554:;	  G->pos= yypos553; G->thunkpos= yythunkpos553;
-  {  int yypos560= G->pos, yythunkpos560= G->thunkpos;  if (!yy_Ticks4(G)) { goto l560; }  goto l559;
+  {  int yypos542= G->pos, yythunkpos542= G->thunkpos;  if (!yymatchChar(G, '`')) goto l542;  goto l539;
+  l542:;	  G->pos= yypos542; G->thunkpos= yythunkpos542;
+  }  if (!yy_Nonspacechar(G)) { goto l539; }
+  l540:;	
+  {  int yypos541= G->pos, yythunkpos541= G->thunkpos;
+  {  int yypos543= G->pos, yythunkpos543= G->thunkpos;  if (!yymatchChar(G, '`')) goto l543;  goto l541;
+  l543:;	  G->pos= yypos543; G->thunkpos= yythunkpos543;
+  }  if (!yy_Nonspacechar(G)) { goto l541; }  goto l540;
+  l541:;	  G->pos= yypos541; G->thunkpos= yythunkpos541;
+  }  goto l538;
+  l539:;	  G->pos= yypos538; G->thunkpos= yythunkpos538;
+  {  int yypos545= G->pos, yythunkpos545= G->thunkpos;  if (!yy_Ticks3(G)) { goto l545; }  goto l544;
+  l545:;	  G->pos= yypos545; G->thunkpos= yythunkpos545;
+  }  if (!yymatchChar(G, '`')) goto l544;
+  l546:;	
+  {  int yypos547= G->pos, yythunkpos547= G->thunkpos;  if (!yymatchChar(G, '`')) goto l547;  goto l546;
+  l547:;	  G->pos= yypos547; G->thunkpos= yythunkpos547;
+  }  goto l538;
+  l544:;	  G->pos= yypos538; G->thunkpos= yythunkpos538;
+  {  int yypos548= G->pos, yythunkpos548= G->thunkpos;  if (!yy_Sp(G)) { goto l548; }  if (!yy_Ticks3(G)) { goto l548; }  goto l523;
+  l548:;	  G->pos= yypos548; G->thunkpos= yythunkpos548;
+  }
+  {  int yypos549= G->pos, yythunkpos549= G->thunkpos;  if (!yy_Spacechar(G)) { goto l550; }  goto l549;
+  l550:;	  G->pos= yypos549; G->thunkpos= yythunkpos549;  if (!yy_Newline(G)) { goto l523; }
+  {  int yypos551= G->pos, yythunkpos551= G->thunkpos;  if (!yy_BlankLine(G)) { goto l551; }  goto l523;
+  l551:;	  G->pos= yypos551; G->thunkpos= yythunkpos551;
+  }
+  }
+  l549:;	
+  }
+  l538:;	  goto l522;
+  l523:;	  G->pos= yypos523; G->thunkpos= yythunkpos523;
+  }  if (!yy_Sp(G)) { goto l521; }  if (!yy_Ticks3(G)) { goto l521; }  goto l458;
+  l521:;	  G->pos= yypos458; G->thunkpos= yythunkpos458;  if (!yy_Ticks4(G)) { goto l552; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l552; }
+  {  int yypos555= G->pos, yythunkpos555= G->thunkpos;
+  {  int yypos559= G->pos, yythunkpos559= G->thunkpos;  if (!yymatchChar(G, '`')) goto l559;  goto l556;
+  l559:;	  G->pos= yypos559; G->thunkpos= yythunkpos559;
+  }  if (!yy_Nonspacechar(G)) { goto l556; }
+  l557:;	
+  {  int yypos558= G->pos, yythunkpos558= G->thunkpos;
+  {  int yypos560= G->pos, yythunkpos560= G->thunkpos;  if (!yymatchChar(G, '`')) goto l560;  goto l558;
   l560:;	  G->pos= yypos560; G->thunkpos= yythunkpos560;
-  }  if (!yymatchChar(G, '`')) goto l559;
-  l561:;	
-  {  int yypos562= G->pos, yythunkpos562= G->thunkpos;  if (!yymatchChar(G, '`')) goto l562;  goto l561;
+  }  if (!yy_Nonspacechar(G)) { goto l558; }  goto l557;
+  l558:;	  G->pos= yypos558; G->thunkpos= yythunkpos558;
+  }  goto l555;
+  l556:;	  G->pos= yypos555; G->thunkpos= yythunkpos555;
+  {  int yypos562= G->pos, yythunkpos562= G->thunkpos;  if (!yy_Ticks4(G)) { goto l562; }  goto l561;
   l562:;	  G->pos= yypos562; G->thunkpos= yythunkpos562;
-  }  goto l553;
-  l559:;	  G->pos= yypos553; G->thunkpos= yythunkpos553;
-  {  int yypos563= G->pos, yythunkpos563= G->thunkpos;  if (!yy_Sp(G)) { goto l563; }  if (!yy_Ticks4(G)) { goto l563; }  goto l538;
-  l563:;	  G->pos= yypos563; G->thunkpos= yythunkpos563;
+  }  if (!yymatchChar(G, '`')) goto l561;
+  l563:;	
+  {  int yypos564= G->pos, yythunkpos564= G->thunkpos;  if (!yymatchChar(G, '`')) goto l564;  goto l563;
+  l564:;	  G->pos= yypos564; G->thunkpos= yythunkpos564;
+  }  goto l555;
+  l561:;	  G->pos= yypos555; G->thunkpos= yythunkpos555;
+  {  int yypos565= G->pos, yythunkpos565= G->thunkpos;  if (!yy_Sp(G)) { goto l565; }  if (!yy_Ticks4(G)) { goto l565; }  goto l552;
+  l565:;	  G->pos= yypos565; G->thunkpos= yythunkpos565;
   }
-  {  int yypos564= G->pos, yythunkpos564= G->thunkpos;  if (!yy_Spacechar(G)) { goto l565; }  goto l564;
-  l565:;	  G->pos= yypos564; G->thunkpos= yythunkpos564;  if (!yy_Newline(G)) { goto l538; }
-  {  int yypos566= G->pos, yythunkpos566= G->thunkpos;  if (!yy_BlankLine(G)) { goto l566; }  goto l538;
-  l566:;	  G->pos= yypos566; G->thunkpos= yythunkpos566;
+  {  int yypos566= G->pos, yythunkpos566= G->thunkpos;  if (!yy_Spacechar(G)) { goto l567; }  goto l566;
+  l567:;	  G->pos= yypos566; G->thunkpos= yythunkpos566;  if (!yy_Newline(G)) { goto l552; }
+  {  int yypos568= G->pos, yythunkpos568= G->thunkpos;  if (!yy_BlankLine(G)) { goto l568; }  goto l552;
+  l568:;	  G->pos= yypos568; G->thunkpos= yythunkpos568;
   }
   }
-  l564:;	
+  l566:;	
   }
-  l553:;	  goto l537;
-  l538:;	  G->pos= yypos538; G->thunkpos= yythunkpos538;
-  }  if (!yy_Sp(G)) { goto l536; }  if (!yy_Ticks4(G)) { goto l536; }  goto l442;
-  l536:;	  G->pos= yypos442; G->thunkpos= yythunkpos442;  if (!yy_Ticks5(G)) { goto l441; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l441; }
+  l555:;	
+  l553:;	
+  {  int yypos554= G->pos, yythunkpos554= G->thunkpos;
   {  int yypos569= G->pos, yythunkpos569= G->thunkpos;
   {  int yypos573= G->pos, yythunkpos573= G->thunkpos;  if (!yymatchChar(G, '`')) goto l573;  goto l570;
   l573:;	  G->pos= yypos573; G->thunkpos= yythunkpos573;
@@ -3231,7 +3327,7 @@ YY_RULE(int) yy_Code(GREG *G)
   l572:;	  G->pos= yypos572; G->thunkpos= yythunkpos572;
   }  goto l569;
   l570:;	  G->pos= yypos569; G->thunkpos= yythunkpos569;
-  {  int yypos576= G->pos, yythunkpos576= G->thunkpos;  if (!yy_Ticks5(G)) { goto l576; }  goto l575;
+  {  int yypos576= G->pos, yythunkpos576= G->thunkpos;  if (!yy_Ticks4(G)) { goto l576; }  goto l575;
   l576:;	  G->pos= yypos576; G->thunkpos= yythunkpos576;
   }  if (!yymatchChar(G, '`')) goto l575;
   l577:;	
@@ -3239,2631 +3335,2666 @@ YY_RULE(int) yy_Code(GREG *G)
   l578:;	  G->pos= yypos578; G->thunkpos= yythunkpos578;
   }  goto l569;
   l575:;	  G->pos= yypos569; G->thunkpos= yythunkpos569;
-  {  int yypos579= G->pos, yythunkpos579= G->thunkpos;  if (!yy_Sp(G)) { goto l579; }  if (!yy_Ticks5(G)) { goto l579; }  goto l441;
+  {  int yypos579= G->pos, yythunkpos579= G->thunkpos;  if (!yy_Sp(G)) { goto l579; }  if (!yy_Ticks4(G)) { goto l579; }  goto l554;
   l579:;	  G->pos= yypos579; G->thunkpos= yythunkpos579;
   }
   {  int yypos580= G->pos, yythunkpos580= G->thunkpos;  if (!yy_Spacechar(G)) { goto l581; }  goto l580;
-  l581:;	  G->pos= yypos580; G->thunkpos= yythunkpos580;  if (!yy_Newline(G)) { goto l441; }
-  {  int yypos582= G->pos, yythunkpos582= G->thunkpos;  if (!yy_BlankLine(G)) { goto l582; }  goto l441;
+  l581:;	  G->pos= yypos580; G->thunkpos= yythunkpos580;  if (!yy_Newline(G)) { goto l554; }
+  {  int yypos582= G->pos, yythunkpos582= G->thunkpos;  if (!yy_BlankLine(G)) { goto l582; }  goto l554;
   l582:;	  G->pos= yypos582; G->thunkpos= yythunkpos582;
   }
   }
   l580:;	
   }
-  l569:;	
-  l567:;	
-  {  int yypos568= G->pos, yythunkpos568= G->thunkpos;
-  {  int yypos583= G->pos, yythunkpos583= G->thunkpos;
-  {  int yypos587= G->pos, yythunkpos587= G->thunkpos;  if (!yymatchChar(G, '`')) goto l587;  goto l584;
-  l587:;	  G->pos= yypos587; G->thunkpos= yythunkpos587;
-  }  if (!yy_Nonspacechar(G)) { goto l584; }
-  l585:;	
-  {  int yypos586= G->pos, yythunkpos586= G->thunkpos;
-  {  int yypos588= G->pos, yythunkpos588= G->thunkpos;  if (!yymatchChar(G, '`')) goto l588;  goto l586;
-  l588:;	  G->pos= yypos588; G->thunkpos= yythunkpos588;
-  }  if (!yy_Nonspacechar(G)) { goto l586; }  goto l585;
-  l586:;	  G->pos= yypos586; G->thunkpos= yythunkpos586;
-  }  goto l583;
-  l584:;	  G->pos= yypos583; G->thunkpos= yythunkpos583;
-  {  int yypos590= G->pos, yythunkpos590= G->thunkpos;  if (!yy_Ticks5(G)) { goto l590; }  goto l589;
+  l569:;	  goto l553;
+  l554:;	  G->pos= yypos554; G->thunkpos= yythunkpos554;
+  }  if (!yy_Sp(G)) { goto l552; }  if (!yy_Ticks4(G)) { goto l552; }  goto l458;
+  l552:;	  G->pos= yypos458; G->thunkpos= yythunkpos458;  if (!yy_Ticks5(G)) { goto l457; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l457; }
+  {  int yypos585= G->pos, yythunkpos585= G->thunkpos;
+  {  int yypos589= G->pos, yythunkpos589= G->thunkpos;  if (!yymatchChar(G, '`')) goto l589;  goto l586;
+  l589:;	  G->pos= yypos589; G->thunkpos= yythunkpos589;
+  }  if (!yy_Nonspacechar(G)) { goto l586; }
+  l587:;	
+  {  int yypos588= G->pos, yythunkpos588= G->thunkpos;
+  {  int yypos590= G->pos, yythunkpos590= G->thunkpos;  if (!yymatchChar(G, '`')) goto l590;  goto l588;
   l590:;	  G->pos= yypos590; G->thunkpos= yythunkpos590;
-  }  if (!yymatchChar(G, '`')) goto l589;
-  l591:;	
-  {  int yypos592= G->pos, yythunkpos592= G->thunkpos;  if (!yymatchChar(G, '`')) goto l592;  goto l591;
+  }  if (!yy_Nonspacechar(G)) { goto l588; }  goto l587;
+  l588:;	  G->pos= yypos588; G->thunkpos= yythunkpos588;
+  }  goto l585;
+  l586:;	  G->pos= yypos585; G->thunkpos= yythunkpos585;
+  {  int yypos592= G->pos, yythunkpos592= G->thunkpos;  if (!yy_Ticks5(G)) { goto l592; }  goto l591;
   l592:;	  G->pos= yypos592; G->thunkpos= yythunkpos592;
-  }  goto l583;
-  l589:;	  G->pos= yypos583; G->thunkpos= yythunkpos583;
-  {  int yypos593= G->pos, yythunkpos593= G->thunkpos;  if (!yy_Sp(G)) { goto l593; }  if (!yy_Ticks5(G)) { goto l593; }  goto l568;
-  l593:;	  G->pos= yypos593; G->thunkpos= yythunkpos593;
+  }  if (!yymatchChar(G, '`')) goto l591;
+  l593:;	
+  {  int yypos594= G->pos, yythunkpos594= G->thunkpos;  if (!yymatchChar(G, '`')) goto l594;  goto l593;
+  l594:;	  G->pos= yypos594; G->thunkpos= yythunkpos594;
+  }  goto l585;
+  l591:;	  G->pos= yypos585; G->thunkpos= yythunkpos585;
+  {  int yypos595= G->pos, yythunkpos595= G->thunkpos;  if (!yy_Sp(G)) { goto l595; }  if (!yy_Ticks5(G)) { goto l595; }  goto l457;
+  l595:;	  G->pos= yypos595; G->thunkpos= yythunkpos595;
   }
-  {  int yypos594= G->pos, yythunkpos594= G->thunkpos;  if (!yy_Spacechar(G)) { goto l595; }  goto l594;
-  l595:;	  G->pos= yypos594; G->thunkpos= yythunkpos594;  if (!yy_Newline(G)) { goto l568; }
-  {  int yypos596= G->pos, yythunkpos596= G->thunkpos;  if (!yy_BlankLine(G)) { goto l596; }  goto l568;
-  l596:;	  G->pos= yypos596; G->thunkpos= yythunkpos596;
+  {  int yypos596= G->pos, yythunkpos596= G->thunkpos;  if (!yy_Spacechar(G)) { goto l597; }  goto l596;
+  l597:;	  G->pos= yypos596; G->thunkpos= yythunkpos596;  if (!yy_Newline(G)) { goto l457; }
+  {  int yypos598= G->pos, yythunkpos598= G->thunkpos;  if (!yy_BlankLine(G)) { goto l598; }  goto l457;
+  l598:;	  G->pos= yypos598; G->thunkpos= yythunkpos598;
   }
   }
-  l594:;	
+  l596:;	
   }
-  l583:;	  goto l567;
-  l568:;	  G->pos= yypos568; G->thunkpos= yythunkpos568;
-  }  if (!yy_Sp(G)) { goto l441; }  if (!yy_Ticks5(G)) { goto l441; }
+  l585:;	
+  l583:;	
+  {  int yypos584= G->pos, yythunkpos584= G->thunkpos;
+  {  int yypos599= G->pos, yythunkpos599= G->thunkpos;
+  {  int yypos603= G->pos, yythunkpos603= G->thunkpos;  if (!yymatchChar(G, '`')) goto l603;  goto l600;
+  l603:;	  G->pos= yypos603; G->thunkpos= yythunkpos603;
+  }  if (!yy_Nonspacechar(G)) { goto l600; }
+  l601:;	
+  {  int yypos602= G->pos, yythunkpos602= G->thunkpos;
+  {  int yypos604= G->pos, yythunkpos604= G->thunkpos;  if (!yymatchChar(G, '`')) goto l604;  goto l602;
+  l604:;	  G->pos= yypos604; G->thunkpos= yythunkpos604;
+  }  if (!yy_Nonspacechar(G)) { goto l602; }  goto l601;
+  l602:;	  G->pos= yypos602; G->thunkpos= yythunkpos602;
+  }  goto l599;
+  l600:;	  G->pos= yypos599; G->thunkpos= yythunkpos599;
+  {  int yypos606= G->pos, yythunkpos606= G->thunkpos;  if (!yy_Ticks5(G)) { goto l606; }  goto l605;
+  l606:;	  G->pos= yypos606; G->thunkpos= yythunkpos606;
+  }  if (!yymatchChar(G, '`')) goto l605;
+  l607:;	
+  {  int yypos608= G->pos, yythunkpos608= G->thunkpos;  if (!yymatchChar(G, '`')) goto l608;  goto l607;
+  l608:;	  G->pos= yypos608; G->thunkpos= yythunkpos608;
+  }  goto l599;
+  l605:;	  G->pos= yypos599; G->thunkpos= yythunkpos599;
+  {  int yypos609= G->pos, yythunkpos609= G->thunkpos;  if (!yy_Sp(G)) { goto l609; }  if (!yy_Ticks5(G)) { goto l609; }  goto l584;
+  l609:;	  G->pos= yypos609; G->thunkpos= yythunkpos609;
   }
-  l442:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l441;  yyDo(G, yy_1_Code, G->begin, G->end);
+  {  int yypos610= G->pos, yythunkpos610= G->thunkpos;  if (!yy_Spacechar(G)) { goto l611; }  goto l610;
+  l611:;	  G->pos= yypos610; G->thunkpos= yythunkpos610;  if (!yy_Newline(G)) { goto l584; }
+  {  int yypos612= G->pos, yythunkpos612= G->thunkpos;  if (!yy_BlankLine(G)) { goto l612; }  goto l584;
+  l612:;	  G->pos= yypos612; G->thunkpos= yythunkpos612;
+  }
+  }
+  l610:;	
+  }
+  l599:;	  goto l583;
+  l584:;	  G->pos= yypos584; G->thunkpos= yythunkpos584;
+  }  if (!yy_Sp(G)) { goto l457; }  if (!yy_Ticks5(G)) { goto l457; }
+  }
+  l458:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l457;  yyDo(G, yy_1_Code, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "Code", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l441:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l457:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Code", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_InlineNote(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "InlineNote"));  yyText(G, G->begin, G->end);  if (!( EXT(EXT_NOTES) )) goto l597;  if (!yymatchString(G, "^[")) goto l597;
-  {  int yypos600= G->pos, yythunkpos600= G->thunkpos;  if (!yymatchChar(G, ']')) goto l600;  goto l597;
-  l600:;	  G->pos= yypos600; G->thunkpos= yythunkpos600;
-  }  if (!yy_Inline(G)) { goto l597; }
-  l598:;	
-  {  int yypos599= G->pos, yythunkpos599= G->thunkpos;
-  {  int yypos601= G->pos, yythunkpos601= G->thunkpos;  if (!yymatchChar(G, ']')) goto l601;  goto l599;
-  l601:;	  G->pos= yypos601; G->thunkpos= yythunkpos601;
-  }  if (!yy_Inline(G)) { goto l599; }  goto l598;
-  l599:;	  G->pos= yypos599; G->thunkpos= yythunkpos599;
-  }  if (!yymatchChar(G, ']')) goto l597;
+  yyprintf((stderr, "%s\n", "InlineNote"));  yyText(G, G->begin, G->end);  if (!( EXT(EXT_NOTES) )) goto l613;  if (!yymatchString(G, "^[")) goto l613;
+  {  int yypos616= G->pos, yythunkpos616= G->thunkpos;  if (!yymatchChar(G, ']')) goto l616;  goto l613;
+  l616:;	  G->pos= yypos616; G->thunkpos= yythunkpos616;
+  }  if (!yy_Inline(G)) { goto l613; }
+  l614:;	
+  {  int yypos615= G->pos, yythunkpos615= G->thunkpos;
+  {  int yypos617= G->pos, yythunkpos617= G->thunkpos;  if (!yymatchChar(G, ']')) goto l617;  goto l615;
+  l617:;	  G->pos= yypos617; G->thunkpos= yythunkpos617;
+  }  if (!yy_Inline(G)) { goto l615; }  goto l614;
+  l615:;	  G->pos= yypos615; G->thunkpos= yythunkpos615;
+  }  if (!yymatchChar(G, ']')) goto l613;
   yyprintf((stderr, "  ok   %s @ %s\n", "InlineNote", G->buf+G->pos));
   return 1;
-  l597:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l613:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "InlineNote", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_NoteReference(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "NoteReference"));  yyText(G, G->begin, G->end);  if (!( EXT(EXT_NOTES) )) goto l602;  if (!yy_RawNoteReference(G)) { goto l602; }
+  yyprintf((stderr, "%s\n", "NoteReference"));  yyText(G, G->begin, G->end);  if (!( EXT(EXT_NOTES) )) goto l618;  if (!yy_RawNoteReference(G)) { goto l618; }
   yyprintf((stderr, "  ok   %s @ %s\n", "NoteReference", G->buf+G->pos));
   return 1;
-  l602:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l618:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "NoteReference", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Link(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Link"));
-  {  int yypos604= G->pos, yythunkpos604= G->thunkpos;  if (!yy_ExplicitLink(G)) { goto l605; }  goto l604;
-  l605:;	  G->pos= yypos604; G->thunkpos= yythunkpos604;  if (!yy_ReferenceLink(G)) { goto l606; }  goto l604;
-  l606:;	  G->pos= yypos604; G->thunkpos= yythunkpos604;  if (!yy_AutoLink(G)) { goto l603; }
+  {  int yypos620= G->pos, yythunkpos620= G->thunkpos;  if (!yy_ExplicitLink(G)) { goto l621; }  goto l620;
+  l621:;	  G->pos= yypos620; G->thunkpos= yythunkpos620;  if (!yy_ReferenceLink(G)) { goto l622; }  goto l620;
+  l622:;	  G->pos= yypos620; G->thunkpos= yythunkpos620;  if (!yy_AutoLink(G)) { goto l619; }
   }
-  l604:;	  yyDo(G, yy_1_Link, G->begin, G->end);
+  l620:;	  yyDo(G, yy_1_Link, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "Link", G->buf+G->pos));
   return 1;
-  l603:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l619:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Link", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Image(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Image"));  if (!yymatchChar(G, '!')) goto l607;
-  {  int yypos608= G->pos, yythunkpos608= G->thunkpos;  if (!yy_ExplicitLink(G)) { goto l609; }  goto l608;
-  l609:;	  G->pos= yypos608; G->thunkpos= yythunkpos608;  if (!yy_ReferenceLink(G)) { goto l607; }
+  yyprintf((stderr, "%s\n", "Image"));  if (!yymatchChar(G, '!')) goto l623;
+  {  int yypos624= G->pos, yythunkpos624= G->thunkpos;  if (!yy_ExplicitLink(G)) { goto l625; }  goto l624;
+  l625:;	  G->pos= yypos624; G->thunkpos= yythunkpos624;  if (!yy_ReferenceLink(G)) { goto l623; }
   }
-  l608:;	  yyDo(G, yy_1_Image, G->begin, G->end);
+  l624:;	  yyDo(G, yy_1_Image, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "Image", G->buf+G->pos));
   return 1;
-  l607:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l623:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Image", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Emph(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Emph"));
-  {  int yypos611= G->pos, yythunkpos611= G->thunkpos;  if (!yy_EmphStar(G)) { goto l612; }  goto l611;
-  l612:;	  G->pos= yypos611; G->thunkpos= yythunkpos611;  if (!yy_EmphUl(G)) { goto l610; }
+  {  int yypos627= G->pos, yythunkpos627= G->thunkpos;  if (!yy_EmphStar(G)) { goto l628; }  goto l627;
+  l628:;	  G->pos= yypos627; G->thunkpos= yythunkpos627;  if (!yy_EmphUl(G)) { goto l626; }
   }
-  l611:;	
+  l627:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Emph", G->buf+G->pos));
   return 1;
-  l610:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l626:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Emph", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Strong(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Strong"));
-  {  int yypos614= G->pos, yythunkpos614= G->thunkpos;  if (!yy_StrongStar(G)) { goto l615; }  goto l614;
-  l615:;	  G->pos= yypos614; G->thunkpos= yythunkpos614;  if (!yy_StrongUl(G)) { goto l613; }
+  {  int yypos630= G->pos, yythunkpos630= G->thunkpos;  if (!yy_StrongStar(G)) { goto l631; }  goto l630;
+  l631:;	  G->pos= yypos630; G->thunkpos= yythunkpos630;  if (!yy_StrongUl(G)) { goto l629; }
   }
-  l614:;	
+  l630:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Strong", G->buf+G->pos));
   return 1;
-  l613:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l629:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Strong", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Space(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Space"));  if (!yy_Spacechar(G)) { goto l616; }
-  l617:;	
-  {  int yypos618= G->pos, yythunkpos618= G->thunkpos;  if (!yy_Spacechar(G)) { goto l618; }  goto l617;
-  l618:;	  G->pos= yypos618; G->thunkpos= yythunkpos618;
+  yyprintf((stderr, "%s\n", "Space"));  if (!yy_Spacechar(G)) { goto l632; }
+  l633:;	
+  {  int yypos634= G->pos, yythunkpos634= G->thunkpos;  if (!yy_Spacechar(G)) { goto l634; }  goto l633;
+  l634:;	  G->pos= yypos634; G->thunkpos= yythunkpos634;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Space", G->buf+G->pos));
   return 1;
-  l616:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l632:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Space", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_UlOrStarLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "UlOrStarLine"));
-  {  int yypos620= G->pos, yythunkpos620= G->thunkpos;  if (!yy_UlLine(G)) { goto l621; }  goto l620;
-  l621:;	  G->pos= yypos620; G->thunkpos= yythunkpos620;  if (!yy_StarLine(G)) { goto l619; }
+  {  int yypos636= G->pos, yythunkpos636= G->thunkpos;  if (!yy_UlLine(G)) { goto l637; }  goto l636;
+  l637:;	  G->pos= yypos636; G->thunkpos= yythunkpos636;  if (!yy_StarLine(G)) { goto l635; }
   }
-  l620:;	
+  l636:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "UlOrStarLine", G->buf+G->pos));
   return 1;
-  l619:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l635:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "UlOrStarLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Str(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Str"));  if (!yy_NormalChar(G)) { goto l622; }
-  l623:;	
-  {  int yypos624= G->pos, yythunkpos624= G->thunkpos;
-  {  int yypos625= G->pos, yythunkpos625= G->thunkpos;  if (!yy_NormalChar(G)) { goto l626; }  goto l625;
-  l626:;	  G->pos= yypos625; G->thunkpos= yythunkpos625;  if (!yymatchChar(G, '_')) goto l624;
-  l627:;	
-  {  int yypos628= G->pos, yythunkpos628= G->thunkpos;  if (!yymatchChar(G, '_')) goto l628;  goto l627;
-  l628:;	  G->pos= yypos628; G->thunkpos= yythunkpos628;
+  yyprintf((stderr, "%s\n", "Str"));  if (!yy_NormalChar(G)) { goto l638; }
+  l639:;	
+  {  int yypos640= G->pos, yythunkpos640= G->thunkpos;
+  {  int yypos641= G->pos, yythunkpos641= G->thunkpos;  if (!yy_NormalChar(G)) { goto l642; }  goto l641;
+  l642:;	  G->pos= yypos641; G->thunkpos= yythunkpos641;  if (!yymatchChar(G, '_')) goto l640;
+  l643:;	
+  {  int yypos644= G->pos, yythunkpos644= G->thunkpos;  if (!yymatchChar(G, '_')) goto l644;  goto l643;
+  l644:;	  G->pos= yypos644; G->thunkpos= yythunkpos644;
   }
-  {  int yypos629= G->pos, yythunkpos629= G->thunkpos;  if (!yy_Alphanumeric(G)) { goto l624; }  G->pos= yypos629; G->thunkpos= yythunkpos629;
+  {  int yypos645= G->pos, yythunkpos645= G->thunkpos;  if (!yy_Alphanumeric(G)) { goto l640; }  G->pos= yypos645; G->thunkpos= yythunkpos645;
   }
   }
-  l625:;	  goto l623;
-  l624:;	  G->pos= yypos624; G->thunkpos= yythunkpos624;
+  l641:;	  goto l639;
+  l640:;	  G->pos= yypos640; G->thunkpos= yythunkpos640;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Str", G->buf+G->pos));
   return 1;
-  l622:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l638:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Str", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_InStyleTags(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "InStyleTags"));  if (!yy_StyleOpen(G)) { goto l630; }
-  l631:;	
-  {  int yypos632= G->pos, yythunkpos632= G->thunkpos;
-  {  int yypos633= G->pos, yythunkpos633= G->thunkpos;  if (!yy_StyleClose(G)) { goto l633; }  goto l632;
-  l633:;	  G->pos= yypos633; G->thunkpos= yythunkpos633;
-  }  if (!yymatchDot(G)) goto l632;  goto l631;
-  l632:;	  G->pos= yypos632; G->thunkpos= yythunkpos632;
-  }  if (!yy_StyleClose(G)) { goto l630; }
+  yyprintf((stderr, "%s\n", "InStyleTags"));  if (!yy_StyleOpen(G)) { goto l646; }
+  l647:;	
+  {  int yypos648= G->pos, yythunkpos648= G->thunkpos;
+  {  int yypos649= G->pos, yythunkpos649= G->thunkpos;  if (!yy_StyleClose(G)) { goto l649; }  goto l648;
+  l649:;	  G->pos= yypos649; G->thunkpos= yythunkpos649;
+  }  if (!yymatchDot(G)) goto l648;  goto l647;
+  l648:;	  G->pos= yypos648; G->thunkpos= yythunkpos648;
+  }  if (!yy_StyleClose(G)) { goto l646; }
   yyprintf((stderr, "  ok   %s @ %s\n", "InStyleTags", G->buf+G->pos));
   return 1;
-  l630:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l646:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "InStyleTags", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StyleClose(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleClose"));  if (!yymatchChar(G, '<')) goto l634;  if (!yy_Spnl(G)) { goto l634; }  if (!yymatchChar(G, '/')) goto l634;
-  {  int yypos635= G->pos, yythunkpos635= G->thunkpos;  if (!yymatchString(G, "style")) goto l636;  goto l635;
-  l636:;	  G->pos= yypos635; G->thunkpos= yythunkpos635;  if (!yymatchString(G, "STYLE")) goto l634;
+  yyprintf((stderr, "%s\n", "StyleClose"));  if (!yymatchChar(G, '<')) goto l650;  if (!yy_Spnl(G)) { goto l650; }  if (!yymatchChar(G, '/')) goto l650;
+  {  int yypos651= G->pos, yythunkpos651= G->thunkpos;  if (!yymatchString(G, "style")) goto l652;  goto l651;
+  l652:;	  G->pos= yypos651; G->thunkpos= yythunkpos651;  if (!yymatchString(G, "STYLE")) goto l650;
   }
-  l635:;	  if (!yy_Spnl(G)) { goto l634; }  if (!yymatchChar(G, '>')) goto l634;
+  l651:;	  if (!yy_Spnl(G)) { goto l650; }  if (!yymatchChar(G, '>')) goto l650;
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleClose", G->buf+G->pos));
   return 1;
-  l634:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l650:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleClose", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StyleOpen(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleOpen"));  if (!yymatchChar(G, '<')) goto l637;  if (!yy_Spnl(G)) { goto l637; }
-  {  int yypos638= G->pos, yythunkpos638= G->thunkpos;  if (!yymatchString(G, "style")) goto l639;  goto l638;
-  l639:;	  G->pos= yypos638; G->thunkpos= yythunkpos638;  if (!yymatchString(G, "STYLE")) goto l637;
+  yyprintf((stderr, "%s\n", "StyleOpen"));  if (!yymatchChar(G, '<')) goto l653;  if (!yy_Spnl(G)) { goto l653; }
+  {  int yypos654= G->pos, yythunkpos654= G->thunkpos;  if (!yymatchString(G, "style")) goto l655;  goto l654;
+  l655:;	  G->pos= yypos654; G->thunkpos= yythunkpos654;  if (!yymatchString(G, "STYLE")) goto l653;
   }
-  l638:;	  if (!yy_Spnl(G)) { goto l637; }
-  l640:;	
-  {  int yypos641= G->pos, yythunkpos641= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l641; }  goto l640;
-  l641:;	  G->pos= yypos641; G->thunkpos= yythunkpos641;
-  }  if (!yymatchChar(G, '>')) goto l637;
+  l654:;	  if (!yy_Spnl(G)) { goto l653; }
+  l656:;	
+  {  int yypos657= G->pos, yythunkpos657= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l657; }  goto l656;
+  l657:;	  G->pos= yypos657; G->thunkpos= yythunkpos657;
+  }  if (!yymatchChar(G, '>')) goto l653;
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleOpen", G->buf+G->pos));
   return 1;
-  l637:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l653:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleOpen", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockType(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "HtmlBlockType"));
-  {  int yypos643= G->pos, yythunkpos643= G->thunkpos;  if (!yymatchString(G, "address")) goto l644;  goto l643;
-  l644:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "blockquote")) goto l645;  goto l643;
-  l645:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "center")) goto l646;  goto l643;
-  l646:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "dir")) goto l647;  goto l643;
-  l647:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "div")) goto l648;  goto l643;
-  l648:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "dl")) goto l649;  goto l643;
-  l649:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "fieldset")) goto l650;  goto l643;
-  l650:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "form")) goto l651;  goto l643;
-  l651:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "h1")) goto l652;  goto l643;
-  l652:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "h2")) goto l653;  goto l643;
-  l653:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "h3")) goto l654;  goto l643;
-  l654:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "h4")) goto l655;  goto l643;
-  l655:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "h5")) goto l656;  goto l643;
-  l656:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "h6")) goto l657;  goto l643;
-  l657:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "hr")) goto l658;  goto l643;
-  l658:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "isindex")) goto l659;  goto l643;
-  l659:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "menu")) goto l660;  goto l643;
-  l660:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "noframes")) goto l661;  goto l643;
-  l661:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "noscript")) goto l662;  goto l643;
-  l662:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "ol")) goto l663;  goto l643;
-  l663:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchChar(G, 'p')) goto l664;  goto l643;
-  l664:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "pre")) goto l665;  goto l643;
-  l665:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "table")) goto l666;  goto l643;
-  l666:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "ul")) goto l667;  goto l643;
-  l667:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "dd")) goto l668;  goto l643;
-  l668:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "dt")) goto l669;  goto l643;
-  l669:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "frameset")) goto l670;  goto l643;
-  l670:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "li")) goto l671;  goto l643;
-  l671:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "tbody")) goto l672;  goto l643;
-  l672:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "td")) goto l673;  goto l643;
-  l673:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "tfoot")) goto l674;  goto l643;
-  l674:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "th")) goto l675;  goto l643;
-  l675:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "thead")) goto l676;  goto l643;
-  l676:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "tr")) goto l677;  goto l643;
-  l677:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "script")) goto l678;  goto l643;
-  l678:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "ADDRESS")) goto l679;  goto l643;
-  l679:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "BLOCKQUOTE")) goto l680;  goto l643;
-  l680:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "CENTER")) goto l681;  goto l643;
-  l681:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "DIR")) goto l682;  goto l643;
-  l682:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "DIV")) goto l683;  goto l643;
-  l683:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "DL")) goto l684;  goto l643;
-  l684:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "FIELDSET")) goto l685;  goto l643;
-  l685:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "FORM")) goto l686;  goto l643;
-  l686:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "H1")) goto l687;  goto l643;
-  l687:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "H2")) goto l688;  goto l643;
-  l688:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "H3")) goto l689;  goto l643;
-  l689:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "H4")) goto l690;  goto l643;
-  l690:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "H5")) goto l691;  goto l643;
-  l691:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "H6")) goto l692;  goto l643;
-  l692:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "HR")) goto l693;  goto l643;
-  l693:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "ISINDEX")) goto l694;  goto l643;
-  l694:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "MENU")) goto l695;  goto l643;
-  l695:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "NOFRAMES")) goto l696;  goto l643;
-  l696:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "NOSCRIPT")) goto l697;  goto l643;
-  l697:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "OL")) goto l698;  goto l643;
-  l698:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchChar(G, 'P')) goto l699;  goto l643;
-  l699:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "PRE")) goto l700;  goto l643;
-  l700:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "TABLE")) goto l701;  goto l643;
-  l701:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "UL")) goto l702;  goto l643;
-  l702:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "DD")) goto l703;  goto l643;
-  l703:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "DT")) goto l704;  goto l643;
-  l704:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "FRAMESET")) goto l705;  goto l643;
-  l705:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "LI")) goto l706;  goto l643;
-  l706:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "TBODY")) goto l707;  goto l643;
-  l707:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "TD")) goto l708;  goto l643;
-  l708:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "TFOOT")) goto l709;  goto l643;
-  l709:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "TH")) goto l710;  goto l643;
-  l710:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "THEAD")) goto l711;  goto l643;
-  l711:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "TR")) goto l712;  goto l643;
-  l712:;	  G->pos= yypos643; G->thunkpos= yythunkpos643;  if (!yymatchString(G, "SCRIPT")) goto l642;
+  {  int yypos659= G->pos, yythunkpos659= G->thunkpos;  if (!yymatchString(G, "address")) goto l660;  goto l659;
+  l660:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "blockquote")) goto l661;  goto l659;
+  l661:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "center")) goto l662;  goto l659;
+  l662:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "dir")) goto l663;  goto l659;
+  l663:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "div")) goto l664;  goto l659;
+  l664:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "dl")) goto l665;  goto l659;
+  l665:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "fieldset")) goto l666;  goto l659;
+  l666:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "form")) goto l667;  goto l659;
+  l667:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "h1")) goto l668;  goto l659;
+  l668:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "h2")) goto l669;  goto l659;
+  l669:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "h3")) goto l670;  goto l659;
+  l670:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "h4")) goto l671;  goto l659;
+  l671:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "h5")) goto l672;  goto l659;
+  l672:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "h6")) goto l673;  goto l659;
+  l673:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "hr")) goto l674;  goto l659;
+  l674:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "isindex")) goto l675;  goto l659;
+  l675:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "menu")) goto l676;  goto l659;
+  l676:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "noframes")) goto l677;  goto l659;
+  l677:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "noscript")) goto l678;  goto l659;
+  l678:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "ol")) goto l679;  goto l659;
+  l679:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchChar(G, 'p')) goto l680;  goto l659;
+  l680:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "pre")) goto l681;  goto l659;
+  l681:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "table")) goto l682;  goto l659;
+  l682:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "ul")) goto l683;  goto l659;
+  l683:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "dd")) goto l684;  goto l659;
+  l684:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "dt")) goto l685;  goto l659;
+  l685:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "frameset")) goto l686;  goto l659;
+  l686:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "li")) goto l687;  goto l659;
+  l687:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "tbody")) goto l688;  goto l659;
+  l688:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "td")) goto l689;  goto l659;
+  l689:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "tfoot")) goto l690;  goto l659;
+  l690:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "th")) goto l691;  goto l659;
+  l691:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "thead")) goto l692;  goto l659;
+  l692:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "tr")) goto l693;  goto l659;
+  l693:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "script")) goto l694;  goto l659;
+  l694:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "ADDRESS")) goto l695;  goto l659;
+  l695:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "BLOCKQUOTE")) goto l696;  goto l659;
+  l696:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "CENTER")) goto l697;  goto l659;
+  l697:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "DIR")) goto l698;  goto l659;
+  l698:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "DIV")) goto l699;  goto l659;
+  l699:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "DL")) goto l700;  goto l659;
+  l700:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "FIELDSET")) goto l701;  goto l659;
+  l701:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "FORM")) goto l702;  goto l659;
+  l702:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "H1")) goto l703;  goto l659;
+  l703:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "H2")) goto l704;  goto l659;
+  l704:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "H3")) goto l705;  goto l659;
+  l705:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "H4")) goto l706;  goto l659;
+  l706:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "H5")) goto l707;  goto l659;
+  l707:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "H6")) goto l708;  goto l659;
+  l708:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "HR")) goto l709;  goto l659;
+  l709:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "ISINDEX")) goto l710;  goto l659;
+  l710:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "MENU")) goto l711;  goto l659;
+  l711:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "NOFRAMES")) goto l712;  goto l659;
+  l712:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "NOSCRIPT")) goto l713;  goto l659;
+  l713:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "OL")) goto l714;  goto l659;
+  l714:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchChar(G, 'P')) goto l715;  goto l659;
+  l715:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "PRE")) goto l716;  goto l659;
+  l716:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "TABLE")) goto l717;  goto l659;
+  l717:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "UL")) goto l718;  goto l659;
+  l718:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "DD")) goto l719;  goto l659;
+  l719:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "DT")) goto l720;  goto l659;
+  l720:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "FRAMESET")) goto l721;  goto l659;
+  l721:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "LI")) goto l722;  goto l659;
+  l722:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "TBODY")) goto l723;  goto l659;
+  l723:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "TD")) goto l724;  goto l659;
+  l724:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "TFOOT")) goto l725;  goto l659;
+  l725:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "TH")) goto l726;  goto l659;
+  l726:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "THEAD")) goto l727;  goto l659;
+  l727:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "TR")) goto l728;  goto l659;
+  l728:;	  G->pos= yypos659; G->thunkpos= yythunkpos659;  if (!yymatchString(G, "SCRIPT")) goto l658;
   }
-  l643:;	
+  l659:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockType", G->buf+G->pos));
   return 1;
-  l642:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l658:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockType", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockSelfClosing(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockSelfClosing"));  if (!yymatchChar(G, '<')) goto l713;  if (!yy_Spnl(G)) { goto l713; }  if (!yy_HtmlBlockType(G)) { goto l713; }  if (!yy_Spnl(G)) { goto l713; }
-  l714:;	
-  {  int yypos715= G->pos, yythunkpos715= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l715; }  goto l714;
-  l715:;	  G->pos= yypos715; G->thunkpos= yythunkpos715;
-  }  if (!yymatchChar(G, '/')) goto l713;  if (!yy_Spnl(G)) { goto l713; }  if (!yymatchChar(G, '>')) goto l713;
+  yyprintf((stderr, "%s\n", "HtmlBlockSelfClosing"));  if (!yymatchChar(G, '<')) goto l729;  if (!yy_Spnl(G)) { goto l729; }  if (!yy_HtmlBlockType(G)) { goto l729; }  if (!yy_Spnl(G)) { goto l729; }
+  l730:;	
+  {  int yypos731= G->pos, yythunkpos731= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l731; }  goto l730;
+  l731:;	  G->pos= yypos731; G->thunkpos= yythunkpos731;
+  }  if (!yymatchChar(G, '/')) goto l729;  if (!yy_Spnl(G)) { goto l729; }  if (!yymatchChar(G, '>')) goto l729;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockSelfClosing", G->buf+G->pos));
   return 1;
-  l713:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l729:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockSelfClosing", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlComment(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "HtmlComment"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l716;  if (!yy_LocMarker(G)) { goto l716; }  yyDo(G, yySet, -1, 0);  if (!yymatchString(G, "<!--")) goto l716;
-  l717:;	
-  {  int yypos718= G->pos, yythunkpos718= G->thunkpos;
-  {  int yypos719= G->pos, yythunkpos719= G->thunkpos;  if (!yymatchString(G, "-->")) goto l719;  goto l718;
-  l719:;	  G->pos= yypos719; G->thunkpos= yythunkpos719;
-  }  if (!yymatchDot(G)) goto l718;  goto l717;
-  l718:;	  G->pos= yypos718; G->thunkpos= yythunkpos718;
-  }  if (!yymatchString(G, "-->")) goto l716;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l716;  yyDo(G, yy_1_HtmlComment, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "HtmlComment"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l732;  if (!yy_LocMarker(G)) { goto l732; }  yyDo(G, yySet, -1, 0);  if (!yymatchString(G, "<!--")) goto l732;
+  l733:;	
+  {  int yypos734= G->pos, yythunkpos734= G->thunkpos;
+  {  int yypos735= G->pos, yythunkpos735= G->thunkpos;  if (!yymatchString(G, "-->")) goto l735;  goto l734;
+  l735:;	  G->pos= yypos735; G->thunkpos= yythunkpos735;
+  }  if (!yymatchDot(G)) goto l734;  goto l733;
+  l734:;	  G->pos= yypos734; G->thunkpos= yythunkpos734;
+  }  if (!yymatchString(G, "-->")) goto l732;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l732;  yyDo(G, yy_1_HtmlComment, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlComment", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l716:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l732:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlComment", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockInTags(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "HtmlBlockInTags"));
-  {  int yypos721= G->pos, yythunkpos721= G->thunkpos;  if (!yy_HtmlBlockAddress(G)) { goto l722; }  goto l721;
-  l722:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockBlockquote(G)) { goto l723; }  goto l721;
-  l723:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockCenter(G)) { goto l724; }  goto l721;
-  l724:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockDir(G)) { goto l725; }  goto l721;
-  l725:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockDiv(G)) { goto l726; }  goto l721;
-  l726:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockDl(G)) { goto l727; }  goto l721;
-  l727:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockFieldset(G)) { goto l728; }  goto l721;
-  l728:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockForm(G)) { goto l729; }  goto l721;
-  l729:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockH1(G)) { goto l730; }  goto l721;
-  l730:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockH2(G)) { goto l731; }  goto l721;
-  l731:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockH3(G)) { goto l732; }  goto l721;
-  l732:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockH4(G)) { goto l733; }  goto l721;
-  l733:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockH5(G)) { goto l734; }  goto l721;
-  l734:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockH6(G)) { goto l735; }  goto l721;
-  l735:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockMenu(G)) { goto l736; }  goto l721;
-  l736:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockNoframes(G)) { goto l737; }  goto l721;
-  l737:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockNoscript(G)) { goto l738; }  goto l721;
-  l738:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockOl(G)) { goto l739; }  goto l721;
-  l739:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockP(G)) { goto l740; }  goto l721;
-  l740:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockPre(G)) { goto l741; }  goto l721;
-  l741:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockTable(G)) { goto l742; }  goto l721;
-  l742:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockUl(G)) { goto l743; }  goto l721;
-  l743:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockDd(G)) { goto l744; }  goto l721;
-  l744:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockDt(G)) { goto l745; }  goto l721;
-  l745:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockFrameset(G)) { goto l746; }  goto l721;
-  l746:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockLi(G)) { goto l747; }  goto l721;
-  l747:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockTbody(G)) { goto l748; }  goto l721;
-  l748:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockTd(G)) { goto l749; }  goto l721;
-  l749:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockTfoot(G)) { goto l750; }  goto l721;
-  l750:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockTh(G)) { goto l751; }  goto l721;
-  l751:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockThead(G)) { goto l752; }  goto l721;
-  l752:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockTr(G)) { goto l753; }  goto l721;
-  l753:;	  G->pos= yypos721; G->thunkpos= yythunkpos721;  if (!yy_HtmlBlockScript(G)) { goto l720; }
+  {  int yypos737= G->pos, yythunkpos737= G->thunkpos;  if (!yy_HtmlBlockAddress(G)) { goto l738; }  goto l737;
+  l738:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockBlockquote(G)) { goto l739; }  goto l737;
+  l739:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockCenter(G)) { goto l740; }  goto l737;
+  l740:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockDir(G)) { goto l741; }  goto l737;
+  l741:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockDiv(G)) { goto l742; }  goto l737;
+  l742:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockDl(G)) { goto l743; }  goto l737;
+  l743:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockFieldset(G)) { goto l744; }  goto l737;
+  l744:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockForm(G)) { goto l745; }  goto l737;
+  l745:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockH1(G)) { goto l746; }  goto l737;
+  l746:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockH2(G)) { goto l747; }  goto l737;
+  l747:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockH3(G)) { goto l748; }  goto l737;
+  l748:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockH4(G)) { goto l749; }  goto l737;
+  l749:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockH5(G)) { goto l750; }  goto l737;
+  l750:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockH6(G)) { goto l751; }  goto l737;
+  l751:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockMenu(G)) { goto l752; }  goto l737;
+  l752:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockNoframes(G)) { goto l753; }  goto l737;
+  l753:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockNoscript(G)) { goto l754; }  goto l737;
+  l754:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockOl(G)) { goto l755; }  goto l737;
+  l755:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockP(G)) { goto l756; }  goto l737;
+  l756:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockPre(G)) { goto l757; }  goto l737;
+  l757:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockTable(G)) { goto l758; }  goto l737;
+  l758:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockUl(G)) { goto l759; }  goto l737;
+  l759:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockDd(G)) { goto l760; }  goto l737;
+  l760:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockDt(G)) { goto l761; }  goto l737;
+  l761:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockFrameset(G)) { goto l762; }  goto l737;
+  l762:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockLi(G)) { goto l763; }  goto l737;
+  l763:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockTbody(G)) { goto l764; }  goto l737;
+  l764:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockTd(G)) { goto l765; }  goto l737;
+  l765:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockTfoot(G)) { goto l766; }  goto l737;
+  l766:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockTh(G)) { goto l767; }  goto l737;
+  l767:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockThead(G)) { goto l768; }  goto l737;
+  l768:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockTr(G)) { goto l769; }  goto l737;
+  l769:;	  G->pos= yypos737; G->thunkpos= yythunkpos737;  if (!yy_HtmlBlockScript(G)) { goto l736; }
   }
-  l721:;	
+  l737:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockInTags", G->buf+G->pos));
   return 1;
-  l720:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l736:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockInTags", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockScript(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockScript"));  if (!yy_HtmlBlockOpenScript(G)) { goto l754; }
-  l755:;	
-  {  int yypos756= G->pos, yythunkpos756= G->thunkpos;
-  {  int yypos757= G->pos, yythunkpos757= G->thunkpos;  if (!yy_HtmlBlockScript(G)) { goto l758; }  goto l757;
-  l758:;	  G->pos= yypos757; G->thunkpos= yythunkpos757;
-  {  int yypos759= G->pos, yythunkpos759= G->thunkpos;  if (!yy_HtmlBlockCloseScript(G)) { goto l759; }  goto l756;
-  l759:;	  G->pos= yypos759; G->thunkpos= yythunkpos759;
-  }  if (!yymatchDot(G)) goto l756;
+  yyprintf((stderr, "%s\n", "HtmlBlockScript"));  if (!yy_HtmlBlockOpenScript(G)) { goto l770; }
+  l771:;	
+  {  int yypos772= G->pos, yythunkpos772= G->thunkpos;
+  {  int yypos773= G->pos, yythunkpos773= G->thunkpos;  if (!yy_HtmlBlockScript(G)) { goto l774; }  goto l773;
+  l774:;	  G->pos= yypos773; G->thunkpos= yythunkpos773;
+  {  int yypos775= G->pos, yythunkpos775= G->thunkpos;  if (!yy_HtmlBlockCloseScript(G)) { goto l775; }  goto l772;
+  l775:;	  G->pos= yypos775; G->thunkpos= yythunkpos775;
+  }  if (!yymatchDot(G)) goto l772;
   }
-  l757:;	  goto l755;
-  l756:;	  G->pos= yypos756; G->thunkpos= yythunkpos756;
-  }  if (!yy_HtmlBlockCloseScript(G)) { goto l754; }
+  l773:;	  goto l771;
+  l772:;	  G->pos= yypos772; G->thunkpos= yythunkpos772;
+  }  if (!yy_HtmlBlockCloseScript(G)) { goto l770; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockScript", G->buf+G->pos));
   return 1;
-  l754:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l770:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockScript", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseScript(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseScript"));  if (!yymatchChar(G, '<')) goto l760;  if (!yy_Spnl(G)) { goto l760; }  if (!yymatchChar(G, '/')) goto l760;
-  {  int yypos761= G->pos, yythunkpos761= G->thunkpos;  if (!yymatchString(G, "script")) goto l762;  goto l761;
-  l762:;	  G->pos= yypos761; G->thunkpos= yythunkpos761;  if (!yymatchString(G, "SCRIPT")) goto l760;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseScript"));  if (!yymatchChar(G, '<')) goto l776;  if (!yy_Spnl(G)) { goto l776; }  if (!yymatchChar(G, '/')) goto l776;
+  {  int yypos777= G->pos, yythunkpos777= G->thunkpos;  if (!yymatchString(G, "script")) goto l778;  goto l777;
+  l778:;	  G->pos= yypos777; G->thunkpos= yythunkpos777;  if (!yymatchString(G, "SCRIPT")) goto l776;
   }
-  l761:;	  if (!yy_Spnl(G)) { goto l760; }  if (!yymatchChar(G, '>')) goto l760;
+  l777:;	  if (!yy_Spnl(G)) { goto l776; }  if (!yymatchChar(G, '>')) goto l776;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseScript", G->buf+G->pos));
   return 1;
-  l760:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l776:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseScript", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenScript(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenScript"));  if (!yymatchChar(G, '<')) goto l763;  if (!yy_Spnl(G)) { goto l763; }
-  {  int yypos764= G->pos, yythunkpos764= G->thunkpos;  if (!yymatchString(G, "script")) goto l765;  goto l764;
-  l765:;	  G->pos= yypos764; G->thunkpos= yythunkpos764;  if (!yymatchString(G, "SCRIPT")) goto l763;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenScript"));  if (!yymatchChar(G, '<')) goto l779;  if (!yy_Spnl(G)) { goto l779; }
+  {  int yypos780= G->pos, yythunkpos780= G->thunkpos;  if (!yymatchString(G, "script")) goto l781;  goto l780;
+  l781:;	  G->pos= yypos780; G->thunkpos= yythunkpos780;  if (!yymatchString(G, "SCRIPT")) goto l779;
   }
-  l764:;	  if (!yy_Spnl(G)) { goto l763; }
-  l766:;	
-  {  int yypos767= G->pos, yythunkpos767= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l767; }  goto l766;
-  l767:;	  G->pos= yypos767; G->thunkpos= yythunkpos767;
-  }  if (!yymatchChar(G, '>')) goto l763;
+  l780:;	  if (!yy_Spnl(G)) { goto l779; }
+  l782:;	
+  {  int yypos783= G->pos, yythunkpos783= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l783; }  goto l782;
+  l783:;	  G->pos= yypos783; G->thunkpos= yythunkpos783;
+  }  if (!yymatchChar(G, '>')) goto l779;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenScript", G->buf+G->pos));
   return 1;
-  l763:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l779:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenScript", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockTr(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockTr"));  if (!yy_HtmlBlockOpenTr(G)) { goto l768; }
-  l769:;	
-  {  int yypos770= G->pos, yythunkpos770= G->thunkpos;
-  {  int yypos771= G->pos, yythunkpos771= G->thunkpos;  if (!yy_HtmlBlockTr(G)) { goto l772; }  goto l771;
-  l772:;	  G->pos= yypos771; G->thunkpos= yythunkpos771;
-  {  int yypos773= G->pos, yythunkpos773= G->thunkpos;  if (!yy_HtmlBlockCloseTr(G)) { goto l773; }  goto l770;
-  l773:;	  G->pos= yypos773; G->thunkpos= yythunkpos773;
-  }  if (!yymatchDot(G)) goto l770;
+  yyprintf((stderr, "%s\n", "HtmlBlockTr"));  if (!yy_HtmlBlockOpenTr(G)) { goto l784; }
+  l785:;	
+  {  int yypos786= G->pos, yythunkpos786= G->thunkpos;
+  {  int yypos787= G->pos, yythunkpos787= G->thunkpos;  if (!yy_HtmlBlockTr(G)) { goto l788; }  goto l787;
+  l788:;	  G->pos= yypos787; G->thunkpos= yythunkpos787;
+  {  int yypos789= G->pos, yythunkpos789= G->thunkpos;  if (!yy_HtmlBlockCloseTr(G)) { goto l789; }  goto l786;
+  l789:;	  G->pos= yypos789; G->thunkpos= yythunkpos789;
+  }  if (!yymatchDot(G)) goto l786;
   }
-  l771:;	  goto l769;
-  l770:;	  G->pos= yypos770; G->thunkpos= yythunkpos770;
-  }  if (!yy_HtmlBlockCloseTr(G)) { goto l768; }
+  l787:;	  goto l785;
+  l786:;	  G->pos= yypos786; G->thunkpos= yythunkpos786;
+  }  if (!yy_HtmlBlockCloseTr(G)) { goto l784; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockTr", G->buf+G->pos));
   return 1;
-  l768:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l784:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockTr", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseTr(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseTr"));  if (!yymatchChar(G, '<')) goto l774;  if (!yy_Spnl(G)) { goto l774; }  if (!yymatchChar(G, '/')) goto l774;
-  {  int yypos775= G->pos, yythunkpos775= G->thunkpos;  if (!yymatchString(G, "tr")) goto l776;  goto l775;
-  l776:;	  G->pos= yypos775; G->thunkpos= yythunkpos775;  if (!yymatchString(G, "TR")) goto l774;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseTr"));  if (!yymatchChar(G, '<')) goto l790;  if (!yy_Spnl(G)) { goto l790; }  if (!yymatchChar(G, '/')) goto l790;
+  {  int yypos791= G->pos, yythunkpos791= G->thunkpos;  if (!yymatchString(G, "tr")) goto l792;  goto l791;
+  l792:;	  G->pos= yypos791; G->thunkpos= yythunkpos791;  if (!yymatchString(G, "TR")) goto l790;
   }
-  l775:;	  if (!yy_Spnl(G)) { goto l774; }  if (!yymatchChar(G, '>')) goto l774;
+  l791:;	  if (!yy_Spnl(G)) { goto l790; }  if (!yymatchChar(G, '>')) goto l790;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseTr", G->buf+G->pos));
   return 1;
-  l774:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l790:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseTr", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenTr(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenTr"));  if (!yymatchChar(G, '<')) goto l777;  if (!yy_Spnl(G)) { goto l777; }
-  {  int yypos778= G->pos, yythunkpos778= G->thunkpos;  if (!yymatchString(G, "tr")) goto l779;  goto l778;
-  l779:;	  G->pos= yypos778; G->thunkpos= yythunkpos778;  if (!yymatchString(G, "TR")) goto l777;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenTr"));  if (!yymatchChar(G, '<')) goto l793;  if (!yy_Spnl(G)) { goto l793; }
+  {  int yypos794= G->pos, yythunkpos794= G->thunkpos;  if (!yymatchString(G, "tr")) goto l795;  goto l794;
+  l795:;	  G->pos= yypos794; G->thunkpos= yythunkpos794;  if (!yymatchString(G, "TR")) goto l793;
   }
-  l778:;	  if (!yy_Spnl(G)) { goto l777; }
-  l780:;	
-  {  int yypos781= G->pos, yythunkpos781= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l781; }  goto l780;
-  l781:;	  G->pos= yypos781; G->thunkpos= yythunkpos781;
-  }  if (!yymatchChar(G, '>')) goto l777;
+  l794:;	  if (!yy_Spnl(G)) { goto l793; }
+  l796:;	
+  {  int yypos797= G->pos, yythunkpos797= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l797; }  goto l796;
+  l797:;	  G->pos= yypos797; G->thunkpos= yythunkpos797;
+  }  if (!yymatchChar(G, '>')) goto l793;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenTr", G->buf+G->pos));
   return 1;
-  l777:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l793:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenTr", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockThead(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockThead"));  if (!yy_HtmlBlockOpenThead(G)) { goto l782; }
-  l783:;	
-  {  int yypos784= G->pos, yythunkpos784= G->thunkpos;
-  {  int yypos785= G->pos, yythunkpos785= G->thunkpos;  if (!yy_HtmlBlockThead(G)) { goto l786; }  goto l785;
-  l786:;	  G->pos= yypos785; G->thunkpos= yythunkpos785;
-  {  int yypos787= G->pos, yythunkpos787= G->thunkpos;  if (!yy_HtmlBlockCloseThead(G)) { goto l787; }  goto l784;
-  l787:;	  G->pos= yypos787; G->thunkpos= yythunkpos787;
-  }  if (!yymatchDot(G)) goto l784;
+  yyprintf((stderr, "%s\n", "HtmlBlockThead"));  if (!yy_HtmlBlockOpenThead(G)) { goto l798; }
+  l799:;	
+  {  int yypos800= G->pos, yythunkpos800= G->thunkpos;
+  {  int yypos801= G->pos, yythunkpos801= G->thunkpos;  if (!yy_HtmlBlockThead(G)) { goto l802; }  goto l801;
+  l802:;	  G->pos= yypos801; G->thunkpos= yythunkpos801;
+  {  int yypos803= G->pos, yythunkpos803= G->thunkpos;  if (!yy_HtmlBlockCloseThead(G)) { goto l803; }  goto l800;
+  l803:;	  G->pos= yypos803; G->thunkpos= yythunkpos803;
+  }  if (!yymatchDot(G)) goto l800;
   }
-  l785:;	  goto l783;
-  l784:;	  G->pos= yypos784; G->thunkpos= yythunkpos784;
-  }  if (!yy_HtmlBlockCloseThead(G)) { goto l782; }
+  l801:;	  goto l799;
+  l800:;	  G->pos= yypos800; G->thunkpos= yythunkpos800;
+  }  if (!yy_HtmlBlockCloseThead(G)) { goto l798; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockThead", G->buf+G->pos));
   return 1;
-  l782:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l798:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockThead", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseThead(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseThead"));  if (!yymatchChar(G, '<')) goto l788;  if (!yy_Spnl(G)) { goto l788; }  if (!yymatchChar(G, '/')) goto l788;
-  {  int yypos789= G->pos, yythunkpos789= G->thunkpos;  if (!yymatchString(G, "thead")) goto l790;  goto l789;
-  l790:;	  G->pos= yypos789; G->thunkpos= yythunkpos789;  if (!yymatchString(G, "THEAD")) goto l788;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseThead"));  if (!yymatchChar(G, '<')) goto l804;  if (!yy_Spnl(G)) { goto l804; }  if (!yymatchChar(G, '/')) goto l804;
+  {  int yypos805= G->pos, yythunkpos805= G->thunkpos;  if (!yymatchString(G, "thead")) goto l806;  goto l805;
+  l806:;	  G->pos= yypos805; G->thunkpos= yythunkpos805;  if (!yymatchString(G, "THEAD")) goto l804;
   }
-  l789:;	  if (!yy_Spnl(G)) { goto l788; }  if (!yymatchChar(G, '>')) goto l788;
+  l805:;	  if (!yy_Spnl(G)) { goto l804; }  if (!yymatchChar(G, '>')) goto l804;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseThead", G->buf+G->pos));
   return 1;
-  l788:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l804:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseThead", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenThead(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenThead"));  if (!yymatchChar(G, '<')) goto l791;  if (!yy_Spnl(G)) { goto l791; }
-  {  int yypos792= G->pos, yythunkpos792= G->thunkpos;  if (!yymatchString(G, "thead")) goto l793;  goto l792;
-  l793:;	  G->pos= yypos792; G->thunkpos= yythunkpos792;  if (!yymatchString(G, "THEAD")) goto l791;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenThead"));  if (!yymatchChar(G, '<')) goto l807;  if (!yy_Spnl(G)) { goto l807; }
+  {  int yypos808= G->pos, yythunkpos808= G->thunkpos;  if (!yymatchString(G, "thead")) goto l809;  goto l808;
+  l809:;	  G->pos= yypos808; G->thunkpos= yythunkpos808;  if (!yymatchString(G, "THEAD")) goto l807;
   }
-  l792:;	  if (!yy_Spnl(G)) { goto l791; }
-  l794:;	
-  {  int yypos795= G->pos, yythunkpos795= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l795; }  goto l794;
-  l795:;	  G->pos= yypos795; G->thunkpos= yythunkpos795;
-  }  if (!yymatchChar(G, '>')) goto l791;
+  l808:;	  if (!yy_Spnl(G)) { goto l807; }
+  l810:;	
+  {  int yypos811= G->pos, yythunkpos811= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l811; }  goto l810;
+  l811:;	  G->pos= yypos811; G->thunkpos= yythunkpos811;
+  }  if (!yymatchChar(G, '>')) goto l807;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenThead", G->buf+G->pos));
   return 1;
-  l791:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l807:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenThead", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockTh(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockTh"));  if (!yy_HtmlBlockOpenTh(G)) { goto l796; }
-  l797:;	
-  {  int yypos798= G->pos, yythunkpos798= G->thunkpos;
-  {  int yypos799= G->pos, yythunkpos799= G->thunkpos;  if (!yy_HtmlBlockTh(G)) { goto l800; }  goto l799;
-  l800:;	  G->pos= yypos799; G->thunkpos= yythunkpos799;
-  {  int yypos801= G->pos, yythunkpos801= G->thunkpos;  if (!yy_HtmlBlockCloseTh(G)) { goto l801; }  goto l798;
-  l801:;	  G->pos= yypos801; G->thunkpos= yythunkpos801;
-  }  if (!yymatchDot(G)) goto l798;
+  yyprintf((stderr, "%s\n", "HtmlBlockTh"));  if (!yy_HtmlBlockOpenTh(G)) { goto l812; }
+  l813:;	
+  {  int yypos814= G->pos, yythunkpos814= G->thunkpos;
+  {  int yypos815= G->pos, yythunkpos815= G->thunkpos;  if (!yy_HtmlBlockTh(G)) { goto l816; }  goto l815;
+  l816:;	  G->pos= yypos815; G->thunkpos= yythunkpos815;
+  {  int yypos817= G->pos, yythunkpos817= G->thunkpos;  if (!yy_HtmlBlockCloseTh(G)) { goto l817; }  goto l814;
+  l817:;	  G->pos= yypos817; G->thunkpos= yythunkpos817;
+  }  if (!yymatchDot(G)) goto l814;
   }
-  l799:;	  goto l797;
-  l798:;	  G->pos= yypos798; G->thunkpos= yythunkpos798;
-  }  if (!yy_HtmlBlockCloseTh(G)) { goto l796; }
+  l815:;	  goto l813;
+  l814:;	  G->pos= yypos814; G->thunkpos= yythunkpos814;
+  }  if (!yy_HtmlBlockCloseTh(G)) { goto l812; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockTh", G->buf+G->pos));
   return 1;
-  l796:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l812:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockTh", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseTh(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseTh"));  if (!yymatchChar(G, '<')) goto l802;  if (!yy_Spnl(G)) { goto l802; }  if (!yymatchChar(G, '/')) goto l802;
-  {  int yypos803= G->pos, yythunkpos803= G->thunkpos;  if (!yymatchString(G, "th")) goto l804;  goto l803;
-  l804:;	  G->pos= yypos803; G->thunkpos= yythunkpos803;  if (!yymatchString(G, "TH")) goto l802;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseTh"));  if (!yymatchChar(G, '<')) goto l818;  if (!yy_Spnl(G)) { goto l818; }  if (!yymatchChar(G, '/')) goto l818;
+  {  int yypos819= G->pos, yythunkpos819= G->thunkpos;  if (!yymatchString(G, "th")) goto l820;  goto l819;
+  l820:;	  G->pos= yypos819; G->thunkpos= yythunkpos819;  if (!yymatchString(G, "TH")) goto l818;
   }
-  l803:;	  if (!yy_Spnl(G)) { goto l802; }  if (!yymatchChar(G, '>')) goto l802;
+  l819:;	  if (!yy_Spnl(G)) { goto l818; }  if (!yymatchChar(G, '>')) goto l818;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseTh", G->buf+G->pos));
   return 1;
-  l802:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l818:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseTh", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenTh(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenTh"));  if (!yymatchChar(G, '<')) goto l805;  if (!yy_Spnl(G)) { goto l805; }
-  {  int yypos806= G->pos, yythunkpos806= G->thunkpos;  if (!yymatchString(G, "th")) goto l807;  goto l806;
-  l807:;	  G->pos= yypos806; G->thunkpos= yythunkpos806;  if (!yymatchString(G, "TH")) goto l805;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenTh"));  if (!yymatchChar(G, '<')) goto l821;  if (!yy_Spnl(G)) { goto l821; }
+  {  int yypos822= G->pos, yythunkpos822= G->thunkpos;  if (!yymatchString(G, "th")) goto l823;  goto l822;
+  l823:;	  G->pos= yypos822; G->thunkpos= yythunkpos822;  if (!yymatchString(G, "TH")) goto l821;
   }
-  l806:;	  if (!yy_Spnl(G)) { goto l805; }
-  l808:;	
-  {  int yypos809= G->pos, yythunkpos809= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l809; }  goto l808;
-  l809:;	  G->pos= yypos809; G->thunkpos= yythunkpos809;
-  }  if (!yymatchChar(G, '>')) goto l805;
+  l822:;	  if (!yy_Spnl(G)) { goto l821; }
+  l824:;	
+  {  int yypos825= G->pos, yythunkpos825= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l825; }  goto l824;
+  l825:;	  G->pos= yypos825; G->thunkpos= yythunkpos825;
+  }  if (!yymatchChar(G, '>')) goto l821;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenTh", G->buf+G->pos));
   return 1;
-  l805:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l821:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenTh", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockTfoot(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockTfoot"));  if (!yy_HtmlBlockOpenTfoot(G)) { goto l810; }
-  l811:;	
-  {  int yypos812= G->pos, yythunkpos812= G->thunkpos;
-  {  int yypos813= G->pos, yythunkpos813= G->thunkpos;  if (!yy_HtmlBlockTfoot(G)) { goto l814; }  goto l813;
-  l814:;	  G->pos= yypos813; G->thunkpos= yythunkpos813;
-  {  int yypos815= G->pos, yythunkpos815= G->thunkpos;  if (!yy_HtmlBlockCloseTfoot(G)) { goto l815; }  goto l812;
-  l815:;	  G->pos= yypos815; G->thunkpos= yythunkpos815;
-  }  if (!yymatchDot(G)) goto l812;
+  yyprintf((stderr, "%s\n", "HtmlBlockTfoot"));  if (!yy_HtmlBlockOpenTfoot(G)) { goto l826; }
+  l827:;	
+  {  int yypos828= G->pos, yythunkpos828= G->thunkpos;
+  {  int yypos829= G->pos, yythunkpos829= G->thunkpos;  if (!yy_HtmlBlockTfoot(G)) { goto l830; }  goto l829;
+  l830:;	  G->pos= yypos829; G->thunkpos= yythunkpos829;
+  {  int yypos831= G->pos, yythunkpos831= G->thunkpos;  if (!yy_HtmlBlockCloseTfoot(G)) { goto l831; }  goto l828;
+  l831:;	  G->pos= yypos831; G->thunkpos= yythunkpos831;
+  }  if (!yymatchDot(G)) goto l828;
   }
-  l813:;	  goto l811;
-  l812:;	  G->pos= yypos812; G->thunkpos= yythunkpos812;
-  }  if (!yy_HtmlBlockCloseTfoot(G)) { goto l810; }
+  l829:;	  goto l827;
+  l828:;	  G->pos= yypos828; G->thunkpos= yythunkpos828;
+  }  if (!yy_HtmlBlockCloseTfoot(G)) { goto l826; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockTfoot", G->buf+G->pos));
   return 1;
-  l810:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l826:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockTfoot", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseTfoot(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseTfoot"));  if (!yymatchChar(G, '<')) goto l816;  if (!yy_Spnl(G)) { goto l816; }  if (!yymatchChar(G, '/')) goto l816;
-  {  int yypos817= G->pos, yythunkpos817= G->thunkpos;  if (!yymatchString(G, "tfoot")) goto l818;  goto l817;
-  l818:;	  G->pos= yypos817; G->thunkpos= yythunkpos817;  if (!yymatchString(G, "TFOOT")) goto l816;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseTfoot"));  if (!yymatchChar(G, '<')) goto l832;  if (!yy_Spnl(G)) { goto l832; }  if (!yymatchChar(G, '/')) goto l832;
+  {  int yypos833= G->pos, yythunkpos833= G->thunkpos;  if (!yymatchString(G, "tfoot")) goto l834;  goto l833;
+  l834:;	  G->pos= yypos833; G->thunkpos= yythunkpos833;  if (!yymatchString(G, "TFOOT")) goto l832;
   }
-  l817:;	  if (!yy_Spnl(G)) { goto l816; }  if (!yymatchChar(G, '>')) goto l816;
+  l833:;	  if (!yy_Spnl(G)) { goto l832; }  if (!yymatchChar(G, '>')) goto l832;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseTfoot", G->buf+G->pos));
   return 1;
-  l816:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l832:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseTfoot", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenTfoot(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenTfoot"));  if (!yymatchChar(G, '<')) goto l819;  if (!yy_Spnl(G)) { goto l819; }
-  {  int yypos820= G->pos, yythunkpos820= G->thunkpos;  if (!yymatchString(G, "tfoot")) goto l821;  goto l820;
-  l821:;	  G->pos= yypos820; G->thunkpos= yythunkpos820;  if (!yymatchString(G, "TFOOT")) goto l819;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenTfoot"));  if (!yymatchChar(G, '<')) goto l835;  if (!yy_Spnl(G)) { goto l835; }
+  {  int yypos836= G->pos, yythunkpos836= G->thunkpos;  if (!yymatchString(G, "tfoot")) goto l837;  goto l836;
+  l837:;	  G->pos= yypos836; G->thunkpos= yythunkpos836;  if (!yymatchString(G, "TFOOT")) goto l835;
   }
-  l820:;	  if (!yy_Spnl(G)) { goto l819; }
-  l822:;	
-  {  int yypos823= G->pos, yythunkpos823= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l823; }  goto l822;
-  l823:;	  G->pos= yypos823; G->thunkpos= yythunkpos823;
-  }  if (!yymatchChar(G, '>')) goto l819;
+  l836:;	  if (!yy_Spnl(G)) { goto l835; }
+  l838:;	
+  {  int yypos839= G->pos, yythunkpos839= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l839; }  goto l838;
+  l839:;	  G->pos= yypos839; G->thunkpos= yythunkpos839;
+  }  if (!yymatchChar(G, '>')) goto l835;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenTfoot", G->buf+G->pos));
   return 1;
-  l819:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l835:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenTfoot", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockTd(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockTd"));  if (!yy_HtmlBlockOpenTd(G)) { goto l824; }
-  l825:;	
-  {  int yypos826= G->pos, yythunkpos826= G->thunkpos;
-  {  int yypos827= G->pos, yythunkpos827= G->thunkpos;  if (!yy_HtmlBlockTd(G)) { goto l828; }  goto l827;
-  l828:;	  G->pos= yypos827; G->thunkpos= yythunkpos827;
-  {  int yypos829= G->pos, yythunkpos829= G->thunkpos;  if (!yy_HtmlBlockCloseTd(G)) { goto l829; }  goto l826;
-  l829:;	  G->pos= yypos829; G->thunkpos= yythunkpos829;
-  }  if (!yymatchDot(G)) goto l826;
+  yyprintf((stderr, "%s\n", "HtmlBlockTd"));  if (!yy_HtmlBlockOpenTd(G)) { goto l840; }
+  l841:;	
+  {  int yypos842= G->pos, yythunkpos842= G->thunkpos;
+  {  int yypos843= G->pos, yythunkpos843= G->thunkpos;  if (!yy_HtmlBlockTd(G)) { goto l844; }  goto l843;
+  l844:;	  G->pos= yypos843; G->thunkpos= yythunkpos843;
+  {  int yypos845= G->pos, yythunkpos845= G->thunkpos;  if (!yy_HtmlBlockCloseTd(G)) { goto l845; }  goto l842;
+  l845:;	  G->pos= yypos845; G->thunkpos= yythunkpos845;
+  }  if (!yymatchDot(G)) goto l842;
   }
-  l827:;	  goto l825;
-  l826:;	  G->pos= yypos826; G->thunkpos= yythunkpos826;
-  }  if (!yy_HtmlBlockCloseTd(G)) { goto l824; }
+  l843:;	  goto l841;
+  l842:;	  G->pos= yypos842; G->thunkpos= yythunkpos842;
+  }  if (!yy_HtmlBlockCloseTd(G)) { goto l840; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockTd", G->buf+G->pos));
   return 1;
-  l824:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l840:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockTd", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseTd(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseTd"));  if (!yymatchChar(G, '<')) goto l830;  if (!yy_Spnl(G)) { goto l830; }  if (!yymatchChar(G, '/')) goto l830;
-  {  int yypos831= G->pos, yythunkpos831= G->thunkpos;  if (!yymatchString(G, "td")) goto l832;  goto l831;
-  l832:;	  G->pos= yypos831; G->thunkpos= yythunkpos831;  if (!yymatchString(G, "TD")) goto l830;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseTd"));  if (!yymatchChar(G, '<')) goto l846;  if (!yy_Spnl(G)) { goto l846; }  if (!yymatchChar(G, '/')) goto l846;
+  {  int yypos847= G->pos, yythunkpos847= G->thunkpos;  if (!yymatchString(G, "td")) goto l848;  goto l847;
+  l848:;	  G->pos= yypos847; G->thunkpos= yythunkpos847;  if (!yymatchString(G, "TD")) goto l846;
   }
-  l831:;	  if (!yy_Spnl(G)) { goto l830; }  if (!yymatchChar(G, '>')) goto l830;
+  l847:;	  if (!yy_Spnl(G)) { goto l846; }  if (!yymatchChar(G, '>')) goto l846;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseTd", G->buf+G->pos));
   return 1;
-  l830:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l846:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseTd", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenTd(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenTd"));  if (!yymatchChar(G, '<')) goto l833;  if (!yy_Spnl(G)) { goto l833; }
-  {  int yypos834= G->pos, yythunkpos834= G->thunkpos;  if (!yymatchString(G, "td")) goto l835;  goto l834;
-  l835:;	  G->pos= yypos834; G->thunkpos= yythunkpos834;  if (!yymatchString(G, "TD")) goto l833;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenTd"));  if (!yymatchChar(G, '<')) goto l849;  if (!yy_Spnl(G)) { goto l849; }
+  {  int yypos850= G->pos, yythunkpos850= G->thunkpos;  if (!yymatchString(G, "td")) goto l851;  goto l850;
+  l851:;	  G->pos= yypos850; G->thunkpos= yythunkpos850;  if (!yymatchString(G, "TD")) goto l849;
   }
-  l834:;	  if (!yy_Spnl(G)) { goto l833; }
-  l836:;	
-  {  int yypos837= G->pos, yythunkpos837= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l837; }  goto l836;
-  l837:;	  G->pos= yypos837; G->thunkpos= yythunkpos837;
-  }  if (!yymatchChar(G, '>')) goto l833;
+  l850:;	  if (!yy_Spnl(G)) { goto l849; }
+  l852:;	
+  {  int yypos853= G->pos, yythunkpos853= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l853; }  goto l852;
+  l853:;	  G->pos= yypos853; G->thunkpos= yythunkpos853;
+  }  if (!yymatchChar(G, '>')) goto l849;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenTd", G->buf+G->pos));
   return 1;
-  l833:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l849:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenTd", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockTbody(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockTbody"));  if (!yy_HtmlBlockOpenTbody(G)) { goto l838; }
-  l839:;	
-  {  int yypos840= G->pos, yythunkpos840= G->thunkpos;
-  {  int yypos841= G->pos, yythunkpos841= G->thunkpos;  if (!yy_HtmlBlockTbody(G)) { goto l842; }  goto l841;
-  l842:;	  G->pos= yypos841; G->thunkpos= yythunkpos841;
-  {  int yypos843= G->pos, yythunkpos843= G->thunkpos;  if (!yy_HtmlBlockCloseTbody(G)) { goto l843; }  goto l840;
-  l843:;	  G->pos= yypos843; G->thunkpos= yythunkpos843;
-  }  if (!yymatchDot(G)) goto l840;
+  yyprintf((stderr, "%s\n", "HtmlBlockTbody"));  if (!yy_HtmlBlockOpenTbody(G)) { goto l854; }
+  l855:;	
+  {  int yypos856= G->pos, yythunkpos856= G->thunkpos;
+  {  int yypos857= G->pos, yythunkpos857= G->thunkpos;  if (!yy_HtmlBlockTbody(G)) { goto l858; }  goto l857;
+  l858:;	  G->pos= yypos857; G->thunkpos= yythunkpos857;
+  {  int yypos859= G->pos, yythunkpos859= G->thunkpos;  if (!yy_HtmlBlockCloseTbody(G)) { goto l859; }  goto l856;
+  l859:;	  G->pos= yypos859; G->thunkpos= yythunkpos859;
+  }  if (!yymatchDot(G)) goto l856;
   }
-  l841:;	  goto l839;
-  l840:;	  G->pos= yypos840; G->thunkpos= yythunkpos840;
-  }  if (!yy_HtmlBlockCloseTbody(G)) { goto l838; }
+  l857:;	  goto l855;
+  l856:;	  G->pos= yypos856; G->thunkpos= yythunkpos856;
+  }  if (!yy_HtmlBlockCloseTbody(G)) { goto l854; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockTbody", G->buf+G->pos));
   return 1;
-  l838:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l854:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockTbody", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseTbody(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseTbody"));  if (!yymatchChar(G, '<')) goto l844;  if (!yy_Spnl(G)) { goto l844; }  if (!yymatchChar(G, '/')) goto l844;
-  {  int yypos845= G->pos, yythunkpos845= G->thunkpos;  if (!yymatchString(G, "tbody")) goto l846;  goto l845;
-  l846:;	  G->pos= yypos845; G->thunkpos= yythunkpos845;  if (!yymatchString(G, "TBODY")) goto l844;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseTbody"));  if (!yymatchChar(G, '<')) goto l860;  if (!yy_Spnl(G)) { goto l860; }  if (!yymatchChar(G, '/')) goto l860;
+  {  int yypos861= G->pos, yythunkpos861= G->thunkpos;  if (!yymatchString(G, "tbody")) goto l862;  goto l861;
+  l862:;	  G->pos= yypos861; G->thunkpos= yythunkpos861;  if (!yymatchString(G, "TBODY")) goto l860;
   }
-  l845:;	  if (!yy_Spnl(G)) { goto l844; }  if (!yymatchChar(G, '>')) goto l844;
+  l861:;	  if (!yy_Spnl(G)) { goto l860; }  if (!yymatchChar(G, '>')) goto l860;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseTbody", G->buf+G->pos));
   return 1;
-  l844:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l860:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseTbody", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenTbody(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenTbody"));  if (!yymatchChar(G, '<')) goto l847;  if (!yy_Spnl(G)) { goto l847; }
-  {  int yypos848= G->pos, yythunkpos848= G->thunkpos;  if (!yymatchString(G, "tbody")) goto l849;  goto l848;
-  l849:;	  G->pos= yypos848; G->thunkpos= yythunkpos848;  if (!yymatchString(G, "TBODY")) goto l847;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenTbody"));  if (!yymatchChar(G, '<')) goto l863;  if (!yy_Spnl(G)) { goto l863; }
+  {  int yypos864= G->pos, yythunkpos864= G->thunkpos;  if (!yymatchString(G, "tbody")) goto l865;  goto l864;
+  l865:;	  G->pos= yypos864; G->thunkpos= yythunkpos864;  if (!yymatchString(G, "TBODY")) goto l863;
   }
-  l848:;	  if (!yy_Spnl(G)) { goto l847; }
-  l850:;	
-  {  int yypos851= G->pos, yythunkpos851= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l851; }  goto l850;
-  l851:;	  G->pos= yypos851; G->thunkpos= yythunkpos851;
-  }  if (!yymatchChar(G, '>')) goto l847;
+  l864:;	  if (!yy_Spnl(G)) { goto l863; }
+  l866:;	
+  {  int yypos867= G->pos, yythunkpos867= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l867; }  goto l866;
+  l867:;	  G->pos= yypos867; G->thunkpos= yythunkpos867;
+  }  if (!yymatchChar(G, '>')) goto l863;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenTbody", G->buf+G->pos));
   return 1;
-  l847:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l863:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenTbody", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockLi(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockLi"));  if (!yy_HtmlBlockOpenLi(G)) { goto l852; }
-  l853:;	
-  {  int yypos854= G->pos, yythunkpos854= G->thunkpos;
-  {  int yypos855= G->pos, yythunkpos855= G->thunkpos;  if (!yy_HtmlBlockLi(G)) { goto l856; }  goto l855;
-  l856:;	  G->pos= yypos855; G->thunkpos= yythunkpos855;
-  {  int yypos857= G->pos, yythunkpos857= G->thunkpos;  if (!yy_HtmlBlockCloseLi(G)) { goto l857; }  goto l854;
-  l857:;	  G->pos= yypos857; G->thunkpos= yythunkpos857;
-  }  if (!yymatchDot(G)) goto l854;
+  yyprintf((stderr, "%s\n", "HtmlBlockLi"));  if (!yy_HtmlBlockOpenLi(G)) { goto l868; }
+  l869:;	
+  {  int yypos870= G->pos, yythunkpos870= G->thunkpos;
+  {  int yypos871= G->pos, yythunkpos871= G->thunkpos;  if (!yy_HtmlBlockLi(G)) { goto l872; }  goto l871;
+  l872:;	  G->pos= yypos871; G->thunkpos= yythunkpos871;
+  {  int yypos873= G->pos, yythunkpos873= G->thunkpos;  if (!yy_HtmlBlockCloseLi(G)) { goto l873; }  goto l870;
+  l873:;	  G->pos= yypos873; G->thunkpos= yythunkpos873;
+  }  if (!yymatchDot(G)) goto l870;
   }
-  l855:;	  goto l853;
-  l854:;	  G->pos= yypos854; G->thunkpos= yythunkpos854;
-  }  if (!yy_HtmlBlockCloseLi(G)) { goto l852; }
+  l871:;	  goto l869;
+  l870:;	  G->pos= yypos870; G->thunkpos= yythunkpos870;
+  }  if (!yy_HtmlBlockCloseLi(G)) { goto l868; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockLi", G->buf+G->pos));
   return 1;
-  l852:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l868:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockLi", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseLi(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseLi"));  if (!yymatchChar(G, '<')) goto l858;  if (!yy_Spnl(G)) { goto l858; }  if (!yymatchChar(G, '/')) goto l858;
-  {  int yypos859= G->pos, yythunkpos859= G->thunkpos;  if (!yymatchString(G, "li")) goto l860;  goto l859;
-  l860:;	  G->pos= yypos859; G->thunkpos= yythunkpos859;  if (!yymatchString(G, "LI")) goto l858;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseLi"));  if (!yymatchChar(G, '<')) goto l874;  if (!yy_Spnl(G)) { goto l874; }  if (!yymatchChar(G, '/')) goto l874;
+  {  int yypos875= G->pos, yythunkpos875= G->thunkpos;  if (!yymatchString(G, "li")) goto l876;  goto l875;
+  l876:;	  G->pos= yypos875; G->thunkpos= yythunkpos875;  if (!yymatchString(G, "LI")) goto l874;
   }
-  l859:;	  if (!yy_Spnl(G)) { goto l858; }  if (!yymatchChar(G, '>')) goto l858;
+  l875:;	  if (!yy_Spnl(G)) { goto l874; }  if (!yymatchChar(G, '>')) goto l874;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseLi", G->buf+G->pos));
   return 1;
-  l858:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l874:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseLi", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenLi(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenLi"));  if (!yymatchChar(G, '<')) goto l861;  if (!yy_Spnl(G)) { goto l861; }
-  {  int yypos862= G->pos, yythunkpos862= G->thunkpos;  if (!yymatchString(G, "li")) goto l863;  goto l862;
-  l863:;	  G->pos= yypos862; G->thunkpos= yythunkpos862;  if (!yymatchString(G, "LI")) goto l861;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenLi"));  if (!yymatchChar(G, '<')) goto l877;  if (!yy_Spnl(G)) { goto l877; }
+  {  int yypos878= G->pos, yythunkpos878= G->thunkpos;  if (!yymatchString(G, "li")) goto l879;  goto l878;
+  l879:;	  G->pos= yypos878; G->thunkpos= yythunkpos878;  if (!yymatchString(G, "LI")) goto l877;
   }
-  l862:;	  if (!yy_Spnl(G)) { goto l861; }
-  l864:;	
-  {  int yypos865= G->pos, yythunkpos865= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l865; }  goto l864;
-  l865:;	  G->pos= yypos865; G->thunkpos= yythunkpos865;
-  }  if (!yymatchChar(G, '>')) goto l861;
+  l878:;	  if (!yy_Spnl(G)) { goto l877; }
+  l880:;	
+  {  int yypos881= G->pos, yythunkpos881= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l881; }  goto l880;
+  l881:;	  G->pos= yypos881; G->thunkpos= yythunkpos881;
+  }  if (!yymatchChar(G, '>')) goto l877;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenLi", G->buf+G->pos));
   return 1;
-  l861:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l877:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenLi", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockFrameset(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockFrameset"));  if (!yy_HtmlBlockOpenFrameset(G)) { goto l866; }
-  l867:;	
-  {  int yypos868= G->pos, yythunkpos868= G->thunkpos;
-  {  int yypos869= G->pos, yythunkpos869= G->thunkpos;  if (!yy_HtmlBlockFrameset(G)) { goto l870; }  goto l869;
-  l870:;	  G->pos= yypos869; G->thunkpos= yythunkpos869;
-  {  int yypos871= G->pos, yythunkpos871= G->thunkpos;  if (!yy_HtmlBlockCloseFrameset(G)) { goto l871; }  goto l868;
-  l871:;	  G->pos= yypos871; G->thunkpos= yythunkpos871;
-  }  if (!yymatchDot(G)) goto l868;
+  yyprintf((stderr, "%s\n", "HtmlBlockFrameset"));  if (!yy_HtmlBlockOpenFrameset(G)) { goto l882; }
+  l883:;	
+  {  int yypos884= G->pos, yythunkpos884= G->thunkpos;
+  {  int yypos885= G->pos, yythunkpos885= G->thunkpos;  if (!yy_HtmlBlockFrameset(G)) { goto l886; }  goto l885;
+  l886:;	  G->pos= yypos885; G->thunkpos= yythunkpos885;
+  {  int yypos887= G->pos, yythunkpos887= G->thunkpos;  if (!yy_HtmlBlockCloseFrameset(G)) { goto l887; }  goto l884;
+  l887:;	  G->pos= yypos887; G->thunkpos= yythunkpos887;
+  }  if (!yymatchDot(G)) goto l884;
   }
-  l869:;	  goto l867;
-  l868:;	  G->pos= yypos868; G->thunkpos= yythunkpos868;
-  }  if (!yy_HtmlBlockCloseFrameset(G)) { goto l866; }
+  l885:;	  goto l883;
+  l884:;	  G->pos= yypos884; G->thunkpos= yythunkpos884;
+  }  if (!yy_HtmlBlockCloseFrameset(G)) { goto l882; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockFrameset", G->buf+G->pos));
   return 1;
-  l866:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l882:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockFrameset", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseFrameset(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseFrameset"));  if (!yymatchChar(G, '<')) goto l872;  if (!yy_Spnl(G)) { goto l872; }  if (!yymatchChar(G, '/')) goto l872;
-  {  int yypos873= G->pos, yythunkpos873= G->thunkpos;  if (!yymatchString(G, "frameset")) goto l874;  goto l873;
-  l874:;	  G->pos= yypos873; G->thunkpos= yythunkpos873;  if (!yymatchString(G, "FRAMESET")) goto l872;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseFrameset"));  if (!yymatchChar(G, '<')) goto l888;  if (!yy_Spnl(G)) { goto l888; }  if (!yymatchChar(G, '/')) goto l888;
+  {  int yypos889= G->pos, yythunkpos889= G->thunkpos;  if (!yymatchString(G, "frameset")) goto l890;  goto l889;
+  l890:;	  G->pos= yypos889; G->thunkpos= yythunkpos889;  if (!yymatchString(G, "FRAMESET")) goto l888;
   }
-  l873:;	  if (!yy_Spnl(G)) { goto l872; }  if (!yymatchChar(G, '>')) goto l872;
+  l889:;	  if (!yy_Spnl(G)) { goto l888; }  if (!yymatchChar(G, '>')) goto l888;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseFrameset", G->buf+G->pos));
   return 1;
-  l872:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l888:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseFrameset", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenFrameset(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenFrameset"));  if (!yymatchChar(G, '<')) goto l875;  if (!yy_Spnl(G)) { goto l875; }
-  {  int yypos876= G->pos, yythunkpos876= G->thunkpos;  if (!yymatchString(G, "frameset")) goto l877;  goto l876;
-  l877:;	  G->pos= yypos876; G->thunkpos= yythunkpos876;  if (!yymatchString(G, "FRAMESET")) goto l875;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenFrameset"));  if (!yymatchChar(G, '<')) goto l891;  if (!yy_Spnl(G)) { goto l891; }
+  {  int yypos892= G->pos, yythunkpos892= G->thunkpos;  if (!yymatchString(G, "frameset")) goto l893;  goto l892;
+  l893:;	  G->pos= yypos892; G->thunkpos= yythunkpos892;  if (!yymatchString(G, "FRAMESET")) goto l891;
   }
-  l876:;	  if (!yy_Spnl(G)) { goto l875; }
-  l878:;	
-  {  int yypos879= G->pos, yythunkpos879= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l879; }  goto l878;
-  l879:;	  G->pos= yypos879; G->thunkpos= yythunkpos879;
-  }  if (!yymatchChar(G, '>')) goto l875;
+  l892:;	  if (!yy_Spnl(G)) { goto l891; }
+  l894:;	
+  {  int yypos895= G->pos, yythunkpos895= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l895; }  goto l894;
+  l895:;	  G->pos= yypos895; G->thunkpos= yythunkpos895;
+  }  if (!yymatchChar(G, '>')) goto l891;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenFrameset", G->buf+G->pos));
   return 1;
-  l875:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l891:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenFrameset", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockDt(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockDt"));  if (!yy_HtmlBlockOpenDt(G)) { goto l880; }
-  l881:;	
-  {  int yypos882= G->pos, yythunkpos882= G->thunkpos;
-  {  int yypos883= G->pos, yythunkpos883= G->thunkpos;  if (!yy_HtmlBlockDt(G)) { goto l884; }  goto l883;
-  l884:;	  G->pos= yypos883; G->thunkpos= yythunkpos883;
-  {  int yypos885= G->pos, yythunkpos885= G->thunkpos;  if (!yy_HtmlBlockCloseDt(G)) { goto l885; }  goto l882;
-  l885:;	  G->pos= yypos885; G->thunkpos= yythunkpos885;
-  }  if (!yymatchDot(G)) goto l882;
+  yyprintf((stderr, "%s\n", "HtmlBlockDt"));  if (!yy_HtmlBlockOpenDt(G)) { goto l896; }
+  l897:;	
+  {  int yypos898= G->pos, yythunkpos898= G->thunkpos;
+  {  int yypos899= G->pos, yythunkpos899= G->thunkpos;  if (!yy_HtmlBlockDt(G)) { goto l900; }  goto l899;
+  l900:;	  G->pos= yypos899; G->thunkpos= yythunkpos899;
+  {  int yypos901= G->pos, yythunkpos901= G->thunkpos;  if (!yy_HtmlBlockCloseDt(G)) { goto l901; }  goto l898;
+  l901:;	  G->pos= yypos901; G->thunkpos= yythunkpos901;
+  }  if (!yymatchDot(G)) goto l898;
   }
-  l883:;	  goto l881;
-  l882:;	  G->pos= yypos882; G->thunkpos= yythunkpos882;
-  }  if (!yy_HtmlBlockCloseDt(G)) { goto l880; }
+  l899:;	  goto l897;
+  l898:;	  G->pos= yypos898; G->thunkpos= yythunkpos898;
+  }  if (!yy_HtmlBlockCloseDt(G)) { goto l896; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockDt", G->buf+G->pos));
   return 1;
-  l880:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l896:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockDt", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseDt(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseDt"));  if (!yymatchChar(G, '<')) goto l886;  if (!yy_Spnl(G)) { goto l886; }  if (!yymatchChar(G, '/')) goto l886;
-  {  int yypos887= G->pos, yythunkpos887= G->thunkpos;  if (!yymatchString(G, "dt")) goto l888;  goto l887;
-  l888:;	  G->pos= yypos887; G->thunkpos= yythunkpos887;  if (!yymatchString(G, "DT")) goto l886;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseDt"));  if (!yymatchChar(G, '<')) goto l902;  if (!yy_Spnl(G)) { goto l902; }  if (!yymatchChar(G, '/')) goto l902;
+  {  int yypos903= G->pos, yythunkpos903= G->thunkpos;  if (!yymatchString(G, "dt")) goto l904;  goto l903;
+  l904:;	  G->pos= yypos903; G->thunkpos= yythunkpos903;  if (!yymatchString(G, "DT")) goto l902;
   }
-  l887:;	  if (!yy_Spnl(G)) { goto l886; }  if (!yymatchChar(G, '>')) goto l886;
+  l903:;	  if (!yy_Spnl(G)) { goto l902; }  if (!yymatchChar(G, '>')) goto l902;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseDt", G->buf+G->pos));
   return 1;
-  l886:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l902:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseDt", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenDt(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenDt"));  if (!yymatchChar(G, '<')) goto l889;  if (!yy_Spnl(G)) { goto l889; }
-  {  int yypos890= G->pos, yythunkpos890= G->thunkpos;  if (!yymatchString(G, "dt")) goto l891;  goto l890;
-  l891:;	  G->pos= yypos890; G->thunkpos= yythunkpos890;  if (!yymatchString(G, "DT")) goto l889;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenDt"));  if (!yymatchChar(G, '<')) goto l905;  if (!yy_Spnl(G)) { goto l905; }
+  {  int yypos906= G->pos, yythunkpos906= G->thunkpos;  if (!yymatchString(G, "dt")) goto l907;  goto l906;
+  l907:;	  G->pos= yypos906; G->thunkpos= yythunkpos906;  if (!yymatchString(G, "DT")) goto l905;
   }
-  l890:;	  if (!yy_Spnl(G)) { goto l889; }
-  l892:;	
-  {  int yypos893= G->pos, yythunkpos893= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l893; }  goto l892;
-  l893:;	  G->pos= yypos893; G->thunkpos= yythunkpos893;
-  }  if (!yymatchChar(G, '>')) goto l889;
+  l906:;	  if (!yy_Spnl(G)) { goto l905; }
+  l908:;	
+  {  int yypos909= G->pos, yythunkpos909= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l909; }  goto l908;
+  l909:;	  G->pos= yypos909; G->thunkpos= yythunkpos909;
+  }  if (!yymatchChar(G, '>')) goto l905;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenDt", G->buf+G->pos));
   return 1;
-  l889:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l905:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenDt", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockDd(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockDd"));  if (!yy_HtmlBlockOpenDd(G)) { goto l894; }
-  l895:;	
-  {  int yypos896= G->pos, yythunkpos896= G->thunkpos;
-  {  int yypos897= G->pos, yythunkpos897= G->thunkpos;  if (!yy_HtmlBlockDd(G)) { goto l898; }  goto l897;
-  l898:;	  G->pos= yypos897; G->thunkpos= yythunkpos897;
-  {  int yypos899= G->pos, yythunkpos899= G->thunkpos;  if (!yy_HtmlBlockCloseDd(G)) { goto l899; }  goto l896;
-  l899:;	  G->pos= yypos899; G->thunkpos= yythunkpos899;
-  }  if (!yymatchDot(G)) goto l896;
+  yyprintf((stderr, "%s\n", "HtmlBlockDd"));  if (!yy_HtmlBlockOpenDd(G)) { goto l910; }
+  l911:;	
+  {  int yypos912= G->pos, yythunkpos912= G->thunkpos;
+  {  int yypos913= G->pos, yythunkpos913= G->thunkpos;  if (!yy_HtmlBlockDd(G)) { goto l914; }  goto l913;
+  l914:;	  G->pos= yypos913; G->thunkpos= yythunkpos913;
+  {  int yypos915= G->pos, yythunkpos915= G->thunkpos;  if (!yy_HtmlBlockCloseDd(G)) { goto l915; }  goto l912;
+  l915:;	  G->pos= yypos915; G->thunkpos= yythunkpos915;
+  }  if (!yymatchDot(G)) goto l912;
   }
-  l897:;	  goto l895;
-  l896:;	  G->pos= yypos896; G->thunkpos= yythunkpos896;
-  }  if (!yy_HtmlBlockCloseDd(G)) { goto l894; }
+  l913:;	  goto l911;
+  l912:;	  G->pos= yypos912; G->thunkpos= yythunkpos912;
+  }  if (!yy_HtmlBlockCloseDd(G)) { goto l910; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockDd", G->buf+G->pos));
   return 1;
-  l894:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l910:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockDd", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseDd(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseDd"));  if (!yymatchChar(G, '<')) goto l900;  if (!yy_Spnl(G)) { goto l900; }  if (!yymatchChar(G, '/')) goto l900;
-  {  int yypos901= G->pos, yythunkpos901= G->thunkpos;  if (!yymatchString(G, "dd")) goto l902;  goto l901;
-  l902:;	  G->pos= yypos901; G->thunkpos= yythunkpos901;  if (!yymatchString(G, "DD")) goto l900;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseDd"));  if (!yymatchChar(G, '<')) goto l916;  if (!yy_Spnl(G)) { goto l916; }  if (!yymatchChar(G, '/')) goto l916;
+  {  int yypos917= G->pos, yythunkpos917= G->thunkpos;  if (!yymatchString(G, "dd")) goto l918;  goto l917;
+  l918:;	  G->pos= yypos917; G->thunkpos= yythunkpos917;  if (!yymatchString(G, "DD")) goto l916;
   }
-  l901:;	  if (!yy_Spnl(G)) { goto l900; }  if (!yymatchChar(G, '>')) goto l900;
+  l917:;	  if (!yy_Spnl(G)) { goto l916; }  if (!yymatchChar(G, '>')) goto l916;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseDd", G->buf+G->pos));
   return 1;
-  l900:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l916:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseDd", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenDd(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenDd"));  if (!yymatchChar(G, '<')) goto l903;  if (!yy_Spnl(G)) { goto l903; }
-  {  int yypos904= G->pos, yythunkpos904= G->thunkpos;  if (!yymatchString(G, "dd")) goto l905;  goto l904;
-  l905:;	  G->pos= yypos904; G->thunkpos= yythunkpos904;  if (!yymatchString(G, "DD")) goto l903;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenDd"));  if (!yymatchChar(G, '<')) goto l919;  if (!yy_Spnl(G)) { goto l919; }
+  {  int yypos920= G->pos, yythunkpos920= G->thunkpos;  if (!yymatchString(G, "dd")) goto l921;  goto l920;
+  l921:;	  G->pos= yypos920; G->thunkpos= yythunkpos920;  if (!yymatchString(G, "DD")) goto l919;
   }
-  l904:;	  if (!yy_Spnl(G)) { goto l903; }
-  l906:;	
-  {  int yypos907= G->pos, yythunkpos907= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l907; }  goto l906;
-  l907:;	  G->pos= yypos907; G->thunkpos= yythunkpos907;
-  }  if (!yymatchChar(G, '>')) goto l903;
+  l920:;	  if (!yy_Spnl(G)) { goto l919; }
+  l922:;	
+  {  int yypos923= G->pos, yythunkpos923= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l923; }  goto l922;
+  l923:;	  G->pos= yypos923; G->thunkpos= yythunkpos923;
+  }  if (!yymatchChar(G, '>')) goto l919;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenDd", G->buf+G->pos));
   return 1;
-  l903:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l919:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenDd", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockUl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockUl"));  if (!yy_HtmlBlockOpenUl(G)) { goto l908; }
-  l909:;	
-  {  int yypos910= G->pos, yythunkpos910= G->thunkpos;
-  {  int yypos911= G->pos, yythunkpos911= G->thunkpos;  if (!yy_HtmlBlockUl(G)) { goto l912; }  goto l911;
-  l912:;	  G->pos= yypos911; G->thunkpos= yythunkpos911;
-  {  int yypos913= G->pos, yythunkpos913= G->thunkpos;  if (!yy_HtmlBlockCloseUl(G)) { goto l913; }  goto l910;
-  l913:;	  G->pos= yypos913; G->thunkpos= yythunkpos913;
-  }  if (!yymatchDot(G)) goto l910;
+  yyprintf((stderr, "%s\n", "HtmlBlockUl"));  if (!yy_HtmlBlockOpenUl(G)) { goto l924; }
+  l925:;	
+  {  int yypos926= G->pos, yythunkpos926= G->thunkpos;
+  {  int yypos927= G->pos, yythunkpos927= G->thunkpos;  if (!yy_HtmlBlockUl(G)) { goto l928; }  goto l927;
+  l928:;	  G->pos= yypos927; G->thunkpos= yythunkpos927;
+  {  int yypos929= G->pos, yythunkpos929= G->thunkpos;  if (!yy_HtmlBlockCloseUl(G)) { goto l929; }  goto l926;
+  l929:;	  G->pos= yypos929; G->thunkpos= yythunkpos929;
+  }  if (!yymatchDot(G)) goto l926;
   }
-  l911:;	  goto l909;
-  l910:;	  G->pos= yypos910; G->thunkpos= yythunkpos910;
-  }  if (!yy_HtmlBlockCloseUl(G)) { goto l908; }
+  l927:;	  goto l925;
+  l926:;	  G->pos= yypos926; G->thunkpos= yythunkpos926;
+  }  if (!yy_HtmlBlockCloseUl(G)) { goto l924; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockUl", G->buf+G->pos));
   return 1;
-  l908:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l924:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockUl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseUl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseUl"));  if (!yymatchChar(G, '<')) goto l914;  if (!yy_Spnl(G)) { goto l914; }  if (!yymatchChar(G, '/')) goto l914;
-  {  int yypos915= G->pos, yythunkpos915= G->thunkpos;  if (!yymatchString(G, "ul")) goto l916;  goto l915;
-  l916:;	  G->pos= yypos915; G->thunkpos= yythunkpos915;  if (!yymatchString(G, "UL")) goto l914;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseUl"));  if (!yymatchChar(G, '<')) goto l930;  if (!yy_Spnl(G)) { goto l930; }  if (!yymatchChar(G, '/')) goto l930;
+  {  int yypos931= G->pos, yythunkpos931= G->thunkpos;  if (!yymatchString(G, "ul")) goto l932;  goto l931;
+  l932:;	  G->pos= yypos931; G->thunkpos= yythunkpos931;  if (!yymatchString(G, "UL")) goto l930;
   }
-  l915:;	  if (!yy_Spnl(G)) { goto l914; }  if (!yymatchChar(G, '>')) goto l914;
+  l931:;	  if (!yy_Spnl(G)) { goto l930; }  if (!yymatchChar(G, '>')) goto l930;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseUl", G->buf+G->pos));
   return 1;
-  l914:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l930:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseUl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenUl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenUl"));  if (!yymatchChar(G, '<')) goto l917;  if (!yy_Spnl(G)) { goto l917; }
-  {  int yypos918= G->pos, yythunkpos918= G->thunkpos;  if (!yymatchString(G, "ul")) goto l919;  goto l918;
-  l919:;	  G->pos= yypos918; G->thunkpos= yythunkpos918;  if (!yymatchString(G, "UL")) goto l917;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenUl"));  if (!yymatchChar(G, '<')) goto l933;  if (!yy_Spnl(G)) { goto l933; }
+  {  int yypos934= G->pos, yythunkpos934= G->thunkpos;  if (!yymatchString(G, "ul")) goto l935;  goto l934;
+  l935:;	  G->pos= yypos934; G->thunkpos= yythunkpos934;  if (!yymatchString(G, "UL")) goto l933;
   }
-  l918:;	  if (!yy_Spnl(G)) { goto l917; }
-  l920:;	
-  {  int yypos921= G->pos, yythunkpos921= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l921; }  goto l920;
-  l921:;	  G->pos= yypos921; G->thunkpos= yythunkpos921;
-  }  if (!yymatchChar(G, '>')) goto l917;
+  l934:;	  if (!yy_Spnl(G)) { goto l933; }
+  l936:;	
+  {  int yypos937= G->pos, yythunkpos937= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l937; }  goto l936;
+  l937:;	  G->pos= yypos937; G->thunkpos= yythunkpos937;
+  }  if (!yymatchChar(G, '>')) goto l933;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenUl", G->buf+G->pos));
   return 1;
-  l917:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l933:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenUl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockTable(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockTable"));  if (!yy_HtmlBlockOpenTable(G)) { goto l922; }
-  l923:;	
-  {  int yypos924= G->pos, yythunkpos924= G->thunkpos;
-  {  int yypos925= G->pos, yythunkpos925= G->thunkpos;  if (!yy_HtmlBlockTable(G)) { goto l926; }  goto l925;
-  l926:;	  G->pos= yypos925; G->thunkpos= yythunkpos925;
-  {  int yypos927= G->pos, yythunkpos927= G->thunkpos;  if (!yy_HtmlBlockCloseTable(G)) { goto l927; }  goto l924;
-  l927:;	  G->pos= yypos927; G->thunkpos= yythunkpos927;
-  }  if (!yymatchDot(G)) goto l924;
+  yyprintf((stderr, "%s\n", "HtmlBlockTable"));  if (!yy_HtmlBlockOpenTable(G)) { goto l938; }
+  l939:;	
+  {  int yypos940= G->pos, yythunkpos940= G->thunkpos;
+  {  int yypos941= G->pos, yythunkpos941= G->thunkpos;  if (!yy_HtmlBlockTable(G)) { goto l942; }  goto l941;
+  l942:;	  G->pos= yypos941; G->thunkpos= yythunkpos941;
+  {  int yypos943= G->pos, yythunkpos943= G->thunkpos;  if (!yy_HtmlBlockCloseTable(G)) { goto l943; }  goto l940;
+  l943:;	  G->pos= yypos943; G->thunkpos= yythunkpos943;
+  }  if (!yymatchDot(G)) goto l940;
   }
-  l925:;	  goto l923;
-  l924:;	  G->pos= yypos924; G->thunkpos= yythunkpos924;
-  }  if (!yy_HtmlBlockCloseTable(G)) { goto l922; }
+  l941:;	  goto l939;
+  l940:;	  G->pos= yypos940; G->thunkpos= yythunkpos940;
+  }  if (!yy_HtmlBlockCloseTable(G)) { goto l938; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockTable", G->buf+G->pos));
   return 1;
-  l922:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l938:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockTable", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseTable(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseTable"));  if (!yymatchChar(G, '<')) goto l928;  if (!yy_Spnl(G)) { goto l928; }  if (!yymatchChar(G, '/')) goto l928;
-  {  int yypos929= G->pos, yythunkpos929= G->thunkpos;  if (!yymatchString(G, "table")) goto l930;  goto l929;
-  l930:;	  G->pos= yypos929; G->thunkpos= yythunkpos929;  if (!yymatchString(G, "TABLE")) goto l928;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseTable"));  if (!yymatchChar(G, '<')) goto l944;  if (!yy_Spnl(G)) { goto l944; }  if (!yymatchChar(G, '/')) goto l944;
+  {  int yypos945= G->pos, yythunkpos945= G->thunkpos;  if (!yymatchString(G, "table")) goto l946;  goto l945;
+  l946:;	  G->pos= yypos945; G->thunkpos= yythunkpos945;  if (!yymatchString(G, "TABLE")) goto l944;
   }
-  l929:;	  if (!yy_Spnl(G)) { goto l928; }  if (!yymatchChar(G, '>')) goto l928;
+  l945:;	  if (!yy_Spnl(G)) { goto l944; }  if (!yymatchChar(G, '>')) goto l944;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseTable", G->buf+G->pos));
   return 1;
-  l928:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l944:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseTable", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenTable(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenTable"));  if (!yymatchChar(G, '<')) goto l931;  if (!yy_Spnl(G)) { goto l931; }
-  {  int yypos932= G->pos, yythunkpos932= G->thunkpos;  if (!yymatchString(G, "table")) goto l933;  goto l932;
-  l933:;	  G->pos= yypos932; G->thunkpos= yythunkpos932;  if (!yymatchString(G, "TABLE")) goto l931;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenTable"));  if (!yymatchChar(G, '<')) goto l947;  if (!yy_Spnl(G)) { goto l947; }
+  {  int yypos948= G->pos, yythunkpos948= G->thunkpos;  if (!yymatchString(G, "table")) goto l949;  goto l948;
+  l949:;	  G->pos= yypos948; G->thunkpos= yythunkpos948;  if (!yymatchString(G, "TABLE")) goto l947;
   }
-  l932:;	  if (!yy_Spnl(G)) { goto l931; }
-  l934:;	
-  {  int yypos935= G->pos, yythunkpos935= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l935; }  goto l934;
-  l935:;	  G->pos= yypos935; G->thunkpos= yythunkpos935;
-  }  if (!yymatchChar(G, '>')) goto l931;
+  l948:;	  if (!yy_Spnl(G)) { goto l947; }
+  l950:;	
+  {  int yypos951= G->pos, yythunkpos951= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l951; }  goto l950;
+  l951:;	  G->pos= yypos951; G->thunkpos= yythunkpos951;
+  }  if (!yymatchChar(G, '>')) goto l947;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenTable", G->buf+G->pos));
   return 1;
-  l931:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l947:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenTable", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockPre(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockPre"));  if (!yy_HtmlBlockOpenPre(G)) { goto l936; }
-  l937:;	
-  {  int yypos938= G->pos, yythunkpos938= G->thunkpos;
-  {  int yypos939= G->pos, yythunkpos939= G->thunkpos;  if (!yy_HtmlBlockPre(G)) { goto l940; }  goto l939;
-  l940:;	  G->pos= yypos939; G->thunkpos= yythunkpos939;
-  {  int yypos941= G->pos, yythunkpos941= G->thunkpos;  if (!yy_HtmlBlockClosePre(G)) { goto l941; }  goto l938;
-  l941:;	  G->pos= yypos941; G->thunkpos= yythunkpos941;
-  }  if (!yymatchDot(G)) goto l938;
+  yyprintf((stderr, "%s\n", "HtmlBlockPre"));  if (!yy_HtmlBlockOpenPre(G)) { goto l952; }
+  l953:;	
+  {  int yypos954= G->pos, yythunkpos954= G->thunkpos;
+  {  int yypos955= G->pos, yythunkpos955= G->thunkpos;  if (!yy_HtmlBlockPre(G)) { goto l956; }  goto l955;
+  l956:;	  G->pos= yypos955; G->thunkpos= yythunkpos955;
+  {  int yypos957= G->pos, yythunkpos957= G->thunkpos;  if (!yy_HtmlBlockClosePre(G)) { goto l957; }  goto l954;
+  l957:;	  G->pos= yypos957; G->thunkpos= yythunkpos957;
+  }  if (!yymatchDot(G)) goto l954;
   }
-  l939:;	  goto l937;
-  l938:;	  G->pos= yypos938; G->thunkpos= yythunkpos938;
-  }  if (!yy_HtmlBlockClosePre(G)) { goto l936; }
+  l955:;	  goto l953;
+  l954:;	  G->pos= yypos954; G->thunkpos= yythunkpos954;
+  }  if (!yy_HtmlBlockClosePre(G)) { goto l952; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockPre", G->buf+G->pos));
   return 1;
-  l936:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l952:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockPre", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockClosePre(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockClosePre"));  if (!yymatchChar(G, '<')) goto l942;  if (!yy_Spnl(G)) { goto l942; }  if (!yymatchChar(G, '/')) goto l942;
-  {  int yypos943= G->pos, yythunkpos943= G->thunkpos;  if (!yymatchString(G, "pre")) goto l944;  goto l943;
-  l944:;	  G->pos= yypos943; G->thunkpos= yythunkpos943;  if (!yymatchString(G, "PRE")) goto l942;
+  yyprintf((stderr, "%s\n", "HtmlBlockClosePre"));  if (!yymatchChar(G, '<')) goto l958;  if (!yy_Spnl(G)) { goto l958; }  if (!yymatchChar(G, '/')) goto l958;
+  {  int yypos959= G->pos, yythunkpos959= G->thunkpos;  if (!yymatchString(G, "pre")) goto l960;  goto l959;
+  l960:;	  G->pos= yypos959; G->thunkpos= yythunkpos959;  if (!yymatchString(G, "PRE")) goto l958;
   }
-  l943:;	  if (!yy_Spnl(G)) { goto l942; }  if (!yymatchChar(G, '>')) goto l942;
+  l959:;	  if (!yy_Spnl(G)) { goto l958; }  if (!yymatchChar(G, '>')) goto l958;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockClosePre", G->buf+G->pos));
   return 1;
-  l942:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l958:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockClosePre", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenPre(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenPre"));  if (!yymatchChar(G, '<')) goto l945;  if (!yy_Spnl(G)) { goto l945; }
-  {  int yypos946= G->pos, yythunkpos946= G->thunkpos;  if (!yymatchString(G, "pre")) goto l947;  goto l946;
-  l947:;	  G->pos= yypos946; G->thunkpos= yythunkpos946;  if (!yymatchString(G, "PRE")) goto l945;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenPre"));  if (!yymatchChar(G, '<')) goto l961;  if (!yy_Spnl(G)) { goto l961; }
+  {  int yypos962= G->pos, yythunkpos962= G->thunkpos;  if (!yymatchString(G, "pre")) goto l963;  goto l962;
+  l963:;	  G->pos= yypos962; G->thunkpos= yythunkpos962;  if (!yymatchString(G, "PRE")) goto l961;
   }
-  l946:;	  if (!yy_Spnl(G)) { goto l945; }
-  l948:;	
-  {  int yypos949= G->pos, yythunkpos949= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l949; }  goto l948;
-  l949:;	  G->pos= yypos949; G->thunkpos= yythunkpos949;
-  }  if (!yymatchChar(G, '>')) goto l945;
+  l962:;	  if (!yy_Spnl(G)) { goto l961; }
+  l964:;	
+  {  int yypos965= G->pos, yythunkpos965= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l965; }  goto l964;
+  l965:;	  G->pos= yypos965; G->thunkpos= yythunkpos965;
+  }  if (!yymatchChar(G, '>')) goto l961;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenPre", G->buf+G->pos));
   return 1;
-  l945:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l961:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenPre", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockP(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockP"));  if (!yy_HtmlBlockOpenP(G)) { goto l950; }
-  l951:;	
-  {  int yypos952= G->pos, yythunkpos952= G->thunkpos;
-  {  int yypos953= G->pos, yythunkpos953= G->thunkpos;  if (!yy_HtmlBlockP(G)) { goto l954; }  goto l953;
-  l954:;	  G->pos= yypos953; G->thunkpos= yythunkpos953;
-  {  int yypos955= G->pos, yythunkpos955= G->thunkpos;  if (!yy_HtmlBlockCloseP(G)) { goto l955; }  goto l952;
-  l955:;	  G->pos= yypos955; G->thunkpos= yythunkpos955;
-  }  if (!yymatchDot(G)) goto l952;
+  yyprintf((stderr, "%s\n", "HtmlBlockP"));  if (!yy_HtmlBlockOpenP(G)) { goto l966; }
+  l967:;	
+  {  int yypos968= G->pos, yythunkpos968= G->thunkpos;
+  {  int yypos969= G->pos, yythunkpos969= G->thunkpos;  if (!yy_HtmlBlockP(G)) { goto l970; }  goto l969;
+  l970:;	  G->pos= yypos969; G->thunkpos= yythunkpos969;
+  {  int yypos971= G->pos, yythunkpos971= G->thunkpos;  if (!yy_HtmlBlockCloseP(G)) { goto l971; }  goto l968;
+  l971:;	  G->pos= yypos971; G->thunkpos= yythunkpos971;
+  }  if (!yymatchDot(G)) goto l968;
   }
-  l953:;	  goto l951;
-  l952:;	  G->pos= yypos952; G->thunkpos= yythunkpos952;
-  }  if (!yy_HtmlBlockCloseP(G)) { goto l950; }
+  l969:;	  goto l967;
+  l968:;	  G->pos= yypos968; G->thunkpos= yythunkpos968;
+  }  if (!yy_HtmlBlockCloseP(G)) { goto l966; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockP", G->buf+G->pos));
   return 1;
-  l950:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l966:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockP", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseP(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseP"));  if (!yymatchChar(G, '<')) goto l956;  if (!yy_Spnl(G)) { goto l956; }  if (!yymatchChar(G, '/')) goto l956;
-  {  int yypos957= G->pos, yythunkpos957= G->thunkpos;  if (!yymatchChar(G, 'p')) goto l958;  goto l957;
-  l958:;	  G->pos= yypos957; G->thunkpos= yythunkpos957;  if (!yymatchChar(G, 'P')) goto l956;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseP"));  if (!yymatchChar(G, '<')) goto l972;  if (!yy_Spnl(G)) { goto l972; }  if (!yymatchChar(G, '/')) goto l972;
+  {  int yypos973= G->pos, yythunkpos973= G->thunkpos;  if (!yymatchChar(G, 'p')) goto l974;  goto l973;
+  l974:;	  G->pos= yypos973; G->thunkpos= yythunkpos973;  if (!yymatchChar(G, 'P')) goto l972;
   }
-  l957:;	  if (!yy_Spnl(G)) { goto l956; }  if (!yymatchChar(G, '>')) goto l956;
+  l973:;	  if (!yy_Spnl(G)) { goto l972; }  if (!yymatchChar(G, '>')) goto l972;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseP", G->buf+G->pos));
   return 1;
-  l956:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l972:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseP", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenP(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenP"));  if (!yymatchChar(G, '<')) goto l959;  if (!yy_Spnl(G)) { goto l959; }
-  {  int yypos960= G->pos, yythunkpos960= G->thunkpos;  if (!yymatchChar(G, 'p')) goto l961;  goto l960;
-  l961:;	  G->pos= yypos960; G->thunkpos= yythunkpos960;  if (!yymatchChar(G, 'P')) goto l959;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenP"));  if (!yymatchChar(G, '<')) goto l975;  if (!yy_Spnl(G)) { goto l975; }
+  {  int yypos976= G->pos, yythunkpos976= G->thunkpos;  if (!yymatchChar(G, 'p')) goto l977;  goto l976;
+  l977:;	  G->pos= yypos976; G->thunkpos= yythunkpos976;  if (!yymatchChar(G, 'P')) goto l975;
   }
-  l960:;	  if (!yy_Spnl(G)) { goto l959; }
-  l962:;	
-  {  int yypos963= G->pos, yythunkpos963= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l963; }  goto l962;
-  l963:;	  G->pos= yypos963; G->thunkpos= yythunkpos963;
-  }  if (!yymatchChar(G, '>')) goto l959;
+  l976:;	  if (!yy_Spnl(G)) { goto l975; }
+  l978:;	
+  {  int yypos979= G->pos, yythunkpos979= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l979; }  goto l978;
+  l979:;	  G->pos= yypos979; G->thunkpos= yythunkpos979;
+  }  if (!yymatchChar(G, '>')) goto l975;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenP", G->buf+G->pos));
   return 1;
-  l959:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l975:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenP", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOl"));  if (!yy_HtmlBlockOpenOl(G)) { goto l964; }
-  l965:;	
-  {  int yypos966= G->pos, yythunkpos966= G->thunkpos;
-  {  int yypos967= G->pos, yythunkpos967= G->thunkpos;  if (!yy_HtmlBlockOl(G)) { goto l968; }  goto l967;
-  l968:;	  G->pos= yypos967; G->thunkpos= yythunkpos967;
-  {  int yypos969= G->pos, yythunkpos969= G->thunkpos;  if (!yy_HtmlBlockCloseOl(G)) { goto l969; }  goto l966;
-  l969:;	  G->pos= yypos969; G->thunkpos= yythunkpos969;
-  }  if (!yymatchDot(G)) goto l966;
+  yyprintf((stderr, "%s\n", "HtmlBlockOl"));  if (!yy_HtmlBlockOpenOl(G)) { goto l980; }
+  l981:;	
+  {  int yypos982= G->pos, yythunkpos982= G->thunkpos;
+  {  int yypos983= G->pos, yythunkpos983= G->thunkpos;  if (!yy_HtmlBlockOl(G)) { goto l984; }  goto l983;
+  l984:;	  G->pos= yypos983; G->thunkpos= yythunkpos983;
+  {  int yypos985= G->pos, yythunkpos985= G->thunkpos;  if (!yy_HtmlBlockCloseOl(G)) { goto l985; }  goto l982;
+  l985:;	  G->pos= yypos985; G->thunkpos= yythunkpos985;
+  }  if (!yymatchDot(G)) goto l982;
   }
-  l967:;	  goto l965;
-  l966:;	  G->pos= yypos966; G->thunkpos= yythunkpos966;
-  }  if (!yy_HtmlBlockCloseOl(G)) { goto l964; }
+  l983:;	  goto l981;
+  l982:;	  G->pos= yypos982; G->thunkpos= yythunkpos982;
+  }  if (!yy_HtmlBlockCloseOl(G)) { goto l980; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOl", G->buf+G->pos));
   return 1;
-  l964:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l980:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseOl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseOl"));  if (!yymatchChar(G, '<')) goto l970;  if (!yy_Spnl(G)) { goto l970; }  if (!yymatchChar(G, '/')) goto l970;
-  {  int yypos971= G->pos, yythunkpos971= G->thunkpos;  if (!yymatchString(G, "ol")) goto l972;  goto l971;
-  l972:;	  G->pos= yypos971; G->thunkpos= yythunkpos971;  if (!yymatchString(G, "OL")) goto l970;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseOl"));  if (!yymatchChar(G, '<')) goto l986;  if (!yy_Spnl(G)) { goto l986; }  if (!yymatchChar(G, '/')) goto l986;
+  {  int yypos987= G->pos, yythunkpos987= G->thunkpos;  if (!yymatchString(G, "ol")) goto l988;  goto l987;
+  l988:;	  G->pos= yypos987; G->thunkpos= yythunkpos987;  if (!yymatchString(G, "OL")) goto l986;
   }
-  l971:;	  if (!yy_Spnl(G)) { goto l970; }  if (!yymatchChar(G, '>')) goto l970;
+  l987:;	  if (!yy_Spnl(G)) { goto l986; }  if (!yymatchChar(G, '>')) goto l986;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseOl", G->buf+G->pos));
   return 1;
-  l970:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l986:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseOl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenOl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenOl"));  if (!yymatchChar(G, '<')) goto l973;  if (!yy_Spnl(G)) { goto l973; }
-  {  int yypos974= G->pos, yythunkpos974= G->thunkpos;  if (!yymatchString(G, "ol")) goto l975;  goto l974;
-  l975:;	  G->pos= yypos974; G->thunkpos= yythunkpos974;  if (!yymatchString(G, "OL")) goto l973;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenOl"));  if (!yymatchChar(G, '<')) goto l989;  if (!yy_Spnl(G)) { goto l989; }
+  {  int yypos990= G->pos, yythunkpos990= G->thunkpos;  if (!yymatchString(G, "ol")) goto l991;  goto l990;
+  l991:;	  G->pos= yypos990; G->thunkpos= yythunkpos990;  if (!yymatchString(G, "OL")) goto l989;
   }
-  l974:;	  if (!yy_Spnl(G)) { goto l973; }
-  l976:;	
-  {  int yypos977= G->pos, yythunkpos977= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l977; }  goto l976;
-  l977:;	  G->pos= yypos977; G->thunkpos= yythunkpos977;
-  }  if (!yymatchChar(G, '>')) goto l973;
+  l990:;	  if (!yy_Spnl(G)) { goto l989; }
+  l992:;	
+  {  int yypos993= G->pos, yythunkpos993= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l993; }  goto l992;
+  l993:;	  G->pos= yypos993; G->thunkpos= yythunkpos993;
+  }  if (!yymatchChar(G, '>')) goto l989;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenOl", G->buf+G->pos));
   return 1;
-  l973:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l989:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenOl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockNoscript(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockNoscript"));  if (!yy_HtmlBlockOpenNoscript(G)) { goto l978; }
-  l979:;	
-  {  int yypos980= G->pos, yythunkpos980= G->thunkpos;
-  {  int yypos981= G->pos, yythunkpos981= G->thunkpos;  if (!yy_HtmlBlockNoscript(G)) { goto l982; }  goto l981;
-  l982:;	  G->pos= yypos981; G->thunkpos= yythunkpos981;
-  {  int yypos983= G->pos, yythunkpos983= G->thunkpos;  if (!yy_HtmlBlockCloseNoscript(G)) { goto l983; }  goto l980;
-  l983:;	  G->pos= yypos983; G->thunkpos= yythunkpos983;
-  }  if (!yymatchDot(G)) goto l980;
+  yyprintf((stderr, "%s\n", "HtmlBlockNoscript"));  if (!yy_HtmlBlockOpenNoscript(G)) { goto l994; }
+  l995:;	
+  {  int yypos996= G->pos, yythunkpos996= G->thunkpos;
+  {  int yypos997= G->pos, yythunkpos997= G->thunkpos;  if (!yy_HtmlBlockNoscript(G)) { goto l998; }  goto l997;
+  l998:;	  G->pos= yypos997; G->thunkpos= yythunkpos997;
+  {  int yypos999= G->pos, yythunkpos999= G->thunkpos;  if (!yy_HtmlBlockCloseNoscript(G)) { goto l999; }  goto l996;
+  l999:;	  G->pos= yypos999; G->thunkpos= yythunkpos999;
+  }  if (!yymatchDot(G)) goto l996;
   }
-  l981:;	  goto l979;
-  l980:;	  G->pos= yypos980; G->thunkpos= yythunkpos980;
-  }  if (!yy_HtmlBlockCloseNoscript(G)) { goto l978; }
+  l997:;	  goto l995;
+  l996:;	  G->pos= yypos996; G->thunkpos= yythunkpos996;
+  }  if (!yy_HtmlBlockCloseNoscript(G)) { goto l994; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockNoscript", G->buf+G->pos));
   return 1;
-  l978:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l994:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockNoscript", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseNoscript(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseNoscript"));  if (!yymatchChar(G, '<')) goto l984;  if (!yy_Spnl(G)) { goto l984; }  if (!yymatchChar(G, '/')) goto l984;
-  {  int yypos985= G->pos, yythunkpos985= G->thunkpos;  if (!yymatchString(G, "noscript")) goto l986;  goto l985;
-  l986:;	  G->pos= yypos985; G->thunkpos= yythunkpos985;  if (!yymatchString(G, "NOSCRIPT")) goto l984;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseNoscript"));  if (!yymatchChar(G, '<')) goto l1000;  if (!yy_Spnl(G)) { goto l1000; }  if (!yymatchChar(G, '/')) goto l1000;
+  {  int yypos1001= G->pos, yythunkpos1001= G->thunkpos;  if (!yymatchString(G, "noscript")) goto l1002;  goto l1001;
+  l1002:;	  G->pos= yypos1001; G->thunkpos= yythunkpos1001;  if (!yymatchString(G, "NOSCRIPT")) goto l1000;
   }
-  l985:;	  if (!yy_Spnl(G)) { goto l984; }  if (!yymatchChar(G, '>')) goto l984;
+  l1001:;	  if (!yy_Spnl(G)) { goto l1000; }  if (!yymatchChar(G, '>')) goto l1000;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseNoscript", G->buf+G->pos));
   return 1;
-  l984:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1000:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseNoscript", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenNoscript(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenNoscript"));  if (!yymatchChar(G, '<')) goto l987;  if (!yy_Spnl(G)) { goto l987; }
-  {  int yypos988= G->pos, yythunkpos988= G->thunkpos;  if (!yymatchString(G, "noscript")) goto l989;  goto l988;
-  l989:;	  G->pos= yypos988; G->thunkpos= yythunkpos988;  if (!yymatchString(G, "NOSCRIPT")) goto l987;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenNoscript"));  if (!yymatchChar(G, '<')) goto l1003;  if (!yy_Spnl(G)) { goto l1003; }
+  {  int yypos1004= G->pos, yythunkpos1004= G->thunkpos;  if (!yymatchString(G, "noscript")) goto l1005;  goto l1004;
+  l1005:;	  G->pos= yypos1004; G->thunkpos= yythunkpos1004;  if (!yymatchString(G, "NOSCRIPT")) goto l1003;
   }
-  l988:;	  if (!yy_Spnl(G)) { goto l987; }
-  l990:;	
-  {  int yypos991= G->pos, yythunkpos991= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l991; }  goto l990;
-  l991:;	  G->pos= yypos991; G->thunkpos= yythunkpos991;
-  }  if (!yymatchChar(G, '>')) goto l987;
+  l1004:;	  if (!yy_Spnl(G)) { goto l1003; }
+  l1006:;	
+  {  int yypos1007= G->pos, yythunkpos1007= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1007; }  goto l1006;
+  l1007:;	  G->pos= yypos1007; G->thunkpos= yythunkpos1007;
+  }  if (!yymatchChar(G, '>')) goto l1003;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenNoscript", G->buf+G->pos));
   return 1;
-  l987:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1003:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenNoscript", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockNoframes(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockNoframes"));  if (!yy_HtmlBlockOpenNoframes(G)) { goto l992; }
-  l993:;	
-  {  int yypos994= G->pos, yythunkpos994= G->thunkpos;
-  {  int yypos995= G->pos, yythunkpos995= G->thunkpos;  if (!yy_HtmlBlockNoframes(G)) { goto l996; }  goto l995;
-  l996:;	  G->pos= yypos995; G->thunkpos= yythunkpos995;
-  {  int yypos997= G->pos, yythunkpos997= G->thunkpos;  if (!yy_HtmlBlockCloseNoframes(G)) { goto l997; }  goto l994;
-  l997:;	  G->pos= yypos997; G->thunkpos= yythunkpos997;
-  }  if (!yymatchDot(G)) goto l994;
+  yyprintf((stderr, "%s\n", "HtmlBlockNoframes"));  if (!yy_HtmlBlockOpenNoframes(G)) { goto l1008; }
+  l1009:;	
+  {  int yypos1010= G->pos, yythunkpos1010= G->thunkpos;
+  {  int yypos1011= G->pos, yythunkpos1011= G->thunkpos;  if (!yy_HtmlBlockNoframes(G)) { goto l1012; }  goto l1011;
+  l1012:;	  G->pos= yypos1011; G->thunkpos= yythunkpos1011;
+  {  int yypos1013= G->pos, yythunkpos1013= G->thunkpos;  if (!yy_HtmlBlockCloseNoframes(G)) { goto l1013; }  goto l1010;
+  l1013:;	  G->pos= yypos1013; G->thunkpos= yythunkpos1013;
+  }  if (!yymatchDot(G)) goto l1010;
   }
-  l995:;	  goto l993;
-  l994:;	  G->pos= yypos994; G->thunkpos= yythunkpos994;
-  }  if (!yy_HtmlBlockCloseNoframes(G)) { goto l992; }
+  l1011:;	  goto l1009;
+  l1010:;	  G->pos= yypos1010; G->thunkpos= yythunkpos1010;
+  }  if (!yy_HtmlBlockCloseNoframes(G)) { goto l1008; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockNoframes", G->buf+G->pos));
   return 1;
-  l992:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1008:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockNoframes", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseNoframes(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseNoframes"));  if (!yymatchChar(G, '<')) goto l998;  if (!yy_Spnl(G)) { goto l998; }  if (!yymatchChar(G, '/')) goto l998;
-  {  int yypos999= G->pos, yythunkpos999= G->thunkpos;  if (!yymatchString(G, "noframes")) goto l1000;  goto l999;
-  l1000:;	  G->pos= yypos999; G->thunkpos= yythunkpos999;  if (!yymatchString(G, "NOFRAMES")) goto l998;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseNoframes"));  if (!yymatchChar(G, '<')) goto l1014;  if (!yy_Spnl(G)) { goto l1014; }  if (!yymatchChar(G, '/')) goto l1014;
+  {  int yypos1015= G->pos, yythunkpos1015= G->thunkpos;  if (!yymatchString(G, "noframes")) goto l1016;  goto l1015;
+  l1016:;	  G->pos= yypos1015; G->thunkpos= yythunkpos1015;  if (!yymatchString(G, "NOFRAMES")) goto l1014;
   }
-  l999:;	  if (!yy_Spnl(G)) { goto l998; }  if (!yymatchChar(G, '>')) goto l998;
+  l1015:;	  if (!yy_Spnl(G)) { goto l1014; }  if (!yymatchChar(G, '>')) goto l1014;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseNoframes", G->buf+G->pos));
   return 1;
-  l998:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1014:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseNoframes", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenNoframes(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenNoframes"));  if (!yymatchChar(G, '<')) goto l1001;  if (!yy_Spnl(G)) { goto l1001; }
-  {  int yypos1002= G->pos, yythunkpos1002= G->thunkpos;  if (!yymatchString(G, "noframes")) goto l1003;  goto l1002;
-  l1003:;	  G->pos= yypos1002; G->thunkpos= yythunkpos1002;  if (!yymatchString(G, "NOFRAMES")) goto l1001;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenNoframes"));  if (!yymatchChar(G, '<')) goto l1017;  if (!yy_Spnl(G)) { goto l1017; }
+  {  int yypos1018= G->pos, yythunkpos1018= G->thunkpos;  if (!yymatchString(G, "noframes")) goto l1019;  goto l1018;
+  l1019:;	  G->pos= yypos1018; G->thunkpos= yythunkpos1018;  if (!yymatchString(G, "NOFRAMES")) goto l1017;
   }
-  l1002:;	  if (!yy_Spnl(G)) { goto l1001; }
-  l1004:;	
-  {  int yypos1005= G->pos, yythunkpos1005= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1005; }  goto l1004;
-  l1005:;	  G->pos= yypos1005; G->thunkpos= yythunkpos1005;
-  }  if (!yymatchChar(G, '>')) goto l1001;
+  l1018:;	  if (!yy_Spnl(G)) { goto l1017; }
+  l1020:;	
+  {  int yypos1021= G->pos, yythunkpos1021= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1021; }  goto l1020;
+  l1021:;	  G->pos= yypos1021; G->thunkpos= yythunkpos1021;
+  }  if (!yymatchChar(G, '>')) goto l1017;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenNoframes", G->buf+G->pos));
   return 1;
-  l1001:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1017:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenNoframes", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockMenu(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockMenu"));  if (!yy_HtmlBlockOpenMenu(G)) { goto l1006; }
-  l1007:;	
-  {  int yypos1008= G->pos, yythunkpos1008= G->thunkpos;
-  {  int yypos1009= G->pos, yythunkpos1009= G->thunkpos;  if (!yy_HtmlBlockMenu(G)) { goto l1010; }  goto l1009;
-  l1010:;	  G->pos= yypos1009; G->thunkpos= yythunkpos1009;
-  {  int yypos1011= G->pos, yythunkpos1011= G->thunkpos;  if (!yy_HtmlBlockCloseMenu(G)) { goto l1011; }  goto l1008;
-  l1011:;	  G->pos= yypos1011; G->thunkpos= yythunkpos1011;
-  }  if (!yymatchDot(G)) goto l1008;
+  yyprintf((stderr, "%s\n", "HtmlBlockMenu"));  if (!yy_HtmlBlockOpenMenu(G)) { goto l1022; }
+  l1023:;	
+  {  int yypos1024= G->pos, yythunkpos1024= G->thunkpos;
+  {  int yypos1025= G->pos, yythunkpos1025= G->thunkpos;  if (!yy_HtmlBlockMenu(G)) { goto l1026; }  goto l1025;
+  l1026:;	  G->pos= yypos1025; G->thunkpos= yythunkpos1025;
+  {  int yypos1027= G->pos, yythunkpos1027= G->thunkpos;  if (!yy_HtmlBlockCloseMenu(G)) { goto l1027; }  goto l1024;
+  l1027:;	  G->pos= yypos1027; G->thunkpos= yythunkpos1027;
+  }  if (!yymatchDot(G)) goto l1024;
   }
-  l1009:;	  goto l1007;
-  l1008:;	  G->pos= yypos1008; G->thunkpos= yythunkpos1008;
-  }  if (!yy_HtmlBlockCloseMenu(G)) { goto l1006; }
+  l1025:;	  goto l1023;
+  l1024:;	  G->pos= yypos1024; G->thunkpos= yythunkpos1024;
+  }  if (!yy_HtmlBlockCloseMenu(G)) { goto l1022; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockMenu", G->buf+G->pos));
   return 1;
-  l1006:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1022:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockMenu", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseMenu(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseMenu"));  if (!yymatchChar(G, '<')) goto l1012;  if (!yy_Spnl(G)) { goto l1012; }  if (!yymatchChar(G, '/')) goto l1012;
-  {  int yypos1013= G->pos, yythunkpos1013= G->thunkpos;  if (!yymatchString(G, "menu")) goto l1014;  goto l1013;
-  l1014:;	  G->pos= yypos1013; G->thunkpos= yythunkpos1013;  if (!yymatchString(G, "MENU")) goto l1012;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseMenu"));  if (!yymatchChar(G, '<')) goto l1028;  if (!yy_Spnl(G)) { goto l1028; }  if (!yymatchChar(G, '/')) goto l1028;
+  {  int yypos1029= G->pos, yythunkpos1029= G->thunkpos;  if (!yymatchString(G, "menu")) goto l1030;  goto l1029;
+  l1030:;	  G->pos= yypos1029; G->thunkpos= yythunkpos1029;  if (!yymatchString(G, "MENU")) goto l1028;
   }
-  l1013:;	  if (!yy_Spnl(G)) { goto l1012; }  if (!yymatchChar(G, '>')) goto l1012;
+  l1029:;	  if (!yy_Spnl(G)) { goto l1028; }  if (!yymatchChar(G, '>')) goto l1028;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseMenu", G->buf+G->pos));
   return 1;
-  l1012:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1028:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseMenu", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenMenu(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenMenu"));  if (!yymatchChar(G, '<')) goto l1015;  if (!yy_Spnl(G)) { goto l1015; }
-  {  int yypos1016= G->pos, yythunkpos1016= G->thunkpos;  if (!yymatchString(G, "menu")) goto l1017;  goto l1016;
-  l1017:;	  G->pos= yypos1016; G->thunkpos= yythunkpos1016;  if (!yymatchString(G, "MENU")) goto l1015;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenMenu"));  if (!yymatchChar(G, '<')) goto l1031;  if (!yy_Spnl(G)) { goto l1031; }
+  {  int yypos1032= G->pos, yythunkpos1032= G->thunkpos;  if (!yymatchString(G, "menu")) goto l1033;  goto l1032;
+  l1033:;	  G->pos= yypos1032; G->thunkpos= yythunkpos1032;  if (!yymatchString(G, "MENU")) goto l1031;
   }
-  l1016:;	  if (!yy_Spnl(G)) { goto l1015; }
-  l1018:;	
-  {  int yypos1019= G->pos, yythunkpos1019= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1019; }  goto l1018;
-  l1019:;	  G->pos= yypos1019; G->thunkpos= yythunkpos1019;
-  }  if (!yymatchChar(G, '>')) goto l1015;
+  l1032:;	  if (!yy_Spnl(G)) { goto l1031; }
+  l1034:;	
+  {  int yypos1035= G->pos, yythunkpos1035= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1035; }  goto l1034;
+  l1035:;	  G->pos= yypos1035; G->thunkpos= yythunkpos1035;
+  }  if (!yymatchChar(G, '>')) goto l1031;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenMenu", G->buf+G->pos));
   return 1;
-  l1015:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1031:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenMenu", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockH6(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "HtmlBlockH6"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1020;  if (!yy_LocMarker(G)) { goto l1020; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH6(G)) { goto l1020; }
-  l1021:;	
-  {  int yypos1022= G->pos, yythunkpos1022= G->thunkpos;
-  {  int yypos1023= G->pos, yythunkpos1023= G->thunkpos;  if (!yy_HtmlBlockH6(G)) { goto l1024; }  goto l1023;
-  l1024:;	  G->pos= yypos1023; G->thunkpos= yythunkpos1023;
-  {  int yypos1025= G->pos, yythunkpos1025= G->thunkpos;  if (!yy_HtmlBlockCloseH6(G)) { goto l1025; }  goto l1022;
-  l1025:;	  G->pos= yypos1025; G->thunkpos= yythunkpos1025;
-  }  if (!yymatchDot(G)) goto l1022;
+  yyprintf((stderr, "%s\n", "HtmlBlockH6"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1036;  if (!yy_LocMarker(G)) { goto l1036; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH6(G)) { goto l1036; }
+  l1037:;	
+  {  int yypos1038= G->pos, yythunkpos1038= G->thunkpos;
+  {  int yypos1039= G->pos, yythunkpos1039= G->thunkpos;  if (!yy_HtmlBlockH6(G)) { goto l1040; }  goto l1039;
+  l1040:;	  G->pos= yypos1039; G->thunkpos= yythunkpos1039;
+  {  int yypos1041= G->pos, yythunkpos1041= G->thunkpos;  if (!yy_HtmlBlockCloseH6(G)) { goto l1041; }  goto l1038;
+  l1041:;	  G->pos= yypos1041; G->thunkpos= yythunkpos1041;
+  }  if (!yymatchDot(G)) goto l1038;
   }
-  l1023:;	  goto l1021;
-  l1022:;	  G->pos= yypos1022; G->thunkpos= yythunkpos1022;
-  }  if (!yy_HtmlBlockCloseH6(G)) { goto l1020; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1020;  yyDo(G, yy_1_HtmlBlockH6, G->begin, G->end);
+  l1039:;	  goto l1037;
+  l1038:;	  G->pos= yypos1038; G->thunkpos= yythunkpos1038;
+  }  if (!yy_HtmlBlockCloseH6(G)) { goto l1036; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1036;  yyDo(G, yy_1_HtmlBlockH6, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockH6", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1020:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1036:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockH6", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseH6(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseH6"));  if (!yymatchChar(G, '<')) goto l1026;  if (!yy_Spnl(G)) { goto l1026; }  if (!yymatchChar(G, '/')) goto l1026;
-  {  int yypos1027= G->pos, yythunkpos1027= G->thunkpos;  if (!yymatchString(G, "h6")) goto l1028;  goto l1027;
-  l1028:;	  G->pos= yypos1027; G->thunkpos= yythunkpos1027;  if (!yymatchString(G, "H6")) goto l1026;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseH6"));  if (!yymatchChar(G, '<')) goto l1042;  if (!yy_Spnl(G)) { goto l1042; }  if (!yymatchChar(G, '/')) goto l1042;
+  {  int yypos1043= G->pos, yythunkpos1043= G->thunkpos;  if (!yymatchString(G, "h6")) goto l1044;  goto l1043;
+  l1044:;	  G->pos= yypos1043; G->thunkpos= yythunkpos1043;  if (!yymatchString(G, "H6")) goto l1042;
   }
-  l1027:;	  if (!yy_Spnl(G)) { goto l1026; }  if (!yymatchChar(G, '>')) goto l1026;
+  l1043:;	  if (!yy_Spnl(G)) { goto l1042; }  if (!yymatchChar(G, '>')) goto l1042;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseH6", G->buf+G->pos));
   return 1;
-  l1026:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1042:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseH6", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenH6(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenH6"));  if (!yymatchChar(G, '<')) goto l1029;  if (!yy_Spnl(G)) { goto l1029; }
-  {  int yypos1030= G->pos, yythunkpos1030= G->thunkpos;  if (!yymatchString(G, "h6")) goto l1031;  goto l1030;
-  l1031:;	  G->pos= yypos1030; G->thunkpos= yythunkpos1030;  if (!yymatchString(G, "H6")) goto l1029;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenH6"));  if (!yymatchChar(G, '<')) goto l1045;  if (!yy_Spnl(G)) { goto l1045; }
+  {  int yypos1046= G->pos, yythunkpos1046= G->thunkpos;  if (!yymatchString(G, "h6")) goto l1047;  goto l1046;
+  l1047:;	  G->pos= yypos1046; G->thunkpos= yythunkpos1046;  if (!yymatchString(G, "H6")) goto l1045;
   }
-  l1030:;	  if (!yy_Spnl(G)) { goto l1029; }
-  l1032:;	
-  {  int yypos1033= G->pos, yythunkpos1033= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1033; }  goto l1032;
-  l1033:;	  G->pos= yypos1033; G->thunkpos= yythunkpos1033;
-  }  if (!yymatchChar(G, '>')) goto l1029;
+  l1046:;	  if (!yy_Spnl(G)) { goto l1045; }
+  l1048:;	
+  {  int yypos1049= G->pos, yythunkpos1049= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1049; }  goto l1048;
+  l1049:;	  G->pos= yypos1049; G->thunkpos= yythunkpos1049;
+  }  if (!yymatchChar(G, '>')) goto l1045;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenH6", G->buf+G->pos));
   return 1;
-  l1029:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1045:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenH6", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockH5(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "HtmlBlockH5"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1034;  if (!yy_LocMarker(G)) { goto l1034; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH5(G)) { goto l1034; }
-  l1035:;	
-  {  int yypos1036= G->pos, yythunkpos1036= G->thunkpos;
-  {  int yypos1037= G->pos, yythunkpos1037= G->thunkpos;  if (!yy_HtmlBlockH5(G)) { goto l1038; }  goto l1037;
-  l1038:;	  G->pos= yypos1037; G->thunkpos= yythunkpos1037;
-  {  int yypos1039= G->pos, yythunkpos1039= G->thunkpos;  if (!yy_HtmlBlockCloseH5(G)) { goto l1039; }  goto l1036;
-  l1039:;	  G->pos= yypos1039; G->thunkpos= yythunkpos1039;
-  }  if (!yymatchDot(G)) goto l1036;
+  yyprintf((stderr, "%s\n", "HtmlBlockH5"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1050;  if (!yy_LocMarker(G)) { goto l1050; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH5(G)) { goto l1050; }
+  l1051:;	
+  {  int yypos1052= G->pos, yythunkpos1052= G->thunkpos;
+  {  int yypos1053= G->pos, yythunkpos1053= G->thunkpos;  if (!yy_HtmlBlockH5(G)) { goto l1054; }  goto l1053;
+  l1054:;	  G->pos= yypos1053; G->thunkpos= yythunkpos1053;
+  {  int yypos1055= G->pos, yythunkpos1055= G->thunkpos;  if (!yy_HtmlBlockCloseH5(G)) { goto l1055; }  goto l1052;
+  l1055:;	  G->pos= yypos1055; G->thunkpos= yythunkpos1055;
+  }  if (!yymatchDot(G)) goto l1052;
   }
-  l1037:;	  goto l1035;
-  l1036:;	  G->pos= yypos1036; G->thunkpos= yythunkpos1036;
-  }  if (!yy_HtmlBlockCloseH5(G)) { goto l1034; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1034;  yyDo(G, yy_1_HtmlBlockH5, G->begin, G->end);
+  l1053:;	  goto l1051;
+  l1052:;	  G->pos= yypos1052; G->thunkpos= yythunkpos1052;
+  }  if (!yy_HtmlBlockCloseH5(G)) { goto l1050; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1050;  yyDo(G, yy_1_HtmlBlockH5, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockH5", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1034:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1050:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockH5", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseH5(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseH5"));  if (!yymatchChar(G, '<')) goto l1040;  if (!yy_Spnl(G)) { goto l1040; }  if (!yymatchChar(G, '/')) goto l1040;
-  {  int yypos1041= G->pos, yythunkpos1041= G->thunkpos;  if (!yymatchString(G, "h5")) goto l1042;  goto l1041;
-  l1042:;	  G->pos= yypos1041; G->thunkpos= yythunkpos1041;  if (!yymatchString(G, "H5")) goto l1040;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseH5"));  if (!yymatchChar(G, '<')) goto l1056;  if (!yy_Spnl(G)) { goto l1056; }  if (!yymatchChar(G, '/')) goto l1056;
+  {  int yypos1057= G->pos, yythunkpos1057= G->thunkpos;  if (!yymatchString(G, "h5")) goto l1058;  goto l1057;
+  l1058:;	  G->pos= yypos1057; G->thunkpos= yythunkpos1057;  if (!yymatchString(G, "H5")) goto l1056;
   }
-  l1041:;	  if (!yy_Spnl(G)) { goto l1040; }  if (!yymatchChar(G, '>')) goto l1040;
+  l1057:;	  if (!yy_Spnl(G)) { goto l1056; }  if (!yymatchChar(G, '>')) goto l1056;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseH5", G->buf+G->pos));
   return 1;
-  l1040:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1056:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseH5", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenH5(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenH5"));  if (!yymatchChar(G, '<')) goto l1043;  if (!yy_Spnl(G)) { goto l1043; }
-  {  int yypos1044= G->pos, yythunkpos1044= G->thunkpos;  if (!yymatchString(G, "h5")) goto l1045;  goto l1044;
-  l1045:;	  G->pos= yypos1044; G->thunkpos= yythunkpos1044;  if (!yymatchString(G, "H5")) goto l1043;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenH5"));  if (!yymatchChar(G, '<')) goto l1059;  if (!yy_Spnl(G)) { goto l1059; }
+  {  int yypos1060= G->pos, yythunkpos1060= G->thunkpos;  if (!yymatchString(G, "h5")) goto l1061;  goto l1060;
+  l1061:;	  G->pos= yypos1060; G->thunkpos= yythunkpos1060;  if (!yymatchString(G, "H5")) goto l1059;
   }
-  l1044:;	  if (!yy_Spnl(G)) { goto l1043; }
-  l1046:;	
-  {  int yypos1047= G->pos, yythunkpos1047= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1047; }  goto l1046;
-  l1047:;	  G->pos= yypos1047; G->thunkpos= yythunkpos1047;
-  }  if (!yymatchChar(G, '>')) goto l1043;
+  l1060:;	  if (!yy_Spnl(G)) { goto l1059; }
+  l1062:;	
+  {  int yypos1063= G->pos, yythunkpos1063= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1063; }  goto l1062;
+  l1063:;	  G->pos= yypos1063; G->thunkpos= yythunkpos1063;
+  }  if (!yymatchChar(G, '>')) goto l1059;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenH5", G->buf+G->pos));
   return 1;
-  l1043:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1059:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenH5", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockH4(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "HtmlBlockH4"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1048;  if (!yy_LocMarker(G)) { goto l1048; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH4(G)) { goto l1048; }
-  l1049:;	
-  {  int yypos1050= G->pos, yythunkpos1050= G->thunkpos;
-  {  int yypos1051= G->pos, yythunkpos1051= G->thunkpos;  if (!yy_HtmlBlockH4(G)) { goto l1052; }  goto l1051;
-  l1052:;	  G->pos= yypos1051; G->thunkpos= yythunkpos1051;
-  {  int yypos1053= G->pos, yythunkpos1053= G->thunkpos;  if (!yy_HtmlBlockCloseH4(G)) { goto l1053; }  goto l1050;
-  l1053:;	  G->pos= yypos1053; G->thunkpos= yythunkpos1053;
-  }  if (!yymatchDot(G)) goto l1050;
+  yyprintf((stderr, "%s\n", "HtmlBlockH4"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1064;  if (!yy_LocMarker(G)) { goto l1064; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH4(G)) { goto l1064; }
+  l1065:;	
+  {  int yypos1066= G->pos, yythunkpos1066= G->thunkpos;
+  {  int yypos1067= G->pos, yythunkpos1067= G->thunkpos;  if (!yy_HtmlBlockH4(G)) { goto l1068; }  goto l1067;
+  l1068:;	  G->pos= yypos1067; G->thunkpos= yythunkpos1067;
+  {  int yypos1069= G->pos, yythunkpos1069= G->thunkpos;  if (!yy_HtmlBlockCloseH4(G)) { goto l1069; }  goto l1066;
+  l1069:;	  G->pos= yypos1069; G->thunkpos= yythunkpos1069;
+  }  if (!yymatchDot(G)) goto l1066;
   }
-  l1051:;	  goto l1049;
-  l1050:;	  G->pos= yypos1050; G->thunkpos= yythunkpos1050;
-  }  if (!yy_HtmlBlockCloseH4(G)) { goto l1048; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1048;  yyDo(G, yy_1_HtmlBlockH4, G->begin, G->end);
+  l1067:;	  goto l1065;
+  l1066:;	  G->pos= yypos1066; G->thunkpos= yythunkpos1066;
+  }  if (!yy_HtmlBlockCloseH4(G)) { goto l1064; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1064;  yyDo(G, yy_1_HtmlBlockH4, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockH4", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1048:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1064:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockH4", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseH4(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseH4"));  if (!yymatchChar(G, '<')) goto l1054;  if (!yy_Spnl(G)) { goto l1054; }  if (!yymatchChar(G, '/')) goto l1054;
-  {  int yypos1055= G->pos, yythunkpos1055= G->thunkpos;  if (!yymatchString(G, "h4")) goto l1056;  goto l1055;
-  l1056:;	  G->pos= yypos1055; G->thunkpos= yythunkpos1055;  if (!yymatchString(G, "H4")) goto l1054;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseH4"));  if (!yymatchChar(G, '<')) goto l1070;  if (!yy_Spnl(G)) { goto l1070; }  if (!yymatchChar(G, '/')) goto l1070;
+  {  int yypos1071= G->pos, yythunkpos1071= G->thunkpos;  if (!yymatchString(G, "h4")) goto l1072;  goto l1071;
+  l1072:;	  G->pos= yypos1071; G->thunkpos= yythunkpos1071;  if (!yymatchString(G, "H4")) goto l1070;
   }
-  l1055:;	  if (!yy_Spnl(G)) { goto l1054; }  if (!yymatchChar(G, '>')) goto l1054;
+  l1071:;	  if (!yy_Spnl(G)) { goto l1070; }  if (!yymatchChar(G, '>')) goto l1070;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseH4", G->buf+G->pos));
   return 1;
-  l1054:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1070:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseH4", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenH4(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenH4"));  if (!yymatchChar(G, '<')) goto l1057;  if (!yy_Spnl(G)) { goto l1057; }
-  {  int yypos1058= G->pos, yythunkpos1058= G->thunkpos;  if (!yymatchString(G, "h4")) goto l1059;  goto l1058;
-  l1059:;	  G->pos= yypos1058; G->thunkpos= yythunkpos1058;  if (!yymatchString(G, "H4")) goto l1057;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenH4"));  if (!yymatchChar(G, '<')) goto l1073;  if (!yy_Spnl(G)) { goto l1073; }
+  {  int yypos1074= G->pos, yythunkpos1074= G->thunkpos;  if (!yymatchString(G, "h4")) goto l1075;  goto l1074;
+  l1075:;	  G->pos= yypos1074; G->thunkpos= yythunkpos1074;  if (!yymatchString(G, "H4")) goto l1073;
   }
-  l1058:;	  if (!yy_Spnl(G)) { goto l1057; }
-  l1060:;	
-  {  int yypos1061= G->pos, yythunkpos1061= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1061; }  goto l1060;
-  l1061:;	  G->pos= yypos1061; G->thunkpos= yythunkpos1061;
-  }  if (!yymatchChar(G, '>')) goto l1057;
+  l1074:;	  if (!yy_Spnl(G)) { goto l1073; }
+  l1076:;	
+  {  int yypos1077= G->pos, yythunkpos1077= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1077; }  goto l1076;
+  l1077:;	  G->pos= yypos1077; G->thunkpos= yythunkpos1077;
+  }  if (!yymatchChar(G, '>')) goto l1073;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenH4", G->buf+G->pos));
   return 1;
-  l1057:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1073:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenH4", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockH3(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "HtmlBlockH3"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1062;  if (!yy_LocMarker(G)) { goto l1062; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH3(G)) { goto l1062; }
-  l1063:;	
-  {  int yypos1064= G->pos, yythunkpos1064= G->thunkpos;
-  {  int yypos1065= G->pos, yythunkpos1065= G->thunkpos;  if (!yy_HtmlBlockH3(G)) { goto l1066; }  goto l1065;
-  l1066:;	  G->pos= yypos1065; G->thunkpos= yythunkpos1065;
-  {  int yypos1067= G->pos, yythunkpos1067= G->thunkpos;  if (!yy_HtmlBlockCloseH3(G)) { goto l1067; }  goto l1064;
-  l1067:;	  G->pos= yypos1067; G->thunkpos= yythunkpos1067;
-  }  if (!yymatchDot(G)) goto l1064;
+  yyprintf((stderr, "%s\n", "HtmlBlockH3"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1078;  if (!yy_LocMarker(G)) { goto l1078; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH3(G)) { goto l1078; }
+  l1079:;	
+  {  int yypos1080= G->pos, yythunkpos1080= G->thunkpos;
+  {  int yypos1081= G->pos, yythunkpos1081= G->thunkpos;  if (!yy_HtmlBlockH3(G)) { goto l1082; }  goto l1081;
+  l1082:;	  G->pos= yypos1081; G->thunkpos= yythunkpos1081;
+  {  int yypos1083= G->pos, yythunkpos1083= G->thunkpos;  if (!yy_HtmlBlockCloseH3(G)) { goto l1083; }  goto l1080;
+  l1083:;	  G->pos= yypos1083; G->thunkpos= yythunkpos1083;
+  }  if (!yymatchDot(G)) goto l1080;
   }
-  l1065:;	  goto l1063;
-  l1064:;	  G->pos= yypos1064; G->thunkpos= yythunkpos1064;
-  }  if (!yy_HtmlBlockCloseH3(G)) { goto l1062; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1062;  yyDo(G, yy_1_HtmlBlockH3, G->begin, G->end);
+  l1081:;	  goto l1079;
+  l1080:;	  G->pos= yypos1080; G->thunkpos= yythunkpos1080;
+  }  if (!yy_HtmlBlockCloseH3(G)) { goto l1078; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1078;  yyDo(G, yy_1_HtmlBlockH3, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockH3", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1062:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1078:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockH3", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseH3(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseH3"));  if (!yymatchChar(G, '<')) goto l1068;  if (!yy_Spnl(G)) { goto l1068; }  if (!yymatchChar(G, '/')) goto l1068;
-  {  int yypos1069= G->pos, yythunkpos1069= G->thunkpos;  if (!yymatchString(G, "h3")) goto l1070;  goto l1069;
-  l1070:;	  G->pos= yypos1069; G->thunkpos= yythunkpos1069;  if (!yymatchString(G, "H3")) goto l1068;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseH3"));  if (!yymatchChar(G, '<')) goto l1084;  if (!yy_Spnl(G)) { goto l1084; }  if (!yymatchChar(G, '/')) goto l1084;
+  {  int yypos1085= G->pos, yythunkpos1085= G->thunkpos;  if (!yymatchString(G, "h3")) goto l1086;  goto l1085;
+  l1086:;	  G->pos= yypos1085; G->thunkpos= yythunkpos1085;  if (!yymatchString(G, "H3")) goto l1084;
   }
-  l1069:;	  if (!yy_Spnl(G)) { goto l1068; }  if (!yymatchChar(G, '>')) goto l1068;
+  l1085:;	  if (!yy_Spnl(G)) { goto l1084; }  if (!yymatchChar(G, '>')) goto l1084;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseH3", G->buf+G->pos));
   return 1;
-  l1068:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1084:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseH3", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenH3(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenH3"));  if (!yymatchChar(G, '<')) goto l1071;  if (!yy_Spnl(G)) { goto l1071; }
-  {  int yypos1072= G->pos, yythunkpos1072= G->thunkpos;  if (!yymatchString(G, "h3")) goto l1073;  goto l1072;
-  l1073:;	  G->pos= yypos1072; G->thunkpos= yythunkpos1072;  if (!yymatchString(G, "H3")) goto l1071;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenH3"));  if (!yymatchChar(G, '<')) goto l1087;  if (!yy_Spnl(G)) { goto l1087; }
+  {  int yypos1088= G->pos, yythunkpos1088= G->thunkpos;  if (!yymatchString(G, "h3")) goto l1089;  goto l1088;
+  l1089:;	  G->pos= yypos1088; G->thunkpos= yythunkpos1088;  if (!yymatchString(G, "H3")) goto l1087;
   }
-  l1072:;	  if (!yy_Spnl(G)) { goto l1071; }
-  l1074:;	
-  {  int yypos1075= G->pos, yythunkpos1075= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1075; }  goto l1074;
-  l1075:;	  G->pos= yypos1075; G->thunkpos= yythunkpos1075;
-  }  if (!yymatchChar(G, '>')) goto l1071;
+  l1088:;	  if (!yy_Spnl(G)) { goto l1087; }
+  l1090:;	
+  {  int yypos1091= G->pos, yythunkpos1091= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1091; }  goto l1090;
+  l1091:;	  G->pos= yypos1091; G->thunkpos= yythunkpos1091;
+  }  if (!yymatchChar(G, '>')) goto l1087;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenH3", G->buf+G->pos));
   return 1;
-  l1071:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1087:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenH3", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockH2(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "HtmlBlockH2"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1076;  if (!yy_LocMarker(G)) { goto l1076; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH2(G)) { goto l1076; }
-  l1077:;	
-  {  int yypos1078= G->pos, yythunkpos1078= G->thunkpos;
-  {  int yypos1079= G->pos, yythunkpos1079= G->thunkpos;  if (!yy_HtmlBlockH2(G)) { goto l1080; }  goto l1079;
-  l1080:;	  G->pos= yypos1079; G->thunkpos= yythunkpos1079;
-  {  int yypos1081= G->pos, yythunkpos1081= G->thunkpos;  if (!yy_HtmlBlockCloseH2(G)) { goto l1081; }  goto l1078;
-  l1081:;	  G->pos= yypos1081; G->thunkpos= yythunkpos1081;
-  }  if (!yymatchDot(G)) goto l1078;
+  yyprintf((stderr, "%s\n", "HtmlBlockH2"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1092;  if (!yy_LocMarker(G)) { goto l1092; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH2(G)) { goto l1092; }
+  l1093:;	
+  {  int yypos1094= G->pos, yythunkpos1094= G->thunkpos;
+  {  int yypos1095= G->pos, yythunkpos1095= G->thunkpos;  if (!yy_HtmlBlockH2(G)) { goto l1096; }  goto l1095;
+  l1096:;	  G->pos= yypos1095; G->thunkpos= yythunkpos1095;
+  {  int yypos1097= G->pos, yythunkpos1097= G->thunkpos;  if (!yy_HtmlBlockCloseH2(G)) { goto l1097; }  goto l1094;
+  l1097:;	  G->pos= yypos1097; G->thunkpos= yythunkpos1097;
+  }  if (!yymatchDot(G)) goto l1094;
   }
-  l1079:;	  goto l1077;
-  l1078:;	  G->pos= yypos1078; G->thunkpos= yythunkpos1078;
-  }  if (!yy_HtmlBlockCloseH2(G)) { goto l1076; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1076;  yyDo(G, yy_1_HtmlBlockH2, G->begin, G->end);
+  l1095:;	  goto l1093;
+  l1094:;	  G->pos= yypos1094; G->thunkpos= yythunkpos1094;
+  }  if (!yy_HtmlBlockCloseH2(G)) { goto l1092; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1092;  yyDo(G, yy_1_HtmlBlockH2, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockH2", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1076:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1092:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockH2", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseH2(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseH2"));  if (!yymatchChar(G, '<')) goto l1082;  if (!yy_Spnl(G)) { goto l1082; }  if (!yymatchChar(G, '/')) goto l1082;
-  {  int yypos1083= G->pos, yythunkpos1083= G->thunkpos;  if (!yymatchString(G, "h2")) goto l1084;  goto l1083;
-  l1084:;	  G->pos= yypos1083; G->thunkpos= yythunkpos1083;  if (!yymatchString(G, "H2")) goto l1082;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseH2"));  if (!yymatchChar(G, '<')) goto l1098;  if (!yy_Spnl(G)) { goto l1098; }  if (!yymatchChar(G, '/')) goto l1098;
+  {  int yypos1099= G->pos, yythunkpos1099= G->thunkpos;  if (!yymatchString(G, "h2")) goto l1100;  goto l1099;
+  l1100:;	  G->pos= yypos1099; G->thunkpos= yythunkpos1099;  if (!yymatchString(G, "H2")) goto l1098;
   }
-  l1083:;	  if (!yy_Spnl(G)) { goto l1082; }  if (!yymatchChar(G, '>')) goto l1082;
+  l1099:;	  if (!yy_Spnl(G)) { goto l1098; }  if (!yymatchChar(G, '>')) goto l1098;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseH2", G->buf+G->pos));
   return 1;
-  l1082:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1098:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseH2", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenH2(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenH2"));  if (!yymatchChar(G, '<')) goto l1085;  if (!yy_Spnl(G)) { goto l1085; }
-  {  int yypos1086= G->pos, yythunkpos1086= G->thunkpos;  if (!yymatchString(G, "h2")) goto l1087;  goto l1086;
-  l1087:;	  G->pos= yypos1086; G->thunkpos= yythunkpos1086;  if (!yymatchString(G, "H2")) goto l1085;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenH2"));  if (!yymatchChar(G, '<')) goto l1101;  if (!yy_Spnl(G)) { goto l1101; }
+  {  int yypos1102= G->pos, yythunkpos1102= G->thunkpos;  if (!yymatchString(G, "h2")) goto l1103;  goto l1102;
+  l1103:;	  G->pos= yypos1102; G->thunkpos= yythunkpos1102;  if (!yymatchString(G, "H2")) goto l1101;
   }
-  l1086:;	  if (!yy_Spnl(G)) { goto l1085; }
-  l1088:;	
-  {  int yypos1089= G->pos, yythunkpos1089= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1089; }  goto l1088;
-  l1089:;	  G->pos= yypos1089; G->thunkpos= yythunkpos1089;
-  }  if (!yymatchChar(G, '>')) goto l1085;
+  l1102:;	  if (!yy_Spnl(G)) { goto l1101; }
+  l1104:;	
+  {  int yypos1105= G->pos, yythunkpos1105= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1105; }  goto l1104;
+  l1105:;	  G->pos= yypos1105; G->thunkpos= yythunkpos1105;
+  }  if (!yymatchChar(G, '>')) goto l1101;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenH2", G->buf+G->pos));
   return 1;
-  l1085:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1101:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenH2", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockH1(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "HtmlBlockH1"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1090;  if (!yy_LocMarker(G)) { goto l1090; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH1(G)) { goto l1090; }
-  l1091:;	
-  {  int yypos1092= G->pos, yythunkpos1092= G->thunkpos;
-  {  int yypos1093= G->pos, yythunkpos1093= G->thunkpos;  if (!yy_HtmlBlockH1(G)) { goto l1094; }  goto l1093;
-  l1094:;	  G->pos= yypos1093; G->thunkpos= yythunkpos1093;
-  {  int yypos1095= G->pos, yythunkpos1095= G->thunkpos;  if (!yy_HtmlBlockCloseH1(G)) { goto l1095; }  goto l1092;
-  l1095:;	  G->pos= yypos1095; G->thunkpos= yythunkpos1095;
-  }  if (!yymatchDot(G)) goto l1092;
+  yyprintf((stderr, "%s\n", "HtmlBlockH1"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1106;  if (!yy_LocMarker(G)) { goto l1106; }  yyDo(G, yySet, -1, 0);  if (!yy_HtmlBlockOpenH1(G)) { goto l1106; }
+  l1107:;	
+  {  int yypos1108= G->pos, yythunkpos1108= G->thunkpos;
+  {  int yypos1109= G->pos, yythunkpos1109= G->thunkpos;  if (!yy_HtmlBlockH1(G)) { goto l1110; }  goto l1109;
+  l1110:;	  G->pos= yypos1109; G->thunkpos= yythunkpos1109;
+  {  int yypos1111= G->pos, yythunkpos1111= G->thunkpos;  if (!yy_HtmlBlockCloseH1(G)) { goto l1111; }  goto l1108;
+  l1111:;	  G->pos= yypos1111; G->thunkpos= yythunkpos1111;
+  }  if (!yymatchDot(G)) goto l1108;
   }
-  l1093:;	  goto l1091;
-  l1092:;	  G->pos= yypos1092; G->thunkpos= yythunkpos1092;
-  }  if (!yy_HtmlBlockCloseH1(G)) { goto l1090; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1090;  yyDo(G, yy_1_HtmlBlockH1, G->begin, G->end);
+  l1109:;	  goto l1107;
+  l1108:;	  G->pos= yypos1108; G->thunkpos= yythunkpos1108;
+  }  if (!yy_HtmlBlockCloseH1(G)) { goto l1106; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1106;  yyDo(G, yy_1_HtmlBlockH1, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockH1", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1090:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1106:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockH1", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseH1(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseH1"));  if (!yymatchChar(G, '<')) goto l1096;  if (!yy_Spnl(G)) { goto l1096; }  if (!yymatchChar(G, '/')) goto l1096;
-  {  int yypos1097= G->pos, yythunkpos1097= G->thunkpos;  if (!yymatchString(G, "h1")) goto l1098;  goto l1097;
-  l1098:;	  G->pos= yypos1097; G->thunkpos= yythunkpos1097;  if (!yymatchString(G, "H1")) goto l1096;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseH1"));  if (!yymatchChar(G, '<')) goto l1112;  if (!yy_Spnl(G)) { goto l1112; }  if (!yymatchChar(G, '/')) goto l1112;
+  {  int yypos1113= G->pos, yythunkpos1113= G->thunkpos;  if (!yymatchString(G, "h1")) goto l1114;  goto l1113;
+  l1114:;	  G->pos= yypos1113; G->thunkpos= yythunkpos1113;  if (!yymatchString(G, "H1")) goto l1112;
   }
-  l1097:;	  if (!yy_Spnl(G)) { goto l1096; }  if (!yymatchChar(G, '>')) goto l1096;
+  l1113:;	  if (!yy_Spnl(G)) { goto l1112; }  if (!yymatchChar(G, '>')) goto l1112;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseH1", G->buf+G->pos));
   return 1;
-  l1096:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1112:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseH1", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenH1(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenH1"));  if (!yymatchChar(G, '<')) goto l1099;  if (!yy_Spnl(G)) { goto l1099; }
-  {  int yypos1100= G->pos, yythunkpos1100= G->thunkpos;  if (!yymatchString(G, "h1")) goto l1101;  goto l1100;
-  l1101:;	  G->pos= yypos1100; G->thunkpos= yythunkpos1100;  if (!yymatchString(G, "H1")) goto l1099;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenH1"));  if (!yymatchChar(G, '<')) goto l1115;  if (!yy_Spnl(G)) { goto l1115; }
+  {  int yypos1116= G->pos, yythunkpos1116= G->thunkpos;  if (!yymatchString(G, "h1")) goto l1117;  goto l1116;
+  l1117:;	  G->pos= yypos1116; G->thunkpos= yythunkpos1116;  if (!yymatchString(G, "H1")) goto l1115;
   }
-  l1100:;	  if (!yy_Spnl(G)) { goto l1099; }
-  l1102:;	
-  {  int yypos1103= G->pos, yythunkpos1103= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1103; }  goto l1102;
-  l1103:;	  G->pos= yypos1103; G->thunkpos= yythunkpos1103;
-  }  if (!yymatchChar(G, '>')) goto l1099;
+  l1116:;	  if (!yy_Spnl(G)) { goto l1115; }
+  l1118:;	
+  {  int yypos1119= G->pos, yythunkpos1119= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1119; }  goto l1118;
+  l1119:;	  G->pos= yypos1119; G->thunkpos= yythunkpos1119;
+  }  if (!yymatchChar(G, '>')) goto l1115;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenH1", G->buf+G->pos));
   return 1;
-  l1099:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1115:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenH1", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockForm(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockForm"));  if (!yy_HtmlBlockOpenForm(G)) { goto l1104; }
-  l1105:;	
-  {  int yypos1106= G->pos, yythunkpos1106= G->thunkpos;
-  {  int yypos1107= G->pos, yythunkpos1107= G->thunkpos;  if (!yy_HtmlBlockForm(G)) { goto l1108; }  goto l1107;
-  l1108:;	  G->pos= yypos1107; G->thunkpos= yythunkpos1107;
-  {  int yypos1109= G->pos, yythunkpos1109= G->thunkpos;  if (!yy_HtmlBlockCloseForm(G)) { goto l1109; }  goto l1106;
-  l1109:;	  G->pos= yypos1109; G->thunkpos= yythunkpos1109;
-  }  if (!yymatchDot(G)) goto l1106;
+  yyprintf((stderr, "%s\n", "HtmlBlockForm"));  if (!yy_HtmlBlockOpenForm(G)) { goto l1120; }
+  l1121:;	
+  {  int yypos1122= G->pos, yythunkpos1122= G->thunkpos;
+  {  int yypos1123= G->pos, yythunkpos1123= G->thunkpos;  if (!yy_HtmlBlockForm(G)) { goto l1124; }  goto l1123;
+  l1124:;	  G->pos= yypos1123; G->thunkpos= yythunkpos1123;
+  {  int yypos1125= G->pos, yythunkpos1125= G->thunkpos;  if (!yy_HtmlBlockCloseForm(G)) { goto l1125; }  goto l1122;
+  l1125:;	  G->pos= yypos1125; G->thunkpos= yythunkpos1125;
+  }  if (!yymatchDot(G)) goto l1122;
   }
-  l1107:;	  goto l1105;
-  l1106:;	  G->pos= yypos1106; G->thunkpos= yythunkpos1106;
-  }  if (!yy_HtmlBlockCloseForm(G)) { goto l1104; }
+  l1123:;	  goto l1121;
+  l1122:;	  G->pos= yypos1122; G->thunkpos= yythunkpos1122;
+  }  if (!yy_HtmlBlockCloseForm(G)) { goto l1120; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockForm", G->buf+G->pos));
   return 1;
-  l1104:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1120:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockForm", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseForm(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseForm"));  if (!yymatchChar(G, '<')) goto l1110;  if (!yy_Spnl(G)) { goto l1110; }  if (!yymatchChar(G, '/')) goto l1110;
-  {  int yypos1111= G->pos, yythunkpos1111= G->thunkpos;  if (!yymatchString(G, "form")) goto l1112;  goto l1111;
-  l1112:;	  G->pos= yypos1111; G->thunkpos= yythunkpos1111;  if (!yymatchString(G, "FORM")) goto l1110;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseForm"));  if (!yymatchChar(G, '<')) goto l1126;  if (!yy_Spnl(G)) { goto l1126; }  if (!yymatchChar(G, '/')) goto l1126;
+  {  int yypos1127= G->pos, yythunkpos1127= G->thunkpos;  if (!yymatchString(G, "form")) goto l1128;  goto l1127;
+  l1128:;	  G->pos= yypos1127; G->thunkpos= yythunkpos1127;  if (!yymatchString(G, "FORM")) goto l1126;
   }
-  l1111:;	  if (!yy_Spnl(G)) { goto l1110; }  if (!yymatchChar(G, '>')) goto l1110;
+  l1127:;	  if (!yy_Spnl(G)) { goto l1126; }  if (!yymatchChar(G, '>')) goto l1126;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseForm", G->buf+G->pos));
   return 1;
-  l1110:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1126:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseForm", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenForm(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenForm"));  if (!yymatchChar(G, '<')) goto l1113;  if (!yy_Spnl(G)) { goto l1113; }
-  {  int yypos1114= G->pos, yythunkpos1114= G->thunkpos;  if (!yymatchString(G, "form")) goto l1115;  goto l1114;
-  l1115:;	  G->pos= yypos1114; G->thunkpos= yythunkpos1114;  if (!yymatchString(G, "FORM")) goto l1113;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenForm"));  if (!yymatchChar(G, '<')) goto l1129;  if (!yy_Spnl(G)) { goto l1129; }
+  {  int yypos1130= G->pos, yythunkpos1130= G->thunkpos;  if (!yymatchString(G, "form")) goto l1131;  goto l1130;
+  l1131:;	  G->pos= yypos1130; G->thunkpos= yythunkpos1130;  if (!yymatchString(G, "FORM")) goto l1129;
   }
-  l1114:;	  if (!yy_Spnl(G)) { goto l1113; }
-  l1116:;	
-  {  int yypos1117= G->pos, yythunkpos1117= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1117; }  goto l1116;
-  l1117:;	  G->pos= yypos1117; G->thunkpos= yythunkpos1117;
-  }  if (!yymatchChar(G, '>')) goto l1113;
+  l1130:;	  if (!yy_Spnl(G)) { goto l1129; }
+  l1132:;	
+  {  int yypos1133= G->pos, yythunkpos1133= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1133; }  goto l1132;
+  l1133:;	  G->pos= yypos1133; G->thunkpos= yythunkpos1133;
+  }  if (!yymatchChar(G, '>')) goto l1129;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenForm", G->buf+G->pos));
   return 1;
-  l1113:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1129:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenForm", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockFieldset(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockFieldset"));  if (!yy_HtmlBlockOpenFieldset(G)) { goto l1118; }
-  l1119:;	
-  {  int yypos1120= G->pos, yythunkpos1120= G->thunkpos;
-  {  int yypos1121= G->pos, yythunkpos1121= G->thunkpos;  if (!yy_HtmlBlockFieldset(G)) { goto l1122; }  goto l1121;
-  l1122:;	  G->pos= yypos1121; G->thunkpos= yythunkpos1121;
-  {  int yypos1123= G->pos, yythunkpos1123= G->thunkpos;  if (!yy_HtmlBlockCloseFieldset(G)) { goto l1123; }  goto l1120;
-  l1123:;	  G->pos= yypos1123; G->thunkpos= yythunkpos1123;
-  }  if (!yymatchDot(G)) goto l1120;
+  yyprintf((stderr, "%s\n", "HtmlBlockFieldset"));  if (!yy_HtmlBlockOpenFieldset(G)) { goto l1134; }
+  l1135:;	
+  {  int yypos1136= G->pos, yythunkpos1136= G->thunkpos;
+  {  int yypos1137= G->pos, yythunkpos1137= G->thunkpos;  if (!yy_HtmlBlockFieldset(G)) { goto l1138; }  goto l1137;
+  l1138:;	  G->pos= yypos1137; G->thunkpos= yythunkpos1137;
+  {  int yypos1139= G->pos, yythunkpos1139= G->thunkpos;  if (!yy_HtmlBlockCloseFieldset(G)) { goto l1139; }  goto l1136;
+  l1139:;	  G->pos= yypos1139; G->thunkpos= yythunkpos1139;
+  }  if (!yymatchDot(G)) goto l1136;
   }
-  l1121:;	  goto l1119;
-  l1120:;	  G->pos= yypos1120; G->thunkpos= yythunkpos1120;
-  }  if (!yy_HtmlBlockCloseFieldset(G)) { goto l1118; }
+  l1137:;	  goto l1135;
+  l1136:;	  G->pos= yypos1136; G->thunkpos= yythunkpos1136;
+  }  if (!yy_HtmlBlockCloseFieldset(G)) { goto l1134; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockFieldset", G->buf+G->pos));
   return 1;
-  l1118:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1134:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockFieldset", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseFieldset(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseFieldset"));  if (!yymatchChar(G, '<')) goto l1124;  if (!yy_Spnl(G)) { goto l1124; }  if (!yymatchChar(G, '/')) goto l1124;
-  {  int yypos1125= G->pos, yythunkpos1125= G->thunkpos;  if (!yymatchString(G, "fieldset")) goto l1126;  goto l1125;
-  l1126:;	  G->pos= yypos1125; G->thunkpos= yythunkpos1125;  if (!yymatchString(G, "FIELDSET")) goto l1124;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseFieldset"));  if (!yymatchChar(G, '<')) goto l1140;  if (!yy_Spnl(G)) { goto l1140; }  if (!yymatchChar(G, '/')) goto l1140;
+  {  int yypos1141= G->pos, yythunkpos1141= G->thunkpos;  if (!yymatchString(G, "fieldset")) goto l1142;  goto l1141;
+  l1142:;	  G->pos= yypos1141; G->thunkpos= yythunkpos1141;  if (!yymatchString(G, "FIELDSET")) goto l1140;
   }
-  l1125:;	  if (!yy_Spnl(G)) { goto l1124; }  if (!yymatchChar(G, '>')) goto l1124;
+  l1141:;	  if (!yy_Spnl(G)) { goto l1140; }  if (!yymatchChar(G, '>')) goto l1140;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseFieldset", G->buf+G->pos));
   return 1;
-  l1124:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1140:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseFieldset", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenFieldset(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenFieldset"));  if (!yymatchChar(G, '<')) goto l1127;  if (!yy_Spnl(G)) { goto l1127; }
-  {  int yypos1128= G->pos, yythunkpos1128= G->thunkpos;  if (!yymatchString(G, "fieldset")) goto l1129;  goto l1128;
-  l1129:;	  G->pos= yypos1128; G->thunkpos= yythunkpos1128;  if (!yymatchString(G, "FIELDSET")) goto l1127;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenFieldset"));  if (!yymatchChar(G, '<')) goto l1143;  if (!yy_Spnl(G)) { goto l1143; }
+  {  int yypos1144= G->pos, yythunkpos1144= G->thunkpos;  if (!yymatchString(G, "fieldset")) goto l1145;  goto l1144;
+  l1145:;	  G->pos= yypos1144; G->thunkpos= yythunkpos1144;  if (!yymatchString(G, "FIELDSET")) goto l1143;
   }
-  l1128:;	  if (!yy_Spnl(G)) { goto l1127; }
-  l1130:;	
-  {  int yypos1131= G->pos, yythunkpos1131= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1131; }  goto l1130;
-  l1131:;	  G->pos= yypos1131; G->thunkpos= yythunkpos1131;
-  }  if (!yymatchChar(G, '>')) goto l1127;
+  l1144:;	  if (!yy_Spnl(G)) { goto l1143; }
+  l1146:;	
+  {  int yypos1147= G->pos, yythunkpos1147= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1147; }  goto l1146;
+  l1147:;	  G->pos= yypos1147; G->thunkpos= yythunkpos1147;
+  }  if (!yymatchChar(G, '>')) goto l1143;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenFieldset", G->buf+G->pos));
   return 1;
-  l1127:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1143:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenFieldset", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockDl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockDl"));  if (!yy_HtmlBlockOpenDl(G)) { goto l1132; }
-  l1133:;	
-  {  int yypos1134= G->pos, yythunkpos1134= G->thunkpos;
-  {  int yypos1135= G->pos, yythunkpos1135= G->thunkpos;  if (!yy_HtmlBlockDl(G)) { goto l1136; }  goto l1135;
-  l1136:;	  G->pos= yypos1135; G->thunkpos= yythunkpos1135;
-  {  int yypos1137= G->pos, yythunkpos1137= G->thunkpos;  if (!yy_HtmlBlockCloseDl(G)) { goto l1137; }  goto l1134;
-  l1137:;	  G->pos= yypos1137; G->thunkpos= yythunkpos1137;
-  }  if (!yymatchDot(G)) goto l1134;
+  yyprintf((stderr, "%s\n", "HtmlBlockDl"));  if (!yy_HtmlBlockOpenDl(G)) { goto l1148; }
+  l1149:;	
+  {  int yypos1150= G->pos, yythunkpos1150= G->thunkpos;
+  {  int yypos1151= G->pos, yythunkpos1151= G->thunkpos;  if (!yy_HtmlBlockDl(G)) { goto l1152; }  goto l1151;
+  l1152:;	  G->pos= yypos1151; G->thunkpos= yythunkpos1151;
+  {  int yypos1153= G->pos, yythunkpos1153= G->thunkpos;  if (!yy_HtmlBlockCloseDl(G)) { goto l1153; }  goto l1150;
+  l1153:;	  G->pos= yypos1153; G->thunkpos= yythunkpos1153;
+  }  if (!yymatchDot(G)) goto l1150;
   }
-  l1135:;	  goto l1133;
-  l1134:;	  G->pos= yypos1134; G->thunkpos= yythunkpos1134;
-  }  if (!yy_HtmlBlockCloseDl(G)) { goto l1132; }
+  l1151:;	  goto l1149;
+  l1150:;	  G->pos= yypos1150; G->thunkpos= yythunkpos1150;
+  }  if (!yy_HtmlBlockCloseDl(G)) { goto l1148; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockDl", G->buf+G->pos));
   return 1;
-  l1132:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1148:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockDl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseDl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseDl"));  if (!yymatchChar(G, '<')) goto l1138;  if (!yy_Spnl(G)) { goto l1138; }  if (!yymatchChar(G, '/')) goto l1138;
-  {  int yypos1139= G->pos, yythunkpos1139= G->thunkpos;  if (!yymatchString(G, "dl")) goto l1140;  goto l1139;
-  l1140:;	  G->pos= yypos1139; G->thunkpos= yythunkpos1139;  if (!yymatchString(G, "DL")) goto l1138;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseDl"));  if (!yymatchChar(G, '<')) goto l1154;  if (!yy_Spnl(G)) { goto l1154; }  if (!yymatchChar(G, '/')) goto l1154;
+  {  int yypos1155= G->pos, yythunkpos1155= G->thunkpos;  if (!yymatchString(G, "dl")) goto l1156;  goto l1155;
+  l1156:;	  G->pos= yypos1155; G->thunkpos= yythunkpos1155;  if (!yymatchString(G, "DL")) goto l1154;
   }
-  l1139:;	  if (!yy_Spnl(G)) { goto l1138; }  if (!yymatchChar(G, '>')) goto l1138;
+  l1155:;	  if (!yy_Spnl(G)) { goto l1154; }  if (!yymatchChar(G, '>')) goto l1154;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseDl", G->buf+G->pos));
   return 1;
-  l1138:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1154:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseDl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenDl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenDl"));  if (!yymatchChar(G, '<')) goto l1141;  if (!yy_Spnl(G)) { goto l1141; }
-  {  int yypos1142= G->pos, yythunkpos1142= G->thunkpos;  if (!yymatchString(G, "dl")) goto l1143;  goto l1142;
-  l1143:;	  G->pos= yypos1142; G->thunkpos= yythunkpos1142;  if (!yymatchString(G, "DL")) goto l1141;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenDl"));  if (!yymatchChar(G, '<')) goto l1157;  if (!yy_Spnl(G)) { goto l1157; }
+  {  int yypos1158= G->pos, yythunkpos1158= G->thunkpos;  if (!yymatchString(G, "dl")) goto l1159;  goto l1158;
+  l1159:;	  G->pos= yypos1158; G->thunkpos= yythunkpos1158;  if (!yymatchString(G, "DL")) goto l1157;
   }
-  l1142:;	  if (!yy_Spnl(G)) { goto l1141; }
-  l1144:;	
-  {  int yypos1145= G->pos, yythunkpos1145= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1145; }  goto l1144;
-  l1145:;	  G->pos= yypos1145; G->thunkpos= yythunkpos1145;
-  }  if (!yymatchChar(G, '>')) goto l1141;
+  l1158:;	  if (!yy_Spnl(G)) { goto l1157; }
+  l1160:;	
+  {  int yypos1161= G->pos, yythunkpos1161= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1161; }  goto l1160;
+  l1161:;	  G->pos= yypos1161; G->thunkpos= yythunkpos1161;
+  }  if (!yymatchChar(G, '>')) goto l1157;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenDl", G->buf+G->pos));
   return 1;
-  l1141:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1157:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenDl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockDiv(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockDiv"));  if (!yy_HtmlBlockOpenDiv(G)) { goto l1146; }
-  l1147:;	
-  {  int yypos1148= G->pos, yythunkpos1148= G->thunkpos;
-  {  int yypos1149= G->pos, yythunkpos1149= G->thunkpos;  if (!yy_HtmlBlockDiv(G)) { goto l1150; }  goto l1149;
-  l1150:;	  G->pos= yypos1149; G->thunkpos= yythunkpos1149;
-  {  int yypos1151= G->pos, yythunkpos1151= G->thunkpos;  if (!yy_HtmlBlockCloseDiv(G)) { goto l1151; }  goto l1148;
-  l1151:;	  G->pos= yypos1151; G->thunkpos= yythunkpos1151;
-  }  if (!yymatchDot(G)) goto l1148;
+  yyprintf((stderr, "%s\n", "HtmlBlockDiv"));  if (!yy_HtmlBlockOpenDiv(G)) { goto l1162; }
+  l1163:;	
+  {  int yypos1164= G->pos, yythunkpos1164= G->thunkpos;
+  {  int yypos1165= G->pos, yythunkpos1165= G->thunkpos;  if (!yy_HtmlBlockDiv(G)) { goto l1166; }  goto l1165;
+  l1166:;	  G->pos= yypos1165; G->thunkpos= yythunkpos1165;
+  {  int yypos1167= G->pos, yythunkpos1167= G->thunkpos;  if (!yy_HtmlBlockCloseDiv(G)) { goto l1167; }  goto l1164;
+  l1167:;	  G->pos= yypos1167; G->thunkpos= yythunkpos1167;
+  }  if (!yymatchDot(G)) goto l1164;
   }
-  l1149:;	  goto l1147;
-  l1148:;	  G->pos= yypos1148; G->thunkpos= yythunkpos1148;
-  }  if (!yy_HtmlBlockCloseDiv(G)) { goto l1146; }
+  l1165:;	  goto l1163;
+  l1164:;	  G->pos= yypos1164; G->thunkpos= yythunkpos1164;
+  }  if (!yy_HtmlBlockCloseDiv(G)) { goto l1162; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockDiv", G->buf+G->pos));
   return 1;
-  l1146:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1162:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockDiv", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseDiv(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseDiv"));  if (!yymatchChar(G, '<')) goto l1152;  if (!yy_Spnl(G)) { goto l1152; }  if (!yymatchChar(G, '/')) goto l1152;
-  {  int yypos1153= G->pos, yythunkpos1153= G->thunkpos;  if (!yymatchString(G, "div")) goto l1154;  goto l1153;
-  l1154:;	  G->pos= yypos1153; G->thunkpos= yythunkpos1153;  if (!yymatchString(G, "DIV")) goto l1152;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseDiv"));  if (!yymatchChar(G, '<')) goto l1168;  if (!yy_Spnl(G)) { goto l1168; }  if (!yymatchChar(G, '/')) goto l1168;
+  {  int yypos1169= G->pos, yythunkpos1169= G->thunkpos;  if (!yymatchString(G, "div")) goto l1170;  goto l1169;
+  l1170:;	  G->pos= yypos1169; G->thunkpos= yythunkpos1169;  if (!yymatchString(G, "DIV")) goto l1168;
   }
-  l1153:;	  if (!yy_Spnl(G)) { goto l1152; }  if (!yymatchChar(G, '>')) goto l1152;
+  l1169:;	  if (!yy_Spnl(G)) { goto l1168; }  if (!yymatchChar(G, '>')) goto l1168;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseDiv", G->buf+G->pos));
   return 1;
-  l1152:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1168:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseDiv", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenDiv(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenDiv"));  if (!yymatchChar(G, '<')) goto l1155;  if (!yy_Spnl(G)) { goto l1155; }
-  {  int yypos1156= G->pos, yythunkpos1156= G->thunkpos;  if (!yymatchString(G, "div")) goto l1157;  goto l1156;
-  l1157:;	  G->pos= yypos1156; G->thunkpos= yythunkpos1156;  if (!yymatchString(G, "DIV")) goto l1155;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenDiv"));  if (!yymatchChar(G, '<')) goto l1171;  if (!yy_Spnl(G)) { goto l1171; }
+  {  int yypos1172= G->pos, yythunkpos1172= G->thunkpos;  if (!yymatchString(G, "div")) goto l1173;  goto l1172;
+  l1173:;	  G->pos= yypos1172; G->thunkpos= yythunkpos1172;  if (!yymatchString(G, "DIV")) goto l1171;
   }
-  l1156:;	  if (!yy_Spnl(G)) { goto l1155; }
-  l1158:;	
-  {  int yypos1159= G->pos, yythunkpos1159= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1159; }  goto l1158;
-  l1159:;	  G->pos= yypos1159; G->thunkpos= yythunkpos1159;
-  }  if (!yymatchChar(G, '>')) goto l1155;
+  l1172:;	  if (!yy_Spnl(G)) { goto l1171; }
+  l1174:;	
+  {  int yypos1175= G->pos, yythunkpos1175= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1175; }  goto l1174;
+  l1175:;	  G->pos= yypos1175; G->thunkpos= yythunkpos1175;
+  }  if (!yymatchChar(G, '>')) goto l1171;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenDiv", G->buf+G->pos));
   return 1;
-  l1155:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1171:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenDiv", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockDir(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockDir"));  if (!yy_HtmlBlockOpenDir(G)) { goto l1160; }
-  l1161:;	
-  {  int yypos1162= G->pos, yythunkpos1162= G->thunkpos;
-  {  int yypos1163= G->pos, yythunkpos1163= G->thunkpos;  if (!yy_HtmlBlockDir(G)) { goto l1164; }  goto l1163;
-  l1164:;	  G->pos= yypos1163; G->thunkpos= yythunkpos1163;
-  {  int yypos1165= G->pos, yythunkpos1165= G->thunkpos;  if (!yy_HtmlBlockCloseDir(G)) { goto l1165; }  goto l1162;
-  l1165:;	  G->pos= yypos1165; G->thunkpos= yythunkpos1165;
-  }  if (!yymatchDot(G)) goto l1162;
+  yyprintf((stderr, "%s\n", "HtmlBlockDir"));  if (!yy_HtmlBlockOpenDir(G)) { goto l1176; }
+  l1177:;	
+  {  int yypos1178= G->pos, yythunkpos1178= G->thunkpos;
+  {  int yypos1179= G->pos, yythunkpos1179= G->thunkpos;  if (!yy_HtmlBlockDir(G)) { goto l1180; }  goto l1179;
+  l1180:;	  G->pos= yypos1179; G->thunkpos= yythunkpos1179;
+  {  int yypos1181= G->pos, yythunkpos1181= G->thunkpos;  if (!yy_HtmlBlockCloseDir(G)) { goto l1181; }  goto l1178;
+  l1181:;	  G->pos= yypos1181; G->thunkpos= yythunkpos1181;
+  }  if (!yymatchDot(G)) goto l1178;
   }
-  l1163:;	  goto l1161;
-  l1162:;	  G->pos= yypos1162; G->thunkpos= yythunkpos1162;
-  }  if (!yy_HtmlBlockCloseDir(G)) { goto l1160; }
+  l1179:;	  goto l1177;
+  l1178:;	  G->pos= yypos1178; G->thunkpos= yythunkpos1178;
+  }  if (!yy_HtmlBlockCloseDir(G)) { goto l1176; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockDir", G->buf+G->pos));
   return 1;
-  l1160:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1176:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockDir", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseDir(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseDir"));  if (!yymatchChar(G, '<')) goto l1166;  if (!yy_Spnl(G)) { goto l1166; }  if (!yymatchChar(G, '/')) goto l1166;
-  {  int yypos1167= G->pos, yythunkpos1167= G->thunkpos;  if (!yymatchString(G, "dir")) goto l1168;  goto l1167;
-  l1168:;	  G->pos= yypos1167; G->thunkpos= yythunkpos1167;  if (!yymatchString(G, "DIR")) goto l1166;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseDir"));  if (!yymatchChar(G, '<')) goto l1182;  if (!yy_Spnl(G)) { goto l1182; }  if (!yymatchChar(G, '/')) goto l1182;
+  {  int yypos1183= G->pos, yythunkpos1183= G->thunkpos;  if (!yymatchString(G, "dir")) goto l1184;  goto l1183;
+  l1184:;	  G->pos= yypos1183; G->thunkpos= yythunkpos1183;  if (!yymatchString(G, "DIR")) goto l1182;
   }
-  l1167:;	  if (!yy_Spnl(G)) { goto l1166; }  if (!yymatchChar(G, '>')) goto l1166;
+  l1183:;	  if (!yy_Spnl(G)) { goto l1182; }  if (!yymatchChar(G, '>')) goto l1182;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseDir", G->buf+G->pos));
   return 1;
-  l1166:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1182:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseDir", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenDir(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenDir"));  if (!yymatchChar(G, '<')) goto l1169;  if (!yy_Spnl(G)) { goto l1169; }
-  {  int yypos1170= G->pos, yythunkpos1170= G->thunkpos;  if (!yymatchString(G, "dir")) goto l1171;  goto l1170;
-  l1171:;	  G->pos= yypos1170; G->thunkpos= yythunkpos1170;  if (!yymatchString(G, "DIR")) goto l1169;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenDir"));  if (!yymatchChar(G, '<')) goto l1185;  if (!yy_Spnl(G)) { goto l1185; }
+  {  int yypos1186= G->pos, yythunkpos1186= G->thunkpos;  if (!yymatchString(G, "dir")) goto l1187;  goto l1186;
+  l1187:;	  G->pos= yypos1186; G->thunkpos= yythunkpos1186;  if (!yymatchString(G, "DIR")) goto l1185;
   }
-  l1170:;	  if (!yy_Spnl(G)) { goto l1169; }
-  l1172:;	
-  {  int yypos1173= G->pos, yythunkpos1173= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1173; }  goto l1172;
-  l1173:;	  G->pos= yypos1173; G->thunkpos= yythunkpos1173;
-  }  if (!yymatchChar(G, '>')) goto l1169;
+  l1186:;	  if (!yy_Spnl(G)) { goto l1185; }
+  l1188:;	
+  {  int yypos1189= G->pos, yythunkpos1189= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1189; }  goto l1188;
+  l1189:;	  G->pos= yypos1189; G->thunkpos= yythunkpos1189;
+  }  if (!yymatchChar(G, '>')) goto l1185;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenDir", G->buf+G->pos));
   return 1;
-  l1169:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1185:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenDir", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCenter(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCenter"));  if (!yy_HtmlBlockOpenCenter(G)) { goto l1174; }
-  l1175:;	
-  {  int yypos1176= G->pos, yythunkpos1176= G->thunkpos;
-  {  int yypos1177= G->pos, yythunkpos1177= G->thunkpos;  if (!yy_HtmlBlockCenter(G)) { goto l1178; }  goto l1177;
-  l1178:;	  G->pos= yypos1177; G->thunkpos= yythunkpos1177;
-  {  int yypos1179= G->pos, yythunkpos1179= G->thunkpos;  if (!yy_HtmlBlockCloseCenter(G)) { goto l1179; }  goto l1176;
-  l1179:;	  G->pos= yypos1179; G->thunkpos= yythunkpos1179;
-  }  if (!yymatchDot(G)) goto l1176;
+  yyprintf((stderr, "%s\n", "HtmlBlockCenter"));  if (!yy_HtmlBlockOpenCenter(G)) { goto l1190; }
+  l1191:;	
+  {  int yypos1192= G->pos, yythunkpos1192= G->thunkpos;
+  {  int yypos1193= G->pos, yythunkpos1193= G->thunkpos;  if (!yy_HtmlBlockCenter(G)) { goto l1194; }  goto l1193;
+  l1194:;	  G->pos= yypos1193; G->thunkpos= yythunkpos1193;
+  {  int yypos1195= G->pos, yythunkpos1195= G->thunkpos;  if (!yy_HtmlBlockCloseCenter(G)) { goto l1195; }  goto l1192;
+  l1195:;	  G->pos= yypos1195; G->thunkpos= yythunkpos1195;
+  }  if (!yymatchDot(G)) goto l1192;
   }
-  l1177:;	  goto l1175;
-  l1176:;	  G->pos= yypos1176; G->thunkpos= yythunkpos1176;
-  }  if (!yy_HtmlBlockCloseCenter(G)) { goto l1174; }
+  l1193:;	  goto l1191;
+  l1192:;	  G->pos= yypos1192; G->thunkpos= yythunkpos1192;
+  }  if (!yy_HtmlBlockCloseCenter(G)) { goto l1190; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCenter", G->buf+G->pos));
   return 1;
-  l1174:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1190:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCenter", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseCenter(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseCenter"));  if (!yymatchChar(G, '<')) goto l1180;  if (!yy_Spnl(G)) { goto l1180; }  if (!yymatchChar(G, '/')) goto l1180;
-  {  int yypos1181= G->pos, yythunkpos1181= G->thunkpos;  if (!yymatchString(G, "center")) goto l1182;  goto l1181;
-  l1182:;	  G->pos= yypos1181; G->thunkpos= yythunkpos1181;  if (!yymatchString(G, "CENTER")) goto l1180;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseCenter"));  if (!yymatchChar(G, '<')) goto l1196;  if (!yy_Spnl(G)) { goto l1196; }  if (!yymatchChar(G, '/')) goto l1196;
+  {  int yypos1197= G->pos, yythunkpos1197= G->thunkpos;  if (!yymatchString(G, "center")) goto l1198;  goto l1197;
+  l1198:;	  G->pos= yypos1197; G->thunkpos= yythunkpos1197;  if (!yymatchString(G, "CENTER")) goto l1196;
   }
-  l1181:;	  if (!yy_Spnl(G)) { goto l1180; }  if (!yymatchChar(G, '>')) goto l1180;
+  l1197:;	  if (!yy_Spnl(G)) { goto l1196; }  if (!yymatchChar(G, '>')) goto l1196;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseCenter", G->buf+G->pos));
   return 1;
-  l1180:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1196:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseCenter", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenCenter(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenCenter"));  if (!yymatchChar(G, '<')) goto l1183;  if (!yy_Spnl(G)) { goto l1183; }
-  {  int yypos1184= G->pos, yythunkpos1184= G->thunkpos;  if (!yymatchString(G, "center")) goto l1185;  goto l1184;
-  l1185:;	  G->pos= yypos1184; G->thunkpos= yythunkpos1184;  if (!yymatchString(G, "CENTER")) goto l1183;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenCenter"));  if (!yymatchChar(G, '<')) goto l1199;  if (!yy_Spnl(G)) { goto l1199; }
+  {  int yypos1200= G->pos, yythunkpos1200= G->thunkpos;  if (!yymatchString(G, "center")) goto l1201;  goto l1200;
+  l1201:;	  G->pos= yypos1200; G->thunkpos= yythunkpos1200;  if (!yymatchString(G, "CENTER")) goto l1199;
   }
-  l1184:;	  if (!yy_Spnl(G)) { goto l1183; }
-  l1186:;	
-  {  int yypos1187= G->pos, yythunkpos1187= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1187; }  goto l1186;
-  l1187:;	  G->pos= yypos1187; G->thunkpos= yythunkpos1187;
-  }  if (!yymatchChar(G, '>')) goto l1183;
+  l1200:;	  if (!yy_Spnl(G)) { goto l1199; }
+  l1202:;	
+  {  int yypos1203= G->pos, yythunkpos1203= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1203; }  goto l1202;
+  l1203:;	  G->pos= yypos1203; G->thunkpos= yythunkpos1203;
+  }  if (!yymatchChar(G, '>')) goto l1199;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenCenter", G->buf+G->pos));
   return 1;
-  l1183:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1199:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenCenter", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockBlockquote(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockBlockquote"));  if (!yy_HtmlBlockOpenBlockquote(G)) { goto l1188; }
-  l1189:;	
-  {  int yypos1190= G->pos, yythunkpos1190= G->thunkpos;
-  {  int yypos1191= G->pos, yythunkpos1191= G->thunkpos;  if (!yy_HtmlBlockBlockquote(G)) { goto l1192; }  goto l1191;
-  l1192:;	  G->pos= yypos1191; G->thunkpos= yythunkpos1191;
-  {  int yypos1193= G->pos, yythunkpos1193= G->thunkpos;  if (!yy_HtmlBlockCloseBlockquote(G)) { goto l1193; }  goto l1190;
-  l1193:;	  G->pos= yypos1193; G->thunkpos= yythunkpos1193;
-  }  if (!yymatchDot(G)) goto l1190;
+  yyprintf((stderr, "%s\n", "HtmlBlockBlockquote"));  if (!yy_HtmlBlockOpenBlockquote(G)) { goto l1204; }
+  l1205:;	
+  {  int yypos1206= G->pos, yythunkpos1206= G->thunkpos;
+  {  int yypos1207= G->pos, yythunkpos1207= G->thunkpos;  if (!yy_HtmlBlockBlockquote(G)) { goto l1208; }  goto l1207;
+  l1208:;	  G->pos= yypos1207; G->thunkpos= yythunkpos1207;
+  {  int yypos1209= G->pos, yythunkpos1209= G->thunkpos;  if (!yy_HtmlBlockCloseBlockquote(G)) { goto l1209; }  goto l1206;
+  l1209:;	  G->pos= yypos1209; G->thunkpos= yythunkpos1209;
+  }  if (!yymatchDot(G)) goto l1206;
   }
-  l1191:;	  goto l1189;
-  l1190:;	  G->pos= yypos1190; G->thunkpos= yythunkpos1190;
-  }  if (!yy_HtmlBlockCloseBlockquote(G)) { goto l1188; }
+  l1207:;	  goto l1205;
+  l1206:;	  G->pos= yypos1206; G->thunkpos= yythunkpos1206;
+  }  if (!yy_HtmlBlockCloseBlockquote(G)) { goto l1204; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockBlockquote", G->buf+G->pos));
   return 1;
-  l1188:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1204:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockBlockquote", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseBlockquote(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseBlockquote"));  if (!yymatchChar(G, '<')) goto l1194;  if (!yy_Spnl(G)) { goto l1194; }  if (!yymatchChar(G, '/')) goto l1194;
-  {  int yypos1195= G->pos, yythunkpos1195= G->thunkpos;  if (!yymatchString(G, "blockquote")) goto l1196;  goto l1195;
-  l1196:;	  G->pos= yypos1195; G->thunkpos= yythunkpos1195;  if (!yymatchString(G, "BLOCKQUOTE")) goto l1194;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseBlockquote"));  if (!yymatchChar(G, '<')) goto l1210;  if (!yy_Spnl(G)) { goto l1210; }  if (!yymatchChar(G, '/')) goto l1210;
+  {  int yypos1211= G->pos, yythunkpos1211= G->thunkpos;  if (!yymatchString(G, "blockquote")) goto l1212;  goto l1211;
+  l1212:;	  G->pos= yypos1211; G->thunkpos= yythunkpos1211;  if (!yymatchString(G, "BLOCKQUOTE")) goto l1210;
   }
-  l1195:;	  if (!yy_Spnl(G)) { goto l1194; }  if (!yymatchChar(G, '>')) goto l1194;
+  l1211:;	  if (!yy_Spnl(G)) { goto l1210; }  if (!yymatchChar(G, '>')) goto l1210;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseBlockquote", G->buf+G->pos));
   return 1;
-  l1194:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1210:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseBlockquote", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenBlockquote(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenBlockquote"));  if (!yymatchChar(G, '<')) goto l1197;  if (!yy_Spnl(G)) { goto l1197; }
-  {  int yypos1198= G->pos, yythunkpos1198= G->thunkpos;  if (!yymatchString(G, "blockquote")) goto l1199;  goto l1198;
-  l1199:;	  G->pos= yypos1198; G->thunkpos= yythunkpos1198;  if (!yymatchString(G, "BLOCKQUOTE")) goto l1197;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenBlockquote"));  if (!yymatchChar(G, '<')) goto l1213;  if (!yy_Spnl(G)) { goto l1213; }
+  {  int yypos1214= G->pos, yythunkpos1214= G->thunkpos;  if (!yymatchString(G, "blockquote")) goto l1215;  goto l1214;
+  l1215:;	  G->pos= yypos1214; G->thunkpos= yythunkpos1214;  if (!yymatchString(G, "BLOCKQUOTE")) goto l1213;
   }
-  l1198:;	  if (!yy_Spnl(G)) { goto l1197; }
-  l1200:;	
-  {  int yypos1201= G->pos, yythunkpos1201= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1201; }  goto l1200;
-  l1201:;	  G->pos= yypos1201; G->thunkpos= yythunkpos1201;
-  }  if (!yymatchChar(G, '>')) goto l1197;
+  l1214:;	  if (!yy_Spnl(G)) { goto l1213; }
+  l1216:;	
+  {  int yypos1217= G->pos, yythunkpos1217= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1217; }  goto l1216;
+  l1217:;	  G->pos= yypos1217; G->thunkpos= yythunkpos1217;
+  }  if (!yymatchChar(G, '>')) goto l1213;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenBlockquote", G->buf+G->pos));
   return 1;
-  l1197:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1213:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenBlockquote", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockAddress(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockAddress"));  if (!yy_HtmlBlockOpenAddress(G)) { goto l1202; }
-  l1203:;	
-  {  int yypos1204= G->pos, yythunkpos1204= G->thunkpos;
-  {  int yypos1205= G->pos, yythunkpos1205= G->thunkpos;  if (!yy_HtmlBlockAddress(G)) { goto l1206; }  goto l1205;
-  l1206:;	  G->pos= yypos1205; G->thunkpos= yythunkpos1205;
-  {  int yypos1207= G->pos, yythunkpos1207= G->thunkpos;  if (!yy_HtmlBlockCloseAddress(G)) { goto l1207; }  goto l1204;
-  l1207:;	  G->pos= yypos1207; G->thunkpos= yythunkpos1207;
-  }  if (!yymatchDot(G)) goto l1204;
+  yyprintf((stderr, "%s\n", "HtmlBlockAddress"));  if (!yy_HtmlBlockOpenAddress(G)) { goto l1218; }
+  l1219:;	
+  {  int yypos1220= G->pos, yythunkpos1220= G->thunkpos;
+  {  int yypos1221= G->pos, yythunkpos1221= G->thunkpos;  if (!yy_HtmlBlockAddress(G)) { goto l1222; }  goto l1221;
+  l1222:;	  G->pos= yypos1221; G->thunkpos= yythunkpos1221;
+  {  int yypos1223= G->pos, yythunkpos1223= G->thunkpos;  if (!yy_HtmlBlockCloseAddress(G)) { goto l1223; }  goto l1220;
+  l1223:;	  G->pos= yypos1223; G->thunkpos= yythunkpos1223;
+  }  if (!yymatchDot(G)) goto l1220;
   }
-  l1205:;	  goto l1203;
-  l1204:;	  G->pos= yypos1204; G->thunkpos= yythunkpos1204;
-  }  if (!yy_HtmlBlockCloseAddress(G)) { goto l1202; }
+  l1221:;	  goto l1219;
+  l1220:;	  G->pos= yypos1220; G->thunkpos= yythunkpos1220;
+  }  if (!yy_HtmlBlockCloseAddress(G)) { goto l1218; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockAddress", G->buf+G->pos));
   return 1;
-  l1202:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1218:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockAddress", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockCloseAddress(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockCloseAddress"));  if (!yymatchChar(G, '<')) goto l1208;  if (!yy_Spnl(G)) { goto l1208; }  if (!yymatchChar(G, '/')) goto l1208;
-  {  int yypos1209= G->pos, yythunkpos1209= G->thunkpos;  if (!yymatchString(G, "address")) goto l1210;  goto l1209;
-  l1210:;	  G->pos= yypos1209; G->thunkpos= yythunkpos1209;  if (!yymatchString(G, "ADDRESS")) goto l1208;
+  yyprintf((stderr, "%s\n", "HtmlBlockCloseAddress"));  if (!yymatchChar(G, '<')) goto l1224;  if (!yy_Spnl(G)) { goto l1224; }  if (!yymatchChar(G, '/')) goto l1224;
+  {  int yypos1225= G->pos, yythunkpos1225= G->thunkpos;  if (!yymatchString(G, "address")) goto l1226;  goto l1225;
+  l1226:;	  G->pos= yypos1225; G->thunkpos= yythunkpos1225;  if (!yymatchString(G, "ADDRESS")) goto l1224;
   }
-  l1209:;	  if (!yy_Spnl(G)) { goto l1208; }  if (!yymatchChar(G, '>')) goto l1208;
+  l1225:;	  if (!yy_Spnl(G)) { goto l1224; }  if (!yymatchChar(G, '>')) goto l1224;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockCloseAddress", G->buf+G->pos));
   return 1;
-  l1208:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1224:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockCloseAddress", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlAttribute(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "HtmlAttribute"));
-  {  int yypos1214= G->pos, yythunkpos1214= G->thunkpos;  if (!yy_AlphanumericAscii(G)) { goto l1215; }  goto l1214;
-  l1215:;	  G->pos= yypos1214; G->thunkpos= yythunkpos1214;  if (!yymatchChar(G, '-')) goto l1211;
+  {  int yypos1230= G->pos, yythunkpos1230= G->thunkpos;  if (!yy_AlphanumericAscii(G)) { goto l1231; }  goto l1230;
+  l1231:;	  G->pos= yypos1230; G->thunkpos= yythunkpos1230;  if (!yymatchChar(G, '-')) goto l1227;
   }
-  l1214:;	
-  l1212:;	
-  {  int yypos1213= G->pos, yythunkpos1213= G->thunkpos;
-  {  int yypos1216= G->pos, yythunkpos1216= G->thunkpos;  if (!yy_AlphanumericAscii(G)) { goto l1217; }  goto l1216;
-  l1217:;	  G->pos= yypos1216; G->thunkpos= yythunkpos1216;  if (!yymatchChar(G, '-')) goto l1213;
+  l1230:;	
+  l1228:;	
+  {  int yypos1229= G->pos, yythunkpos1229= G->thunkpos;
+  {  int yypos1232= G->pos, yythunkpos1232= G->thunkpos;  if (!yy_AlphanumericAscii(G)) { goto l1233; }  goto l1232;
+  l1233:;	  G->pos= yypos1232; G->thunkpos= yythunkpos1232;  if (!yymatchChar(G, '-')) goto l1229;
   }
-  l1216:;	  goto l1212;
-  l1213:;	  G->pos= yypos1213; G->thunkpos= yythunkpos1213;
-  }  if (!yy_Spnl(G)) { goto l1211; }
-  {  int yypos1218= G->pos, yythunkpos1218= G->thunkpos;  if (!yymatchChar(G, '=')) goto l1218;  if (!yy_Spnl(G)) { goto l1218; }
-  {  int yypos1220= G->pos, yythunkpos1220= G->thunkpos;  if (!yy_Quoted(G)) { goto l1221; }  goto l1220;
-  l1221:;	  G->pos= yypos1220; G->thunkpos= yythunkpos1220;
-  {  int yypos1224= G->pos, yythunkpos1224= G->thunkpos;  if (!yymatchChar(G, '>')) goto l1224;  goto l1218;
-  l1224:;	  G->pos= yypos1224; G->thunkpos= yythunkpos1224;
-  }  if (!yy_Nonspacechar(G)) { goto l1218; }
-  l1222:;	
-  {  int yypos1223= G->pos, yythunkpos1223= G->thunkpos;
-  {  int yypos1225= G->pos, yythunkpos1225= G->thunkpos;  if (!yymatchChar(G, '>')) goto l1225;  goto l1223;
-  l1225:;	  G->pos= yypos1225; G->thunkpos= yythunkpos1225;
-  }  if (!yy_Nonspacechar(G)) { goto l1223; }  goto l1222;
-  l1223:;	  G->pos= yypos1223; G->thunkpos= yythunkpos1223;
+  l1232:;	  goto l1228;
+  l1229:;	  G->pos= yypos1229; G->thunkpos= yythunkpos1229;
+  }  if (!yy_Spnl(G)) { goto l1227; }
+  {  int yypos1234= G->pos, yythunkpos1234= G->thunkpos;  if (!yymatchChar(G, '=')) goto l1234;  if (!yy_Spnl(G)) { goto l1234; }
+  {  int yypos1236= G->pos, yythunkpos1236= G->thunkpos;  if (!yy_Quoted(G)) { goto l1237; }  goto l1236;
+  l1237:;	  G->pos= yypos1236; G->thunkpos= yythunkpos1236;
+  {  int yypos1240= G->pos, yythunkpos1240= G->thunkpos;  if (!yymatchChar(G, '>')) goto l1240;  goto l1234;
+  l1240:;	  G->pos= yypos1240; G->thunkpos= yythunkpos1240;
+  }  if (!yy_Nonspacechar(G)) { goto l1234; }
+  l1238:;	
+  {  int yypos1239= G->pos, yythunkpos1239= G->thunkpos;
+  {  int yypos1241= G->pos, yythunkpos1241= G->thunkpos;  if (!yymatchChar(G, '>')) goto l1241;  goto l1239;
+  l1241:;	  G->pos= yypos1241; G->thunkpos= yythunkpos1241;
+  }  if (!yy_Nonspacechar(G)) { goto l1239; }  goto l1238;
+  l1239:;	  G->pos= yypos1239; G->thunkpos= yythunkpos1239;
   }
   }
-  l1220:;	  goto l1219;
-  l1218:;	  G->pos= yypos1218; G->thunkpos= yythunkpos1218;
+  l1236:;	  goto l1235;
+  l1234:;	  G->pos= yypos1234; G->thunkpos= yythunkpos1234;
   }
-  l1219:;	  if (!yy_Spnl(G)) { goto l1211; }
+  l1235:;	  if (!yy_Spnl(G)) { goto l1227; }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlAttribute", G->buf+G->pos));
   return 1;
-  l1211:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1227:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlAttribute", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Spnl(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Spnl"));  if (!yy_Sp(G)) { goto l1226; }
-  {  int yypos1227= G->pos, yythunkpos1227= G->thunkpos;  if (!yy_Newline(G)) { goto l1227; }  if (!yy_Sp(G)) { goto l1227; }  goto l1228;
-  l1227:;	  G->pos= yypos1227; G->thunkpos= yythunkpos1227;
+  yyprintf((stderr, "%s\n", "Spnl"));  if (!yy_Sp(G)) { goto l1242; }
+  {  int yypos1243= G->pos, yythunkpos1243= G->thunkpos;  if (!yy_Newline(G)) { goto l1243; }  if (!yy_Sp(G)) { goto l1243; }  goto l1244;
+  l1243:;	  G->pos= yypos1243; G->thunkpos= yythunkpos1243;
   }
-  l1228:;	
+  l1244:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Spnl", G->buf+G->pos));
   return 1;
-  l1226:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1242:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Spnl", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlockOpenAddress(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlockOpenAddress"));  if (!yymatchChar(G, '<')) goto l1229;  if (!yy_Spnl(G)) { goto l1229; }
-  {  int yypos1230= G->pos, yythunkpos1230= G->thunkpos;  if (!yymatchString(G, "address")) goto l1231;  goto l1230;
-  l1231:;	  G->pos= yypos1230; G->thunkpos= yythunkpos1230;  if (!yymatchString(G, "ADDRESS")) goto l1229;
+  yyprintf((stderr, "%s\n", "HtmlBlockOpenAddress"));  if (!yymatchChar(G, '<')) goto l1245;  if (!yy_Spnl(G)) { goto l1245; }
+  {  int yypos1246= G->pos, yythunkpos1246= G->thunkpos;  if (!yymatchString(G, "address")) goto l1247;  goto l1246;
+  l1247:;	  G->pos= yypos1246; G->thunkpos= yythunkpos1246;  if (!yymatchString(G, "ADDRESS")) goto l1245;
   }
-  l1230:;	  if (!yy_Spnl(G)) { goto l1229; }
-  l1232:;	
-  {  int yypos1233= G->pos, yythunkpos1233= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1233; }  goto l1232;
-  l1233:;	  G->pos= yypos1233; G->thunkpos= yythunkpos1233;
-  }  if (!yymatchChar(G, '>')) goto l1229;
+  l1246:;	  if (!yy_Spnl(G)) { goto l1245; }
+  l1248:;	
+  {  int yypos1249= G->pos, yythunkpos1249= G->thunkpos;  if (!yy_HtmlAttribute(G)) { goto l1249; }  goto l1248;
+  l1249:;	  G->pos= yypos1249; G->thunkpos= yythunkpos1249;
+  }  if (!yymatchChar(G, '>')) goto l1245;
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlockOpenAddress", G->buf+G->pos));
   return 1;
-  l1229:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1245:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlockOpenAddress", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_OptionallyIndentedLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "OptionallyIndentedLine"));
-  {  int yypos1235= G->pos, yythunkpos1235= G->thunkpos;  if (!yy_Indent(G)) { goto l1235; }  goto l1236;
-  l1235:;	  G->pos= yypos1235; G->thunkpos= yythunkpos1235;
+  {  int yypos1251= G->pos, yythunkpos1251= G->thunkpos;  if (!yy_Indent(G)) { goto l1251; }  goto l1252;
+  l1251:;	  G->pos= yypos1251; G->thunkpos= yythunkpos1251;
   }
-  l1236:;	  if (!yy_Line(G)) { goto l1234; }
+  l1252:;	  if (!yy_Line(G)) { goto l1250; }
   yyprintf((stderr, "  ok   %s @ %s\n", "OptionallyIndentedLine", G->buf+G->pos));
   return 1;
-  l1234:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1250:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "OptionallyIndentedLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Indent(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Indent"));
-  {  int yypos1238= G->pos, yythunkpos1238= G->thunkpos;  if (!yymatchChar(G, '\t')) goto l1239;  goto l1238;
-  l1239:;	  G->pos= yypos1238; G->thunkpos= yythunkpos1238;  if (!yymatchString(G, "    ")) goto l1237;
+  {  int yypos1254= G->pos, yythunkpos1254= G->thunkpos;  if (!yymatchChar(G, '\t')) goto l1255;  goto l1254;
+  l1255:;	  G->pos= yypos1254; G->thunkpos= yythunkpos1254;  if (!yymatchString(G, "    ")) goto l1253;
   }
-  l1238:;	
+  l1254:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Indent", G->buf+G->pos));
   return 1;
-  l1237:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1253:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Indent", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ListBlockLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "ListBlockLine"));
-  {  int yypos1241= G->pos, yythunkpos1241= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1241; }  goto l1240;
-  l1241:;	  G->pos= yypos1241; G->thunkpos= yythunkpos1241;
+  {  int yypos1257= G->pos, yythunkpos1257= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1257; }  goto l1256;
+  l1257:;	  G->pos= yypos1257; G->thunkpos= yythunkpos1257;
   }
-  {  int yypos1242= G->pos, yythunkpos1242= G->thunkpos;
-  {  int yypos1243= G->pos, yythunkpos1243= G->thunkpos;  if (!yy_Indent(G)) { goto l1243; }  goto l1244;
-  l1243:;	  G->pos= yypos1243; G->thunkpos= yythunkpos1243;
+  {  int yypos1258= G->pos, yythunkpos1258= G->thunkpos;
+  {  int yypos1259= G->pos, yythunkpos1259= G->thunkpos;  if (!yy_Indent(G)) { goto l1259; }  goto l1260;
+  l1259:;	  G->pos= yypos1259; G->thunkpos= yythunkpos1259;
   }
-  l1244:;	
-  {  int yypos1245= G->pos, yythunkpos1245= G->thunkpos;  if (!yy_Bullet(G)) { goto l1246; }  goto l1245;
-  l1246:;	  G->pos= yypos1245; G->thunkpos= yythunkpos1245;  if (!yy_Enumerator(G)) { goto l1242; }
+  l1260:;	
+  {  int yypos1261= G->pos, yythunkpos1261= G->thunkpos;  if (!yy_Bullet(G)) { goto l1262; }  goto l1261;
+  l1262:;	  G->pos= yypos1261; G->thunkpos= yythunkpos1261;  if (!yy_Enumerator(G)) { goto l1258; }
   }
-  l1245:;	  goto l1240;
-  l1242:;	  G->pos= yypos1242; G->thunkpos= yythunkpos1242;
+  l1261:;	  goto l1256;
+  l1258:;	  G->pos= yypos1258; G->thunkpos= yythunkpos1258;
   }
-  {  int yypos1247= G->pos, yythunkpos1247= G->thunkpos;  if (!yy_HorizontalRule(G)) { goto l1247; }  goto l1240;
-  l1247:;	  G->pos= yypos1247; G->thunkpos= yythunkpos1247;
-  }  if (!yy_OptionallyIndentedLine(G)) { goto l1240; }
+  {  int yypos1263= G->pos, yythunkpos1263= G->thunkpos;  if (!yy_HorizontalRule(G)) { goto l1263; }  goto l1256;
+  l1263:;	  G->pos= yypos1263; G->thunkpos= yythunkpos1263;
+  }  if (!yy_OptionallyIndentedLine(G)) { goto l1256; }
   yyprintf((stderr, "  ok   %s @ %s\n", "ListBlockLine", G->buf+G->pos));
   return 1;
-  l1240:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1256:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ListBlockLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ListContinuationBlock(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "ListContinuationBlock"));  if (!yy_StartList(G)) { goto l1248; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1248;
-  l1249:;	
-  {  int yypos1250= G->pos, yythunkpos1250= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1250; }  goto l1249;
-  l1250:;	  G->pos= yypos1250; G->thunkpos= yythunkpos1250;
-  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1248;  yyDo(G, yy_1_ListContinuationBlock, G->begin, G->end);  if (!yy_Indent(G)) { goto l1248; }  if (!yy_ListBlock(G)) { goto l1248; }  yyDo(G, yy_2_ListContinuationBlock, G->begin, G->end);
-  l1251:;	
-  {  int yypos1252= G->pos, yythunkpos1252= G->thunkpos;  if (!yy_Indent(G)) { goto l1252; }  if (!yy_ListBlock(G)) { goto l1252; }  yyDo(G, yy_2_ListContinuationBlock, G->begin, G->end);  goto l1251;
-  l1252:;	  G->pos= yypos1252; G->thunkpos= yythunkpos1252;
+  yyprintf((stderr, "%s\n", "ListContinuationBlock"));  if (!yy_StartList(G)) { goto l1264; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1264;
+  l1265:;	
+  {  int yypos1266= G->pos, yythunkpos1266= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1266; }  goto l1265;
+  l1266:;	  G->pos= yypos1266; G->thunkpos= yythunkpos1266;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1264;  yyDo(G, yy_1_ListContinuationBlock, G->begin, G->end);  if (!yy_Indent(G)) { goto l1264; }  if (!yy_ListBlock(G)) { goto l1264; }  yyDo(G, yy_2_ListContinuationBlock, G->begin, G->end);
+  l1267:;	
+  {  int yypos1268= G->pos, yythunkpos1268= G->thunkpos;  if (!yy_Indent(G)) { goto l1268; }  if (!yy_ListBlock(G)) { goto l1268; }  yyDo(G, yy_2_ListContinuationBlock, G->begin, G->end);  goto l1267;
+  l1268:;	  G->pos= yypos1268; G->thunkpos= yythunkpos1268;
   }  yyDo(G, yy_3_ListContinuationBlock, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "ListContinuationBlock", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1248:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1264:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ListContinuationBlock", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ListBlock(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "ListBlock"));  if (!yy_StartList(G)) { goto l1253; }  yyDo(G, yySet, -1, 0);
-  {  int yypos1254= G->pos, yythunkpos1254= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1254; }  goto l1253;
-  l1254:;	  G->pos= yypos1254; G->thunkpos= yythunkpos1254;
-  }  if (!yy_Line(G)) { goto l1253; }  yyDo(G, yy_1_ListBlock, G->begin, G->end);
-  l1255:;	
-  {  int yypos1256= G->pos, yythunkpos1256= G->thunkpos;  if (!yy_ListBlockLine(G)) { goto l1256; }  yyDo(G, yy_2_ListBlock, G->begin, G->end);  goto l1255;
-  l1256:;	  G->pos= yypos1256; G->thunkpos= yythunkpos1256;
+  yyprintf((stderr, "%s\n", "ListBlock"));  if (!yy_StartList(G)) { goto l1269; }  yyDo(G, yySet, -1, 0);
+  {  int yypos1270= G->pos, yythunkpos1270= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1270; }  goto l1269;
+  l1270:;	  G->pos= yypos1270; G->thunkpos= yythunkpos1270;
+  }  if (!yy_Line(G)) { goto l1269; }  yyDo(G, yy_1_ListBlock, G->begin, G->end);
+  l1271:;	
+  {  int yypos1272= G->pos, yythunkpos1272= G->thunkpos;  if (!yy_ListBlockLine(G)) { goto l1272; }  yyDo(G, yy_2_ListBlock, G->begin, G->end);  goto l1271;
+  l1272:;	  G->pos= yypos1272; G->thunkpos= yythunkpos1272;
   }  yyDo(G, yy_3_ListBlock, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "ListBlock", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1253:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1269:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ListBlock", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ListItem(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
   yyprintf((stderr, "%s\n", "ListItem"));
-  {  int yypos1258= G->pos, yythunkpos1258= G->thunkpos;  if (!yy_Bullet(G)) { goto l1259; }  goto l1258;
-  l1259:;	  G->pos= yypos1258; G->thunkpos= yythunkpos1258;  if (!yy_Enumerator(G)) { goto l1257; }
+  {  int yypos1274= G->pos, yythunkpos1274= G->thunkpos;  if (!yy_Bullet(G)) { goto l1275; }  goto l1274;
+  l1275:;	  G->pos= yypos1274; G->thunkpos= yythunkpos1274;  if (!yy_Enumerator(G)) { goto l1273; }
   }
-  l1258:;	  if (!yy_StartList(G)) { goto l1257; }  yyDo(G, yySet, -1, 0);  if (!yy_ListBlock(G)) { goto l1257; }  yyDo(G, yy_1_ListItem, G->begin, G->end);
-  l1260:;	
-  {  int yypos1261= G->pos, yythunkpos1261= G->thunkpos;  if (!yy_ListContinuationBlock(G)) { goto l1261; }  yyDo(G, yy_2_ListItem, G->begin, G->end);  goto l1260;
-  l1261:;	  G->pos= yypos1261; G->thunkpos= yythunkpos1261;
+  l1274:;	  if (!yy_StartList(G)) { goto l1273; }  yyDo(G, yySet, -1, 0);  if (!yy_ListBlock(G)) { goto l1273; }  yyDo(G, yy_1_ListItem, G->begin, G->end);
+  l1276:;	
+  {  int yypos1277= G->pos, yythunkpos1277= G->thunkpos;  if (!yy_ListContinuationBlock(G)) { goto l1277; }  yyDo(G, yy_2_ListItem, G->begin, G->end);  goto l1276;
+  l1277:;	  G->pos= yypos1277; G->thunkpos= yythunkpos1277;
   }  yyDo(G, yy_3_ListItem, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "ListItem", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1257:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1273:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ListItem", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Enumerator(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Enumerator"));  if (!yy_NonindentSpace(G)) { goto l1262; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1262;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l1262;
-  l1263:;	
-  {  int yypos1264= G->pos, yythunkpos1264= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l1264;  goto l1263;
-  l1264:;	  G->pos= yypos1264; G->thunkpos= yythunkpos1264;
-  }  if (!yymatchChar(G, '.')) goto l1262;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1262;  if (!yy_Spacechar(G)) { goto l1262; }
-  l1265:;	
-  {  int yypos1266= G->pos, yythunkpos1266= G->thunkpos;  if (!yy_Spacechar(G)) { goto l1266; }  goto l1265;
-  l1266:;	  G->pos= yypos1266; G->thunkpos= yythunkpos1266;
+  yyprintf((stderr, "%s\n", "Enumerator"));  if (!yy_NonindentSpace(G)) { goto l1278; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1278;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l1278;
+  l1279:;	
+  {  int yypos1280= G->pos, yythunkpos1280= G->thunkpos;  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l1280;  goto l1279;
+  l1280:;	  G->pos= yypos1280; G->thunkpos= yythunkpos1280;
+  }  if (!yymatchChar(G, '.')) goto l1278;  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1278;  if (!yy_Spacechar(G)) { goto l1278; }
+  l1281:;	
+  {  int yypos1282= G->pos, yythunkpos1282= G->thunkpos;  if (!yy_Spacechar(G)) { goto l1282; }  goto l1281;
+  l1282:;	  G->pos= yypos1282; G->thunkpos= yythunkpos1282;
   }  yyDo(G, yy_1_Enumerator, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "Enumerator", G->buf+G->pos));
   return 1;
-  l1262:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1278:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Enumerator", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ListItemTight(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
   yyprintf((stderr, "%s\n", "ListItemTight"));
-  {  int yypos1268= G->pos, yythunkpos1268= G->thunkpos;  if (!yy_Bullet(G)) { goto l1269; }  goto l1268;
-  l1269:;	  G->pos= yypos1268; G->thunkpos= yythunkpos1268;  if (!yy_Enumerator(G)) { goto l1267; }
+  {  int yypos1284= G->pos, yythunkpos1284= G->thunkpos;  if (!yy_Bullet(G)) { goto l1285; }  goto l1284;
+  l1285:;	  G->pos= yypos1284; G->thunkpos= yythunkpos1284;  if (!yy_Enumerator(G)) { goto l1283; }
   }
-  l1268:;	  if (!yy_StartList(G)) { goto l1267; }  yyDo(G, yySet, -1, 0);  if (!yy_ListBlock(G)) { goto l1267; }  yyDo(G, yy_1_ListItemTight, G->begin, G->end);
-  l1270:;	
-  {  int yypos1271= G->pos, yythunkpos1271= G->thunkpos;
-  {  int yypos1272= G->pos, yythunkpos1272= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1272; }  goto l1271;
-  l1272:;	  G->pos= yypos1272; G->thunkpos= yythunkpos1272;
-  }  if (!yy_ListContinuationBlock(G)) { goto l1271; }  yyDo(G, yy_2_ListItemTight, G->begin, G->end);  goto l1270;
-  l1271:;	  G->pos= yypos1271; G->thunkpos= yythunkpos1271;
+  l1284:;	  if (!yy_StartList(G)) { goto l1283; }  yyDo(G, yySet, -1, 0);  if (!yy_ListBlock(G)) { goto l1283; }  yyDo(G, yy_1_ListItemTight, G->begin, G->end);
+  l1286:;	
+  {  int yypos1287= G->pos, yythunkpos1287= G->thunkpos;
+  {  int yypos1288= G->pos, yythunkpos1288= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1288; }  goto l1287;
+  l1288:;	  G->pos= yypos1288; G->thunkpos= yythunkpos1288;
+  }  if (!yy_ListContinuationBlock(G)) { goto l1287; }  yyDo(G, yy_2_ListItemTight, G->begin, G->end);  goto l1286;
+  l1287:;	  G->pos= yypos1287; G->thunkpos= yythunkpos1287;
   }
-  {  int yypos1273= G->pos, yythunkpos1273= G->thunkpos;  if (!yy_ListContinuationBlock(G)) { goto l1273; }  goto l1267;
-  l1273:;	  G->pos= yypos1273; G->thunkpos= yythunkpos1273;
+  {  int yypos1289= G->pos, yythunkpos1289= G->thunkpos;  if (!yy_ListContinuationBlock(G)) { goto l1289; }  goto l1283;
+  l1289:;	  G->pos= yypos1289; G->thunkpos= yythunkpos1289;
   }  yyDo(G, yy_3_ListItemTight, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "ListItemTight", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1267:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1283:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ListItemTight", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ListLoose(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 2, 0);
-  yyprintf((stderr, "%s\n", "ListLoose"));  if (!yy_StartList(G)) { goto l1274; }  yyDo(G, yySet, -2, 0);  if (!yy_ListItem(G)) { goto l1274; }  yyDo(G, yySet, -1, 0);
-  l1277:;	
-  {  int yypos1278= G->pos, yythunkpos1278= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1278; }  goto l1277;
-  l1278:;	  G->pos= yypos1278; G->thunkpos= yythunkpos1278;
+  yyprintf((stderr, "%s\n", "ListLoose"));  if (!yy_StartList(G)) { goto l1290; }  yyDo(G, yySet, -2, 0);  if (!yy_ListItem(G)) { goto l1290; }  yyDo(G, yySet, -1, 0);
+  l1293:;	
+  {  int yypos1294= G->pos, yythunkpos1294= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1294; }  goto l1293;
+  l1294:;	  G->pos= yypos1294; G->thunkpos= yythunkpos1294;
   }  yyDo(G, yy_1_ListLoose, G->begin, G->end);
-  l1275:;	
-  {  int yypos1276= G->pos, yythunkpos1276= G->thunkpos;  if (!yy_ListItem(G)) { goto l1276; }  yyDo(G, yySet, -1, 0);
-  l1279:;	
-  {  int yypos1280= G->pos, yythunkpos1280= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1280; }  goto l1279;
-  l1280:;	  G->pos= yypos1280; G->thunkpos= yythunkpos1280;
-  }  yyDo(G, yy_1_ListLoose, G->begin, G->end);  goto l1275;
-  l1276:;	  G->pos= yypos1276; G->thunkpos= yythunkpos1276;
+  l1291:;	
+  {  int yypos1292= G->pos, yythunkpos1292= G->thunkpos;  if (!yy_ListItem(G)) { goto l1292; }  yyDo(G, yySet, -1, 0);
+  l1295:;	
+  {  int yypos1296= G->pos, yythunkpos1296= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1296; }  goto l1295;
+  l1296:;	  G->pos= yypos1296; G->thunkpos= yythunkpos1296;
+  }  yyDo(G, yy_1_ListLoose, G->begin, G->end);  goto l1291;
+  l1292:;	  G->pos= yypos1292; G->thunkpos= yythunkpos1292;
   }  yyDo(G, yy_2_ListLoose, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "ListLoose", G->buf+G->pos));  yyDo(G, yyPop, 2, 0);
   return 1;
-  l1274:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1290:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ListLoose", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_ListTight(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "ListTight"));  if (!yy_StartList(G)) { goto l1281; }  yyDo(G, yySet, -1, 0);  if (!yy_ListItemTight(G)) { goto l1281; }  yyDo(G, yy_1_ListTight, G->begin, G->end);
-  l1282:;	
-  {  int yypos1283= G->pos, yythunkpos1283= G->thunkpos;  if (!yy_ListItemTight(G)) { goto l1283; }  yyDo(G, yy_1_ListTight, G->begin, G->end);  goto l1282;
-  l1283:;	  G->pos= yypos1283; G->thunkpos= yythunkpos1283;
+  yyprintf((stderr, "%s\n", "ListTight"));  if (!yy_StartList(G)) { goto l1297; }  yyDo(G, yySet, -1, 0);  if (!yy_ListItemTight(G)) { goto l1297; }  yyDo(G, yy_1_ListTight, G->begin, G->end);
+  l1298:;	
+  {  int yypos1299= G->pos, yythunkpos1299= G->thunkpos;  if (!yy_ListItemTight(G)) { goto l1299; }  yyDo(G, yy_1_ListTight, G->begin, G->end);  goto l1298;
+  l1299:;	  G->pos= yypos1299; G->thunkpos= yythunkpos1299;
   }
-  l1284:;	
-  {  int yypos1285= G->pos, yythunkpos1285= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1285; }  goto l1284;
-  l1285:;	  G->pos= yypos1285; G->thunkpos= yythunkpos1285;
+  l1300:;	
+  {  int yypos1301= G->pos, yythunkpos1301= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1301; }  goto l1300;
+  l1301:;	  G->pos= yypos1301; G->thunkpos= yythunkpos1301;
   }
-  {  int yypos1286= G->pos, yythunkpos1286= G->thunkpos;
-  {  int yypos1287= G->pos, yythunkpos1287= G->thunkpos;  if (!yy_Bullet(G)) { goto l1288; }  goto l1287;
-  l1288:;	  G->pos= yypos1287; G->thunkpos= yythunkpos1287;  if (!yy_Enumerator(G)) { goto l1286; }
+  {  int yypos1302= G->pos, yythunkpos1302= G->thunkpos;
+  {  int yypos1303= G->pos, yythunkpos1303= G->thunkpos;  if (!yy_Bullet(G)) { goto l1304; }  goto l1303;
+  l1304:;	  G->pos= yypos1303; G->thunkpos= yythunkpos1303;  if (!yy_Enumerator(G)) { goto l1302; }
   }
-  l1287:;	  goto l1281;
-  l1286:;	  G->pos= yypos1286; G->thunkpos= yythunkpos1286;
+  l1303:;	  goto l1297;
+  l1302:;	  G->pos= yypos1302; G->thunkpos= yythunkpos1302;
   }  yyDo(G, yy_2_ListTight, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "ListTight", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1281:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1297:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "ListTight", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Spacechar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Spacechar"));
-  {  int yypos1290= G->pos, yythunkpos1290= G->thunkpos;  if (!yymatchChar(G, ' ')) goto l1291;  goto l1290;
-  l1291:;	  G->pos= yypos1290; G->thunkpos= yythunkpos1290;  if (!yymatchChar(G, '\t')) goto l1289;
+  {  int yypos1306= G->pos, yythunkpos1306= G->thunkpos;  if (!yymatchChar(G, ' ')) goto l1307;  goto l1306;
+  l1307:;	  G->pos= yypos1306; G->thunkpos= yythunkpos1306;  if (!yymatchChar(G, '\t')) goto l1305;
   }
-  l1290:;	
+  l1306:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Spacechar", G->buf+G->pos));
   return 1;
-  l1289:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1305:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Spacechar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Bullet(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Bullet"));
-  {  int yypos1293= G->pos, yythunkpos1293= G->thunkpos;  if (!yy_HorizontalRule(G)) { goto l1293; }  goto l1292;
-  l1293:;	  G->pos= yypos1293; G->thunkpos= yythunkpos1293;
-  }  if (!yy_NonindentSpace(G)) { goto l1292; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1292;
-  {  int yypos1294= G->pos, yythunkpos1294= G->thunkpos;  if (!yymatchChar(G, '+')) goto l1295;  goto l1294;
-  l1295:;	  G->pos= yypos1294; G->thunkpos= yythunkpos1294;  if (!yymatchChar(G, '*')) goto l1296;  goto l1294;
-  l1296:;	  G->pos= yypos1294; G->thunkpos= yythunkpos1294;  if (!yymatchChar(G, '-')) goto l1292;
+  {  int yypos1309= G->pos, yythunkpos1309= G->thunkpos;  if (!yy_HorizontalRule(G)) { goto l1309; }  goto l1308;
+  l1309:;	  G->pos= yypos1309; G->thunkpos= yythunkpos1309;
+  }  if (!yy_NonindentSpace(G)) { goto l1308; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1308;
+  {  int yypos1310= G->pos, yythunkpos1310= G->thunkpos;  if (!yymatchChar(G, '+')) goto l1311;  goto l1310;
+  l1311:;	  G->pos= yypos1310; G->thunkpos= yythunkpos1310;  if (!yymatchChar(G, '*')) goto l1312;  goto l1310;
+  l1312:;	  G->pos= yypos1310; G->thunkpos= yythunkpos1310;  if (!yymatchChar(G, '-')) goto l1308;
   }
-  l1294:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1292;  if (!yy_Spacechar(G)) { goto l1292; }
-  l1297:;	
-  {  int yypos1298= G->pos, yythunkpos1298= G->thunkpos;  if (!yy_Spacechar(G)) { goto l1298; }  goto l1297;
-  l1298:;	  G->pos= yypos1298; G->thunkpos= yythunkpos1298;
+  l1310:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1308;  if (!yy_Spacechar(G)) { goto l1308; }
+  l1313:;	
+  {  int yypos1314= G->pos, yythunkpos1314= G->thunkpos;  if (!yy_Spacechar(G)) { goto l1314; }  goto l1313;
+  l1314:;	  G->pos= yypos1314; G->thunkpos= yythunkpos1314;
   }  yyDo(G, yy_1_Bullet, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "Bullet", G->buf+G->pos));
   return 1;
-  l1292:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1308:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Bullet", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_VerbatimChunk(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "VerbatimChunk"));
-  l1300:;	
-  {  int yypos1301= G->pos, yythunkpos1301= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1301; }  goto l1300;
-  l1301:;	  G->pos= yypos1301; G->thunkpos= yythunkpos1301;
-  }  if (!yy_NonblankIndentedLine(G)) { goto l1299; }
-  l1302:;	
-  {  int yypos1303= G->pos, yythunkpos1303= G->thunkpos;  if (!yy_NonblankIndentedLine(G)) { goto l1303; }  goto l1302;
-  l1303:;	  G->pos= yypos1303; G->thunkpos= yythunkpos1303;
+  l1316:;	
+  {  int yypos1317= G->pos, yythunkpos1317= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1317; }  goto l1316;
+  l1317:;	  G->pos= yypos1317; G->thunkpos= yythunkpos1317;
+  }  if (!yy_NonblankIndentedLine(G)) { goto l1315; }
+  l1318:;	
+  {  int yypos1319= G->pos, yythunkpos1319= G->thunkpos;  if (!yy_NonblankIndentedLine(G)) { goto l1319; }  goto l1318;
+  l1319:;	  G->pos= yypos1319; G->thunkpos= yythunkpos1319;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "VerbatimChunk", G->buf+G->pos));
   return 1;
-  l1299:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1315:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "VerbatimChunk", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_IndentedLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "IndentedLine"));  if (!yy_Indent(G)) { goto l1304; }  if (!yy_Line(G)) { goto l1304; }
+  yyprintf((stderr, "%s\n", "IndentedLine"));  if (!yy_Indent(G)) { goto l1320; }  if (!yy_Line(G)) { goto l1320; }
   yyprintf((stderr, "  ok   %s @ %s\n", "IndentedLine", G->buf+G->pos));
   return 1;
-  l1304:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1320:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "IndentedLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_NonblankIndentedLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "NonblankIndentedLine"));
-  {  int yypos1306= G->pos, yythunkpos1306= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1306; }  goto l1305;
-  l1306:;	  G->pos= yypos1306; G->thunkpos= yythunkpos1306;
-  }  if (!yy_IndentedLine(G)) { goto l1305; }
+  {  int yypos1322= G->pos, yythunkpos1322= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1322; }  goto l1321;
+  l1322:;	  G->pos= yypos1322; G->thunkpos= yythunkpos1322;
+  }  if (!yy_IndentedLine(G)) { goto l1321; }
   yyprintf((stderr, "  ok   %s @ %s\n", "NonblankIndentedLine", G->buf+G->pos));
   return 1;
-  l1305:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1321:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "NonblankIndentedLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Line(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Line"));  if (!yy_RawLine(G)) { goto l1307; }  yyDo(G, yy_1_Line, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "Line"));  if (!yy_RawLine(G)) { goto l1323; }  yyDo(G, yy_1_Line, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "Line", G->buf+G->pos));
   return 1;
-  l1307:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1323:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Line", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StartList(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "StartList"));
-  {  int yypos1309= G->pos, yythunkpos1309= G->thunkpos;  if (!yymatchDot(G)) goto l1308;  G->pos= yypos1309; G->thunkpos= yythunkpos1309;
+  {  int yypos1325= G->pos, yythunkpos1325= G->thunkpos;  if (!yymatchDot(G)) goto l1324;  G->pos= yypos1325; G->thunkpos= yythunkpos1325;
   }  yyDo(G, yy_1_StartList, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StartList", G->buf+G->pos));
   return 1;
-  l1308:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1324:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StartList", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_BlockQuoteRaw(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "BlockQuoteRaw"));  if (!yy_StartList(G)) { goto l1310; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1310;  if (!yymatchChar(G, '>')) goto l1310;
-  {  int yypos1313= G->pos, yythunkpos1313= G->thunkpos;  if (!yymatchChar(G, ' ')) goto l1313;  goto l1314;
-  l1313:;	  G->pos= yypos1313; G->thunkpos= yythunkpos1313;
+  yyprintf((stderr, "%s\n", "BlockQuoteRaw"));  if (!yy_StartList(G)) { goto l1326; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1326;  if (!yymatchChar(G, '>')) goto l1326;
+  {  int yypos1329= G->pos, yythunkpos1329= G->thunkpos;  if (!yymatchChar(G, ' ')) goto l1329;  goto l1330;
+  l1329:;	  G->pos= yypos1329; G->thunkpos= yythunkpos1329;
   }
-  l1314:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1310;  yyDo(G, yy_1_BlockQuoteRaw, G->begin, G->end);  if (!yy_Line(G)) { goto l1310; }  yyDo(G, yy_2_BlockQuoteRaw, G->begin, G->end);
-  l1315:;	
-  {  int yypos1316= G->pos, yythunkpos1316= G->thunkpos;
-  {  int yypos1317= G->pos, yythunkpos1317= G->thunkpos;  if (!yymatchChar(G, '>')) goto l1317;  goto l1316;
-  l1317:;	  G->pos= yypos1317; G->thunkpos= yythunkpos1317;
+  l1330:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1326;  yyDo(G, yy_1_BlockQuoteRaw, G->begin, G->end);  if (!yy_Line(G)) { goto l1326; }  yyDo(G, yy_2_BlockQuoteRaw, G->begin, G->end);
+  l1331:;	
+  {  int yypos1332= G->pos, yythunkpos1332= G->thunkpos;
+  {  int yypos1333= G->pos, yythunkpos1333= G->thunkpos;  if (!yymatchChar(G, '>')) goto l1333;  goto l1332;
+  l1333:;	  G->pos= yypos1333; G->thunkpos= yythunkpos1333;
   }
-  {  int yypos1318= G->pos, yythunkpos1318= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1318; }  goto l1316;
-  l1318:;	  G->pos= yypos1318; G->thunkpos= yythunkpos1318;
-  }  if (!yy_Line(G)) { goto l1316; }  yyDo(G, yy_3_BlockQuoteRaw, G->begin, G->end);  goto l1315;
-  l1316:;	  G->pos= yypos1316; G->thunkpos= yythunkpos1316;
+  {  int yypos1334= G->pos, yythunkpos1334= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1334; }  goto l1332;
+  l1334:;	  G->pos= yypos1334; G->thunkpos= yythunkpos1334;
+  }  if (!yy_Line(G)) { goto l1332; }  yyDo(G, yy_3_BlockQuoteRaw, G->begin, G->end);  goto l1331;
+  l1332:;	  G->pos= yypos1332; G->thunkpos= yythunkpos1332;
   }
-  l1319:;	
-  {  int yypos1320= G->pos, yythunkpos1320= G->thunkpos;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1320;  if (!yy_BlankLine(G)) { goto l1320; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1320;  yyDo(G, yy_4_BlockQuoteRaw, G->begin, G->end);  goto l1319;
-  l1320:;	  G->pos= yypos1320; G->thunkpos= yythunkpos1320;
-  }
-  l1311:;	
-  {  int yypos1312= G->pos, yythunkpos1312= G->thunkpos;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1312;  if (!yymatchChar(G, '>')) goto l1312;
-  {  int yypos1321= G->pos, yythunkpos1321= G->thunkpos;  if (!yymatchChar(G, ' ')) goto l1321;  goto l1322;
-  l1321:;	  G->pos= yypos1321; G->thunkpos= yythunkpos1321;
-  }
-  l1322:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1312;  yyDo(G, yy_1_BlockQuoteRaw, G->begin, G->end);  if (!yy_Line(G)) { goto l1312; }  yyDo(G, yy_2_BlockQuoteRaw, G->begin, G->end);
-  l1323:;	
-  {  int yypos1324= G->pos, yythunkpos1324= G->thunkpos;
-  {  int yypos1325= G->pos, yythunkpos1325= G->thunkpos;  if (!yymatchChar(G, '>')) goto l1325;  goto l1324;
-  l1325:;	  G->pos= yypos1325; G->thunkpos= yythunkpos1325;
-  }
-  {  int yypos1326= G->pos, yythunkpos1326= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1326; }  goto l1324;
-  l1326:;	  G->pos= yypos1326; G->thunkpos= yythunkpos1326;
-  }  if (!yy_Line(G)) { goto l1324; }  yyDo(G, yy_3_BlockQuoteRaw, G->begin, G->end);  goto l1323;
-  l1324:;	  G->pos= yypos1324; G->thunkpos= yythunkpos1324;
+  l1335:;	
+  {  int yypos1336= G->pos, yythunkpos1336= G->thunkpos;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1336;  if (!yy_BlankLine(G)) { goto l1336; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1336;  yyDo(G, yy_4_BlockQuoteRaw, G->begin, G->end);  goto l1335;
+  l1336:;	  G->pos= yypos1336; G->thunkpos= yythunkpos1336;
   }
   l1327:;	
-  {  int yypos1328= G->pos, yythunkpos1328= G->thunkpos;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1328;  if (!yy_BlankLine(G)) { goto l1328; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1328;  yyDo(G, yy_4_BlockQuoteRaw, G->begin, G->end);  goto l1327;
+  {  int yypos1328= G->pos, yythunkpos1328= G->thunkpos;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1328;  if (!yymatchChar(G, '>')) goto l1328;
+  {  int yypos1337= G->pos, yythunkpos1337= G->thunkpos;  if (!yymatchChar(G, ' ')) goto l1337;  goto l1338;
+  l1337:;	  G->pos= yypos1337; G->thunkpos= yythunkpos1337;
+  }
+  l1338:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1328;  yyDo(G, yy_1_BlockQuoteRaw, G->begin, G->end);  if (!yy_Line(G)) { goto l1328; }  yyDo(G, yy_2_BlockQuoteRaw, G->begin, G->end);
+  l1339:;	
+  {  int yypos1340= G->pos, yythunkpos1340= G->thunkpos;
+  {  int yypos1341= G->pos, yythunkpos1341= G->thunkpos;  if (!yymatchChar(G, '>')) goto l1341;  goto l1340;
+  l1341:;	  G->pos= yypos1341; G->thunkpos= yythunkpos1341;
+  }
+  {  int yypos1342= G->pos, yythunkpos1342= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1342; }  goto l1340;
+  l1342:;	  G->pos= yypos1342; G->thunkpos= yythunkpos1342;
+  }  if (!yy_Line(G)) { goto l1340; }  yyDo(G, yy_3_BlockQuoteRaw, G->begin, G->end);  goto l1339;
+  l1340:;	  G->pos= yypos1340; G->thunkpos= yythunkpos1340;
+  }
+  l1343:;	
+  {  int yypos1344= G->pos, yythunkpos1344= G->thunkpos;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1344;  if (!yy_BlankLine(G)) { goto l1344; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1344;  yyDo(G, yy_4_BlockQuoteRaw, G->begin, G->end);  goto l1343;
+  l1344:;	  G->pos= yypos1344; G->thunkpos= yythunkpos1344;
+  }  goto l1327;
   l1328:;	  G->pos= yypos1328; G->thunkpos= yythunkpos1328;
-  }  goto l1311;
-  l1312:;	  G->pos= yypos1312; G->thunkpos= yythunkpos1312;
   }  yyDo(G, yy_5_BlockQuoteRaw, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "BlockQuoteRaw", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1310:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1326:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "BlockQuoteRaw", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Endline(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Endline"));
-  {  int yypos1330= G->pos, yythunkpos1330= G->thunkpos;  if (!yy_LineBreak(G)) { goto l1331; }  goto l1330;
-  l1331:;	  G->pos= yypos1330; G->thunkpos= yythunkpos1330;  if (!yy_TerminalEndline(G)) { goto l1332; }  goto l1330;
-  l1332:;	  G->pos= yypos1330; G->thunkpos= yythunkpos1330;  if (!yy_NormalEndline(G)) { goto l1329; }
+  {  int yypos1346= G->pos, yythunkpos1346= G->thunkpos;  if (!yy_LineBreak(G)) { goto l1347; }  goto l1346;
+  l1347:;	  G->pos= yypos1346; G->thunkpos= yythunkpos1346;  if (!yy_TerminalEndline(G)) { goto l1348; }  goto l1346;
+  l1348:;	  G->pos= yypos1346; G->thunkpos= yythunkpos1346;  if (!yy_NormalEndline(G)) { goto l1345; }
   }
-  l1330:;	
+  l1346:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Endline", G->buf+G->pos));
   return 1;
-  l1329:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1345:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Endline", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_RawLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "RawLine"));
-  {  int yypos1334= G->pos, yythunkpos1334= G->thunkpos;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1335;
-  l1336:;	
-  {  int yypos1337= G->pos, yythunkpos1337= G->thunkpos;
-  {  int yypos1338= G->pos, yythunkpos1338= G->thunkpos;  if (!yymatchChar(G, '\r')) goto l1338;  goto l1337;
-  l1338:;	  G->pos= yypos1338; G->thunkpos= yythunkpos1338;
+  {  int yypos1350= G->pos, yythunkpos1350= G->thunkpos;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1351;
+  l1352:;	
+  {  int yypos1353= G->pos, yythunkpos1353= G->thunkpos;
+  {  int yypos1354= G->pos, yythunkpos1354= G->thunkpos;  if (!yymatchChar(G, '\r')) goto l1354;  goto l1353;
+  l1354:;	  G->pos= yypos1354; G->thunkpos= yythunkpos1354;
   }
-  {  int yypos1339= G->pos, yythunkpos1339= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l1339;  goto l1337;
-  l1339:;	  G->pos= yypos1339; G->thunkpos= yythunkpos1339;
-  }  if (!yymatchDot(G)) goto l1337;  goto l1336;
-  l1337:;	  G->pos= yypos1337; G->thunkpos= yythunkpos1337;
-  }  if (!yy_Newline(G)) { goto l1335; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1335;  goto l1334;
-  l1335:;	  G->pos= yypos1334; G->thunkpos= yythunkpos1334;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1333;  if (!yymatchDot(G)) goto l1333;
-  l1340:;	
-  {  int yypos1341= G->pos, yythunkpos1341= G->thunkpos;  if (!yymatchDot(G)) goto l1341;  goto l1340;
-  l1341:;	  G->pos= yypos1341; G->thunkpos= yythunkpos1341;
-  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1333;  if (!yy_Eof(G)) { goto l1333; }
+  {  int yypos1355= G->pos, yythunkpos1355= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l1355;  goto l1353;
+  l1355:;	  G->pos= yypos1355; G->thunkpos= yythunkpos1355;
+  }  if (!yymatchDot(G)) goto l1353;  goto l1352;
+  l1353:;	  G->pos= yypos1353; G->thunkpos= yythunkpos1353;
+  }  if (!yy_Newline(G)) { goto l1351; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1351;  goto l1350;
+  l1351:;	  G->pos= yypos1350; G->thunkpos= yythunkpos1350;  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1349;  if (!yymatchDot(G)) goto l1349;
+  l1356:;	
+  {  int yypos1357= G->pos, yythunkpos1357= G->thunkpos;  if (!yymatchDot(G)) goto l1357;  goto l1356;
+  l1357:;	  G->pos= yypos1357; G->thunkpos= yythunkpos1357;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1349;  if (!yy_Eof(G)) { goto l1349; }
   }
-  l1334:;	  yyDo(G, yy_1_RawLine, G->begin, G->end);
+  l1350:;	  yyDo(G, yy_1_RawLine, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "RawLine", G->buf+G->pos));
   return 1;
-  l1333:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1349:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "RawLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_SetextBottom2(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "SetextBottom2"));  if (!yymatchString(G, "---")) goto l1342;
-  l1343:;	
-  {  int yypos1344= G->pos, yythunkpos1344= G->thunkpos;  if (!yymatchChar(G, '-')) goto l1344;  goto l1343;
-  l1344:;	  G->pos= yypos1344; G->thunkpos= yythunkpos1344;
-  }  if (!yy_Newline(G)) { goto l1342; }
+  yyprintf((stderr, "%s\n", "SetextBottom2"));  if (!yymatchString(G, "---")) goto l1358;
+  l1359:;	
+  {  int yypos1360= G->pos, yythunkpos1360= G->thunkpos;  if (!yymatchChar(G, '-')) goto l1360;  goto l1359;
+  l1360:;	  G->pos= yypos1360; G->thunkpos= yythunkpos1360;
+  }  if (!yy_Newline(G)) { goto l1358; }
   yyprintf((stderr, "  ok   %s @ %s\n", "SetextBottom2", G->buf+G->pos));
   return 1;
-  l1342:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1358:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "SetextBottom2", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_SetextBottom1(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "SetextBottom1"));  if (!yymatchString(G, "===")) goto l1345;
-  l1346:;	
-  {  int yypos1347= G->pos, yythunkpos1347= G->thunkpos;  if (!yymatchChar(G, '=')) goto l1347;  goto l1346;
-  l1347:;	  G->pos= yypos1347; G->thunkpos= yythunkpos1347;
-  }  if (!yy_Newline(G)) { goto l1345; }
+  yyprintf((stderr, "%s\n", "SetextBottom1"));  if (!yymatchString(G, "===")) goto l1361;
+  l1362:;	
+  {  int yypos1363= G->pos, yythunkpos1363= G->thunkpos;  if (!yymatchChar(G, '=')) goto l1363;  goto l1362;
+  l1363:;	  G->pos= yypos1363; G->thunkpos= yythunkpos1363;
+  }  if (!yy_Newline(G)) { goto l1361; }
   yyprintf((stderr, "  ok   %s @ %s\n", "SetextBottom1", G->buf+G->pos));
   return 1;
-  l1345:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1361:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "SetextBottom1", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_SetextHeading2(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
   yyprintf((stderr, "%s\n", "SetextHeading2"));
-  {  int yypos1349= G->pos, yythunkpos1349= G->thunkpos;  if (!yy_RawLine(G)) { goto l1348; }  if (!yy_SetextBottom2(G)) { goto l1348; }  G->pos= yypos1349; G->thunkpos= yythunkpos1349;
-  }  if (!yy_LocMarker(G)) { goto l1348; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1348;
-  {  int yypos1352= G->pos, yythunkpos1352= G->thunkpos;  if (!yy_Endline(G)) { goto l1352; }  goto l1348;
-  l1352:;	  G->pos= yypos1352; G->thunkpos= yythunkpos1352;
-  }  if (!yy_Inline(G)) { goto l1348; }
-  l1350:;	
-  {  int yypos1351= G->pos, yythunkpos1351= G->thunkpos;
-  {  int yypos1353= G->pos, yythunkpos1353= G->thunkpos;  if (!yy_Endline(G)) { goto l1353; }  goto l1351;
-  l1353:;	  G->pos= yypos1353; G->thunkpos= yythunkpos1353;
-  }  if (!yy_Inline(G)) { goto l1351; }  goto l1350;
-  l1351:;	  G->pos= yypos1351; G->thunkpos= yythunkpos1351;
+  {  int yypos1365= G->pos, yythunkpos1365= G->thunkpos;  if (!yy_RawLine(G)) { goto l1364; }  if (!yy_SetextBottom2(G)) { goto l1364; }  G->pos= yypos1365; G->thunkpos= yythunkpos1365;
+  }  if (!yy_LocMarker(G)) { goto l1364; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1364;
+  {  int yypos1368= G->pos, yythunkpos1368= G->thunkpos;  if (!yy_Endline(G)) { goto l1368; }  goto l1364;
+  l1368:;	  G->pos= yypos1368; G->thunkpos= yythunkpos1368;
+  }  if (!yy_Inline(G)) { goto l1364; }
+  l1366:;	
+  {  int yypos1367= G->pos, yythunkpos1367= G->thunkpos;
+  {  int yypos1369= G->pos, yythunkpos1369= G->thunkpos;  if (!yy_Endline(G)) { goto l1369; }  goto l1367;
+  l1369:;	  G->pos= yypos1369; G->thunkpos= yythunkpos1369;
+  }  if (!yy_Inline(G)) { goto l1367; }  goto l1366;
+  l1367:;	  G->pos= yypos1367; G->thunkpos= yythunkpos1367;
   }
-  {  int yypos1354= G->pos, yythunkpos1354= G->thunkpos;  if (!yy_Sp(G)) { goto l1354; }  goto l1355;
-  l1354:;	  G->pos= yypos1354; G->thunkpos= yythunkpos1354;
+  {  int yypos1370= G->pos, yythunkpos1370= G->thunkpos;  if (!yy_Sp(G)) { goto l1370; }  goto l1371;
+  l1370:;	  G->pos= yypos1370; G->thunkpos= yythunkpos1370;
   }
-  l1355:;	  if (!yy_Newline(G)) { goto l1348; }  if (!yy_SetextBottom2(G)) { goto l1348; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1348;  yyDo(G, yy_1_SetextHeading2, G->begin, G->end);
+  l1371:;	  if (!yy_Newline(G)) { goto l1364; }  if (!yy_SetextBottom2(G)) { goto l1364; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1364;  yyDo(G, yy_1_SetextHeading2, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "SetextHeading2", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1348:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1364:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "SetextHeading2", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_SetextHeading1(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
   yyprintf((stderr, "%s\n", "SetextHeading1"));
-  {  int yypos1357= G->pos, yythunkpos1357= G->thunkpos;  if (!yy_RawLine(G)) { goto l1356; }  if (!yy_SetextBottom1(G)) { goto l1356; }  G->pos= yypos1357; G->thunkpos= yythunkpos1357;
-  }  if (!yy_LocMarker(G)) { goto l1356; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1356;
-  {  int yypos1360= G->pos, yythunkpos1360= G->thunkpos;  if (!yy_Endline(G)) { goto l1360; }  goto l1356;
-  l1360:;	  G->pos= yypos1360; G->thunkpos= yythunkpos1360;
-  }  if (!yy_Inline(G)) { goto l1356; }
-  l1358:;	
-  {  int yypos1359= G->pos, yythunkpos1359= G->thunkpos;
-  {  int yypos1361= G->pos, yythunkpos1361= G->thunkpos;  if (!yy_Endline(G)) { goto l1361; }  goto l1359;
-  l1361:;	  G->pos= yypos1361; G->thunkpos= yythunkpos1361;
-  }  if (!yy_Inline(G)) { goto l1359; }  goto l1358;
-  l1359:;	  G->pos= yypos1359; G->thunkpos= yythunkpos1359;
+  {  int yypos1373= G->pos, yythunkpos1373= G->thunkpos;  if (!yy_RawLine(G)) { goto l1372; }  if (!yy_SetextBottom1(G)) { goto l1372; }  G->pos= yypos1373; G->thunkpos= yythunkpos1373;
+  }  if (!yy_LocMarker(G)) { goto l1372; }  yyDo(G, yySet, -1, 0);  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1372;
+  {  int yypos1376= G->pos, yythunkpos1376= G->thunkpos;  if (!yy_Endline(G)) { goto l1376; }  goto l1372;
+  l1376:;	  G->pos= yypos1376; G->thunkpos= yythunkpos1376;
+  }  if (!yy_Inline(G)) { goto l1372; }
+  l1374:;	
+  {  int yypos1375= G->pos, yythunkpos1375= G->thunkpos;
+  {  int yypos1377= G->pos, yythunkpos1377= G->thunkpos;  if (!yy_Endline(G)) { goto l1377; }  goto l1375;
+  l1377:;	  G->pos= yypos1377; G->thunkpos= yythunkpos1377;
+  }  if (!yy_Inline(G)) { goto l1375; }  goto l1374;
+  l1375:;	  G->pos= yypos1375; G->thunkpos= yythunkpos1375;
   }
-  {  int yypos1362= G->pos, yythunkpos1362= G->thunkpos;  if (!yy_Sp(G)) { goto l1362; }  goto l1363;
-  l1362:;	  G->pos= yypos1362; G->thunkpos= yythunkpos1362;
+  {  int yypos1378= G->pos, yythunkpos1378= G->thunkpos;  if (!yy_Sp(G)) { goto l1378; }  goto l1379;
+  l1378:;	  G->pos= yypos1378; G->thunkpos= yythunkpos1378;
   }
-  l1363:;	  if (!yy_Newline(G)) { goto l1356; }  if (!yy_SetextBottom1(G)) { goto l1356; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1356;  yyDo(G, yy_1_SetextHeading1, G->begin, G->end);
+  l1379:;	  if (!yy_Newline(G)) { goto l1372; }  if (!yy_SetextBottom1(G)) { goto l1372; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1372;  yyDo(G, yy_1_SetextHeading1, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "SetextHeading1", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1356:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1372:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "SetextHeading1", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_SetextHeading(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "SetextHeading"));
-  {  int yypos1365= G->pos, yythunkpos1365= G->thunkpos;  if (!yy_SetextHeading1(G)) { goto l1366; }  goto l1365;
-  l1366:;	  G->pos= yypos1365; G->thunkpos= yythunkpos1365;  if (!yy_SetextHeading2(G)) { goto l1364; }
+  {  int yypos1381= G->pos, yythunkpos1381= G->thunkpos;  if (!yy_SetextHeading1(G)) { goto l1382; }  goto l1381;
+  l1382:;	  G->pos= yypos1381; G->thunkpos= yythunkpos1381;  if (!yy_SetextHeading2(G)) { goto l1380; }
   }
-  l1365:;	
+  l1381:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "SetextHeading", G->buf+G->pos));
   return 1;
-  l1364:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1380:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "SetextHeading", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AtxHeading(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "AtxHeading"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1367;  if (!yy_AtxStart(G)) { goto l1367; }  yyDo(G, yySet, -1, 0);
-  {  int yypos1368= G->pos, yythunkpos1368= G->thunkpos;  if (!yy_Sp(G)) { goto l1368; }  goto l1369;
-  l1368:;	  G->pos= yypos1368; G->thunkpos= yythunkpos1368;
+  yyprintf((stderr, "%s\n", "AtxHeading"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1383;  if (!yy_AtxStart(G)) { goto l1383; }  yyDo(G, yySet, -1, 0);
+  {  int yypos1384= G->pos, yythunkpos1384= G->thunkpos;  if (!yy_Sp(G)) { goto l1384; }  goto l1385;
+  l1384:;	  G->pos= yypos1384; G->thunkpos= yythunkpos1384;
   }
-  l1369:;	  if (!yy_AtxInline(G)) { goto l1367; }
-  l1370:;	
-  {  int yypos1371= G->pos, yythunkpos1371= G->thunkpos;  if (!yy_AtxInline(G)) { goto l1371; }  goto l1370;
-  l1371:;	  G->pos= yypos1371; G->thunkpos= yythunkpos1371;
+  l1385:;	  if (!yy_AtxInline(G)) { goto l1383; }
+  l1386:;	
+  {  int yypos1387= G->pos, yythunkpos1387= G->thunkpos;  if (!yy_AtxInline(G)) { goto l1387; }  goto l1386;
+  l1387:;	  G->pos= yypos1387; G->thunkpos= yythunkpos1387;
   }
-  {  int yypos1372= G->pos, yythunkpos1372= G->thunkpos;
-  {  int yypos1374= G->pos, yythunkpos1374= G->thunkpos;  if (!yy_Sp(G)) { goto l1374; }  goto l1375;
-  l1374:;	  G->pos= yypos1374; G->thunkpos= yythunkpos1374;
+  {  int yypos1388= G->pos, yythunkpos1388= G->thunkpos;
+  {  int yypos1390= G->pos, yythunkpos1390= G->thunkpos;  if (!yy_Sp(G)) { goto l1390; }  goto l1391;
+  l1390:;	  G->pos= yypos1390; G->thunkpos= yythunkpos1390;
   }
-  l1375:;	
-  l1376:;	
-  {  int yypos1377= G->pos, yythunkpos1377= G->thunkpos;  if (!yymatchChar(G, '#')) goto l1377;  goto l1376;
-  l1377:;	  G->pos= yypos1377; G->thunkpos= yythunkpos1377;
-  }  if (!yy_Sp(G)) { goto l1372; }  goto l1373;
-  l1372:;	  G->pos= yypos1372; G->thunkpos= yythunkpos1372;
+  l1391:;	
+  l1392:;	
+  {  int yypos1393= G->pos, yythunkpos1393= G->thunkpos;  if (!yymatchChar(G, '#')) goto l1393;  goto l1392;
+  l1393:;	  G->pos= yypos1393; G->thunkpos= yythunkpos1393;
+  }  if (!yy_Sp(G)) { goto l1388; }  goto l1389;
+  l1388:;	  G->pos= yypos1388; G->thunkpos= yythunkpos1388;
   }
-  l1373:;	  if (!yy_Newline(G)) { goto l1367; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1367;  yyDo(G, yy_1_AtxHeading, G->begin, G->end);
+  l1389:;	  if (!yy_Newline(G)) { goto l1383; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1383;  yyDo(G, yy_1_AtxHeading, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "AtxHeading", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1367:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1383:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AtxHeading", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AtxStart(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "AtxStart"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1378;
-  {  int yypos1379= G->pos, yythunkpos1379= G->thunkpos;  if (!yymatchString(G, "######")) goto l1380;  goto l1379;
-  l1380:;	  G->pos= yypos1379; G->thunkpos= yythunkpos1379;  if (!yymatchString(G, "#####")) goto l1381;  goto l1379;
-  l1381:;	  G->pos= yypos1379; G->thunkpos= yythunkpos1379;  if (!yymatchString(G, "####")) goto l1382;  goto l1379;
-  l1382:;	  G->pos= yypos1379; G->thunkpos= yythunkpos1379;  if (!yymatchString(G, "###")) goto l1383;  goto l1379;
-  l1383:;	  G->pos= yypos1379; G->thunkpos= yythunkpos1379;  if (!yymatchString(G, "##")) goto l1384;  goto l1379;
-  l1384:;	  G->pos= yypos1379; G->thunkpos= yythunkpos1379;  if (!yymatchChar(G, '#')) goto l1378;
+  yyprintf((stderr, "%s\n", "AtxStart"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1394;
+  {  int yypos1395= G->pos, yythunkpos1395= G->thunkpos;  if (!yymatchString(G, "######")) goto l1396;  goto l1395;
+  l1396:;	  G->pos= yypos1395; G->thunkpos= yythunkpos1395;  if (!yymatchString(G, "#####")) goto l1397;  goto l1395;
+  l1397:;	  G->pos= yypos1395; G->thunkpos= yythunkpos1395;  if (!yymatchString(G, "####")) goto l1398;  goto l1395;
+  l1398:;	  G->pos= yypos1395; G->thunkpos= yythunkpos1395;  if (!yymatchString(G, "###")) goto l1399;  goto l1395;
+  l1399:;	  G->pos= yypos1395; G->thunkpos= yythunkpos1395;  if (!yymatchString(G, "##")) goto l1400;  goto l1395;
+  l1400:;	  G->pos= yypos1395; G->thunkpos= yythunkpos1395;  if (!yymatchChar(G, '#')) goto l1394;
   }
-  l1379:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1378;  yyDo(G, yy_1_AtxStart, G->begin, G->end);
+  l1395:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1394;  yyDo(G, yy_1_AtxStart, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "AtxStart", G->buf+G->pos));
   return 1;
-  l1378:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1394:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AtxStart", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Inline(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Inline"));
-  {  int yypos1386= G->pos, yythunkpos1386= G->thunkpos;  if (!yy_Str(G)) { goto l1387; }  goto l1386;
-  l1387:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Endline(G)) { goto l1388; }  goto l1386;
-  l1388:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_UlOrStarLine(G)) { goto l1389; }  goto l1386;
-  l1389:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Space(G)) { goto l1390; }  goto l1386;
-  l1390:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Strong(G)) { goto l1391; }  goto l1386;
-  l1391:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Emph(G)) { goto l1392; }  goto l1386;
-  l1392:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Image(G)) { goto l1393; }  goto l1386;
-  l1393:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Link(G)) { goto l1394; }  goto l1386;
-  l1394:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_NoteReference(G)) { goto l1395; }  goto l1386;
-  l1395:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_InlineNote(G)) { goto l1396; }  goto l1386;
-  l1396:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Code(G)) { goto l1397; }  goto l1386;
-  l1397:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_RawHtml(G)) { goto l1398; }  goto l1386;
-  l1398:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Entity(G)) { goto l1399; }  goto l1386;
-  l1399:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_EscapedChar(G)) { goto l1400; }  goto l1386;
-  l1400:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Smart(G)) { goto l1401; }  goto l1386;
-  l1401:;	  G->pos= yypos1386; G->thunkpos= yythunkpos1386;  if (!yy_Symbol(G)) { goto l1385; }
+  {  int yypos1402= G->pos, yythunkpos1402= G->thunkpos;  if (!yy_Str(G)) { goto l1403; }  goto l1402;
+  l1403:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Endline(G)) { goto l1404; }  goto l1402;
+  l1404:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_UlOrStarLine(G)) { goto l1405; }  goto l1402;
+  l1405:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Space(G)) { goto l1406; }  goto l1402;
+  l1406:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Strong(G)) { goto l1407; }  goto l1402;
+  l1407:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Emph(G)) { goto l1408; }  goto l1402;
+  l1408:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Image(G)) { goto l1409; }  goto l1402;
+  l1409:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Link(G)) { goto l1410; }  goto l1402;
+  l1410:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_NoteReference(G)) { goto l1411; }  goto l1402;
+  l1411:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_InlineNote(G)) { goto l1412; }  goto l1402;
+  l1412:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Code(G)) { goto l1413; }  goto l1402;
+  l1413:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_RawHtml(G)) { goto l1414; }  goto l1402;
+  l1414:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Entity(G)) { goto l1415; }  goto l1402;
+  l1415:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_EscapedChar(G)) { goto l1416; }  goto l1402;
+  l1416:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Smart(G)) { goto l1417; }  goto l1402;
+  l1417:;	  G->pos= yypos1402; G->thunkpos= yythunkpos1402;  if (!yy_Symbol(G)) { goto l1401; }
   }
-  l1386:;	
+  l1402:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Inline", G->buf+G->pos));
   return 1;
-  l1385:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1401:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Inline", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Sp(GREG *G)
 {
   yyprintf((stderr, "%s\n", "Sp"));
-  l1403:;	
-  {  int yypos1404= G->pos, yythunkpos1404= G->thunkpos;  if (!yy_Spacechar(G)) { goto l1404; }  goto l1403;
-  l1404:;	  G->pos= yypos1404; G->thunkpos= yythunkpos1404;
+  l1419:;	
+  {  int yypos1420= G->pos, yythunkpos1420= G->thunkpos;  if (!yy_Spacechar(G)) { goto l1420; }  goto l1419;
+  l1420:;	  G->pos= yypos1420; G->thunkpos= yythunkpos1420;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Sp", G->buf+G->pos));
   return 1;
@@ -5871,325 +6002,325 @@ YY_RULE(int) yy_Sp(GREG *G)
 YY_RULE(int) yy_Newline(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Newline"));
-  {  int yypos1406= G->pos, yythunkpos1406= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l1407;  goto l1406;
-  l1407:;	  G->pos= yypos1406; G->thunkpos= yythunkpos1406;  if (!yymatchChar(G, '\r')) goto l1405;
-  {  int yypos1408= G->pos, yythunkpos1408= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l1408;  goto l1409;
-  l1408:;	  G->pos= yypos1408; G->thunkpos= yythunkpos1408;
+  {  int yypos1422= G->pos, yythunkpos1422= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l1423;  goto l1422;
+  l1423:;	  G->pos= yypos1422; G->thunkpos= yythunkpos1422;  if (!yymatchChar(G, '\r')) goto l1421;
+  {  int yypos1424= G->pos, yythunkpos1424= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l1424;  goto l1425;
+  l1424:;	  G->pos= yypos1424; G->thunkpos= yythunkpos1424;
   }
-  l1409:;	
+  l1425:;	
   }
-  l1406:;	
+  l1422:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Newline", G->buf+G->pos));
   return 1;
-  l1405:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1421:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Newline", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AtxInline(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "AtxInline"));
-  {  int yypos1411= G->pos, yythunkpos1411= G->thunkpos;  if (!yy_Newline(G)) { goto l1411; }  goto l1410;
-  l1411:;	  G->pos= yypos1411; G->thunkpos= yythunkpos1411;
+  {  int yypos1427= G->pos, yythunkpos1427= G->thunkpos;  if (!yy_Newline(G)) { goto l1427; }  goto l1426;
+  l1427:;	  G->pos= yypos1427; G->thunkpos= yythunkpos1427;
   }
-  {  int yypos1412= G->pos, yythunkpos1412= G->thunkpos;
-  {  int yypos1413= G->pos, yythunkpos1413= G->thunkpos;  if (!yy_Sp(G)) { goto l1413; }  goto l1414;
-  l1413:;	  G->pos= yypos1413; G->thunkpos= yythunkpos1413;
+  {  int yypos1428= G->pos, yythunkpos1428= G->thunkpos;
+  {  int yypos1429= G->pos, yythunkpos1429= G->thunkpos;  if (!yy_Sp(G)) { goto l1429; }  goto l1430;
+  l1429:;	  G->pos= yypos1429; G->thunkpos= yythunkpos1429;
   }
-  l1414:;	
-  l1415:;	
-  {  int yypos1416= G->pos, yythunkpos1416= G->thunkpos;  if (!yymatchChar(G, '#')) goto l1416;  goto l1415;
-  l1416:;	  G->pos= yypos1416; G->thunkpos= yythunkpos1416;
-  }  if (!yy_Sp(G)) { goto l1412; }  if (!yy_Newline(G)) { goto l1412; }  goto l1410;
-  l1412:;	  G->pos= yypos1412; G->thunkpos= yythunkpos1412;
-  }  if (!yy_Inline(G)) { goto l1410; }
+  l1430:;	
+  l1431:;	
+  {  int yypos1432= G->pos, yythunkpos1432= G->thunkpos;  if (!yymatchChar(G, '#')) goto l1432;  goto l1431;
+  l1432:;	  G->pos= yypos1432; G->thunkpos= yythunkpos1432;
+  }  if (!yy_Sp(G)) { goto l1428; }  if (!yy_Newline(G)) { goto l1428; }  goto l1426;
+  l1428:;	  G->pos= yypos1428; G->thunkpos= yythunkpos1428;
+  }  if (!yy_Inline(G)) { goto l1426; }
   yyprintf((stderr, "  ok   %s @ %s\n", "AtxInline", G->buf+G->pos));
   return 1;
-  l1410:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1426:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AtxInline", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Inlines(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Inlines"));
-  {  int yypos1420= G->pos, yythunkpos1420= G->thunkpos;
-  {  int yypos1422= G->pos, yythunkpos1422= G->thunkpos;  if (!yy_Endline(G)) { goto l1422; }  goto l1421;
-  l1422:;	  G->pos= yypos1422; G->thunkpos= yythunkpos1422;
-  }  if (!yy_Inline(G)) { goto l1421; }  goto l1420;
-  l1421:;	  G->pos= yypos1420; G->thunkpos= yythunkpos1420;  if (!yy_Endline(G)) { goto l1417; }
-  {  int yypos1423= G->pos, yythunkpos1423= G->thunkpos;  if (!yy_Inline(G)) { goto l1417; }  G->pos= yypos1423; G->thunkpos= yythunkpos1423;
+  {  int yypos1436= G->pos, yythunkpos1436= G->thunkpos;
+  {  int yypos1438= G->pos, yythunkpos1438= G->thunkpos;  if (!yy_Endline(G)) { goto l1438; }  goto l1437;
+  l1438:;	  G->pos= yypos1438; G->thunkpos= yythunkpos1438;
+  }  if (!yy_Inline(G)) { goto l1437; }  goto l1436;
+  l1437:;	  G->pos= yypos1436; G->thunkpos= yythunkpos1436;  if (!yy_Endline(G)) { goto l1433; }
+  {  int yypos1439= G->pos, yythunkpos1439= G->thunkpos;  if (!yy_Inline(G)) { goto l1433; }  G->pos= yypos1439; G->thunkpos= yythunkpos1439;
   }
   }
-  l1420:;	
-  l1418:;	
-  {  int yypos1419= G->pos, yythunkpos1419= G->thunkpos;
-  {  int yypos1424= G->pos, yythunkpos1424= G->thunkpos;
-  {  int yypos1426= G->pos, yythunkpos1426= G->thunkpos;  if (!yy_Endline(G)) { goto l1426; }  goto l1425;
-  l1426:;	  G->pos= yypos1426; G->thunkpos= yythunkpos1426;
-  }  if (!yy_Inline(G)) { goto l1425; }  goto l1424;
-  l1425:;	  G->pos= yypos1424; G->thunkpos= yythunkpos1424;  if (!yy_Endline(G)) { goto l1419; }
-  {  int yypos1427= G->pos, yythunkpos1427= G->thunkpos;  if (!yy_Inline(G)) { goto l1419; }  G->pos= yypos1427; G->thunkpos= yythunkpos1427;
+  l1436:;	
+  l1434:;	
+  {  int yypos1435= G->pos, yythunkpos1435= G->thunkpos;
+  {  int yypos1440= G->pos, yythunkpos1440= G->thunkpos;
+  {  int yypos1442= G->pos, yythunkpos1442= G->thunkpos;  if (!yy_Endline(G)) { goto l1442; }  goto l1441;
+  l1442:;	  G->pos= yypos1442; G->thunkpos= yythunkpos1442;
+  }  if (!yy_Inline(G)) { goto l1441; }  goto l1440;
+  l1441:;	  G->pos= yypos1440; G->thunkpos= yythunkpos1440;  if (!yy_Endline(G)) { goto l1435; }
+  {  int yypos1443= G->pos, yythunkpos1443= G->thunkpos;  if (!yy_Inline(G)) { goto l1435; }  G->pos= yypos1443; G->thunkpos= yythunkpos1443;
   }
   }
-  l1424:;	  goto l1418;
-  l1419:;	  G->pos= yypos1419; G->thunkpos= yythunkpos1419;
+  l1440:;	  goto l1434;
+  l1435:;	  G->pos= yypos1435; G->thunkpos= yythunkpos1435;
   }
-  {  int yypos1428= G->pos, yythunkpos1428= G->thunkpos;  if (!yy_Endline(G)) { goto l1428; }  goto l1429;
-  l1428:;	  G->pos= yypos1428; G->thunkpos= yythunkpos1428;
+  {  int yypos1444= G->pos, yythunkpos1444= G->thunkpos;  if (!yy_Endline(G)) { goto l1444; }  goto l1445;
+  l1444:;	  G->pos= yypos1444; G->thunkpos= yythunkpos1444;
   }
-  l1429:;	
+  l1445:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Inlines", G->buf+G->pos));
   return 1;
-  l1417:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1433:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Inlines", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_NonindentSpace(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "NonindentSpace"));
-  {  int yypos1431= G->pos, yythunkpos1431= G->thunkpos;  if (!yymatchString(G, "   ")) goto l1432;  goto l1431;
-  l1432:;	  G->pos= yypos1431; G->thunkpos= yythunkpos1431;  if (!yymatchString(G, "  ")) goto l1433;  goto l1431;
-  l1433:;	  G->pos= yypos1431; G->thunkpos= yythunkpos1431;  if (!yymatchChar(G, ' ')) goto l1434;  goto l1431;
-  l1434:;	  G->pos= yypos1431; G->thunkpos= yythunkpos1431;  if (!yymatchString(G, "")) goto l1430;
+  {  int yypos1447= G->pos, yythunkpos1447= G->thunkpos;  if (!yymatchString(G, "   ")) goto l1448;  goto l1447;
+  l1448:;	  G->pos= yypos1447; G->thunkpos= yythunkpos1447;  if (!yymatchString(G, "  ")) goto l1449;  goto l1447;
+  l1449:;	  G->pos= yypos1447; G->thunkpos= yythunkpos1447;  if (!yymatchChar(G, ' ')) goto l1450;  goto l1447;
+  l1450:;	  G->pos= yypos1447; G->thunkpos= yythunkpos1447;  if (!yymatchString(G, "")) goto l1446;
   }
-  l1431:;	
+  l1447:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "NonindentSpace", G->buf+G->pos));
   return 1;
-  l1430:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1446:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "NonindentSpace", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Plain(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Plain"));  if (!yy_Inlines(G)) { goto l1435; }
+  yyprintf((stderr, "%s\n", "Plain"));  if (!yy_Inlines(G)) { goto l1451; }
   yyprintf((stderr, "  ok   %s @ %s\n", "Plain", G->buf+G->pos));
   return 1;
-  l1435:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1451:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Plain", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Para(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Para"));  if (!yy_NonindentSpace(G)) { goto l1436; }  if (!yy_Inlines(G)) { goto l1436; }  if (!yy_BlankLine(G)) { goto l1436; }
-  l1437:;	
-  {  int yypos1438= G->pos, yythunkpos1438= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1438; }  goto l1437;
-  l1438:;	  G->pos= yypos1438; G->thunkpos= yythunkpos1438;
+  yyprintf((stderr, "%s\n", "Para"));  if (!yy_NonindentSpace(G)) { goto l1452; }  if (!yy_Inlines(G)) { goto l1452; }  if (!yy_BlankLine(G)) { goto l1452; }
+  l1453:;	
+  {  int yypos1454= G->pos, yythunkpos1454= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1454; }  goto l1453;
+  l1454:;	  G->pos= yypos1454; G->thunkpos= yythunkpos1454;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Para", G->buf+G->pos));
   return 1;
-  l1436:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1452:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Para", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StyleBlock(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleBlock"));  if (!yy_InStyleTags(G)) { goto l1439; }
-  l1440:;	
-  {  int yypos1441= G->pos, yythunkpos1441= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1441; }  goto l1440;
-  l1441:;	  G->pos= yypos1441; G->thunkpos= yythunkpos1441;
+  yyprintf((stderr, "%s\n", "StyleBlock"));  if (!yy_InStyleTags(G)) { goto l1455; }
+  l1456:;	
+  {  int yypos1457= G->pos, yythunkpos1457= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1457; }  goto l1456;
+  l1457:;	  G->pos= yypos1457; G->thunkpos= yythunkpos1457;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleBlock", G->buf+G->pos));
   return 1;
-  l1439:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1455:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleBlock", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlock(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "HtmlBlock"));
-  {  int yypos1443= G->pos, yythunkpos1443= G->thunkpos;  if (!yy_HtmlBlockInTags(G)) { goto l1444; }  goto l1443;
-  l1444:;	  G->pos= yypos1443; G->thunkpos= yythunkpos1443;  if (!yy_HtmlComment(G)) { goto l1445; }  goto l1443;
-  l1445:;	  G->pos= yypos1443; G->thunkpos= yythunkpos1443;  if (!yy_HtmlBlockSelfClosing(G)) { goto l1442; }
+  {  int yypos1459= G->pos, yythunkpos1459= G->thunkpos;  if (!yy_HtmlBlockInTags(G)) { goto l1460; }  goto l1459;
+  l1460:;	  G->pos= yypos1459; G->thunkpos= yythunkpos1459;  if (!yy_HtmlComment(G)) { goto l1461; }  goto l1459;
+  l1461:;	  G->pos= yypos1459; G->thunkpos= yythunkpos1459;  if (!yy_HtmlBlockSelfClosing(G)) { goto l1458; }
   }
-  l1443:;	  if (!yy_BlankLine(G)) { goto l1442; }
-  l1446:;	
-  {  int yypos1447= G->pos, yythunkpos1447= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1447; }  goto l1446;
-  l1447:;	  G->pos= yypos1447; G->thunkpos= yythunkpos1447;
+  l1459:;	  if (!yy_BlankLine(G)) { goto l1458; }
+  l1462:;	
+  {  int yypos1463= G->pos, yythunkpos1463= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1463; }  goto l1462;
+  l1463:;	  G->pos= yypos1463; G->thunkpos= yythunkpos1463;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlock", G->buf+G->pos));
   return 1;
-  l1442:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1458:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlock", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_BulletList(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "BulletList"));
-  {  int yypos1449= G->pos, yythunkpos1449= G->thunkpos;  if (!yy_Bullet(G)) { goto l1448; }  G->pos= yypos1449; G->thunkpos= yythunkpos1449;
+  {  int yypos1465= G->pos, yythunkpos1465= G->thunkpos;  if (!yy_Bullet(G)) { goto l1464; }  G->pos= yypos1465; G->thunkpos= yythunkpos1465;
   }
-  {  int yypos1450= G->pos, yythunkpos1450= G->thunkpos;  if (!yy_ListTight(G)) { goto l1451; }  goto l1450;
-  l1451:;	  G->pos= yypos1450; G->thunkpos= yythunkpos1450;  if (!yy_ListLoose(G)) { goto l1448; }
+  {  int yypos1466= G->pos, yythunkpos1466= G->thunkpos;  if (!yy_ListTight(G)) { goto l1467; }  goto l1466;
+  l1467:;	  G->pos= yypos1466; G->thunkpos= yythunkpos1466;  if (!yy_ListLoose(G)) { goto l1464; }
   }
-  l1450:;	
+  l1466:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "BulletList", G->buf+G->pos));
   return 1;
-  l1448:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1464:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "BulletList", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_OrderedList(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "OrderedList"));
-  {  int yypos1453= G->pos, yythunkpos1453= G->thunkpos;  if (!yy_Enumerator(G)) { goto l1452; }  G->pos= yypos1453; G->thunkpos= yythunkpos1453;
+  {  int yypos1469= G->pos, yythunkpos1469= G->thunkpos;  if (!yy_Enumerator(G)) { goto l1468; }  G->pos= yypos1469; G->thunkpos= yythunkpos1469;
   }
-  {  int yypos1454= G->pos, yythunkpos1454= G->thunkpos;  if (!yy_ListTight(G)) { goto l1455; }  goto l1454;
-  l1455:;	  G->pos= yypos1454; G->thunkpos= yythunkpos1454;  if (!yy_ListLoose(G)) { goto l1452; }
+  {  int yypos1470= G->pos, yythunkpos1470= G->thunkpos;  if (!yy_ListTight(G)) { goto l1471; }  goto l1470;
+  l1471:;	  G->pos= yypos1470; G->thunkpos= yythunkpos1470;  if (!yy_ListLoose(G)) { goto l1468; }
   }
-  l1454:;	
+  l1470:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "OrderedList", G->buf+G->pos));
   return 1;
-  l1452:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1468:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "OrderedList", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Heading(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Heading"));
-  {  int yypos1457= G->pos, yythunkpos1457= G->thunkpos;  if (!yy_SetextHeading(G)) { goto l1458; }  goto l1457;
-  l1458:;	  G->pos= yypos1457; G->thunkpos= yythunkpos1457;  if (!yy_AtxHeading(G)) { goto l1456; }
+  {  int yypos1473= G->pos, yythunkpos1473= G->thunkpos;  if (!yy_SetextHeading(G)) { goto l1474; }  goto l1473;
+  l1474:;	  G->pos= yypos1473; G->thunkpos= yythunkpos1473;  if (!yy_AtxHeading(G)) { goto l1472; }
   }
-  l1457:;	
+  l1473:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Heading", G->buf+G->pos));
   return 1;
-  l1456:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1472:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Heading", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HorizontalRule(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HorizontalRule"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1459;  if (!yy_NonindentSpace(G)) { goto l1459; }
-  {  int yypos1460= G->pos, yythunkpos1460= G->thunkpos;  if (!yymatchChar(G, '*')) goto l1461;  if (!yy_Sp(G)) { goto l1461; }  if (!yymatchChar(G, '*')) goto l1461;  if (!yy_Sp(G)) { goto l1461; }  if (!yymatchChar(G, '*')) goto l1461;
-  l1462:;	
-  {  int yypos1463= G->pos, yythunkpos1463= G->thunkpos;  if (!yy_Sp(G)) { goto l1463; }  if (!yymatchChar(G, '*')) goto l1463;  goto l1462;
-  l1463:;	  G->pos= yypos1463; G->thunkpos= yythunkpos1463;
-  }  goto l1460;
-  l1461:;	  G->pos= yypos1460; G->thunkpos= yythunkpos1460;  if (!yymatchChar(G, '-')) goto l1464;  if (!yy_Sp(G)) { goto l1464; }  if (!yymatchChar(G, '-')) goto l1464;  if (!yy_Sp(G)) { goto l1464; }  if (!yymatchChar(G, '-')) goto l1464;
-  l1465:;	
-  {  int yypos1466= G->pos, yythunkpos1466= G->thunkpos;  if (!yy_Sp(G)) { goto l1466; }  if (!yymatchChar(G, '-')) goto l1466;  goto l1465;
-  l1466:;	  G->pos= yypos1466; G->thunkpos= yythunkpos1466;
-  }  goto l1460;
-  l1464:;	  G->pos= yypos1460; G->thunkpos= yythunkpos1460;  if (!yymatchChar(G, '_')) goto l1459;  if (!yy_Sp(G)) { goto l1459; }  if (!yymatchChar(G, '_')) goto l1459;  if (!yy_Sp(G)) { goto l1459; }  if (!yymatchChar(G, '_')) goto l1459;
-  l1467:;	
-  {  int yypos1468= G->pos, yythunkpos1468= G->thunkpos;  if (!yy_Sp(G)) { goto l1468; }  if (!yymatchChar(G, '_')) goto l1468;  goto l1467;
-  l1468:;	  G->pos= yypos1468; G->thunkpos= yythunkpos1468;
+  yyprintf((stderr, "%s\n", "HorizontalRule"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1475;  if (!yy_NonindentSpace(G)) { goto l1475; }
+  {  int yypos1476= G->pos, yythunkpos1476= G->thunkpos;  if (!yymatchChar(G, '*')) goto l1477;  if (!yy_Sp(G)) { goto l1477; }  if (!yymatchChar(G, '*')) goto l1477;  if (!yy_Sp(G)) { goto l1477; }  if (!yymatchChar(G, '*')) goto l1477;
+  l1478:;	
+  {  int yypos1479= G->pos, yythunkpos1479= G->thunkpos;  if (!yy_Sp(G)) { goto l1479; }  if (!yymatchChar(G, '*')) goto l1479;  goto l1478;
+  l1479:;	  G->pos= yypos1479; G->thunkpos= yythunkpos1479;
+  }  goto l1476;
+  l1477:;	  G->pos= yypos1476; G->thunkpos= yythunkpos1476;  if (!yymatchChar(G, '-')) goto l1480;  if (!yy_Sp(G)) { goto l1480; }  if (!yymatchChar(G, '-')) goto l1480;  if (!yy_Sp(G)) { goto l1480; }  if (!yymatchChar(G, '-')) goto l1480;
+  l1481:;	
+  {  int yypos1482= G->pos, yythunkpos1482= G->thunkpos;  if (!yy_Sp(G)) { goto l1482; }  if (!yymatchChar(G, '-')) goto l1482;  goto l1481;
+  l1482:;	  G->pos= yypos1482; G->thunkpos= yythunkpos1482;
+  }  goto l1476;
+  l1480:;	  G->pos= yypos1476; G->thunkpos= yythunkpos1476;  if (!yymatchChar(G, '_')) goto l1475;  if (!yy_Sp(G)) { goto l1475; }  if (!yymatchChar(G, '_')) goto l1475;  if (!yy_Sp(G)) { goto l1475; }  if (!yymatchChar(G, '_')) goto l1475;
+  l1483:;	
+  {  int yypos1484= G->pos, yythunkpos1484= G->thunkpos;  if (!yy_Sp(G)) { goto l1484; }  if (!yymatchChar(G, '_')) goto l1484;  goto l1483;
+  l1484:;	  G->pos= yypos1484; G->thunkpos= yythunkpos1484;
   }
   }
-  l1460:;	  if (!yy_Sp(G)) { goto l1459; }  if (!yy_Newline(G)) { goto l1459; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1459;  if (!yy_BlankLine(G)) { goto l1459; }
-  l1469:;	
-  {  int yypos1470= G->pos, yythunkpos1470= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1470; }  goto l1469;
-  l1470:;	  G->pos= yypos1470; G->thunkpos= yythunkpos1470;
+  l1476:;	  if (!yy_Sp(G)) { goto l1475; }  if (!yy_Newline(G)) { goto l1475; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1475;  if (!yy_BlankLine(G)) { goto l1475; }
+  l1485:;	
+  {  int yypos1486= G->pos, yythunkpos1486= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1486; }  goto l1485;
+  l1486:;	  G->pos= yypos1486; G->thunkpos= yythunkpos1486;
   }  yyDo(G, yy_1_HorizontalRule, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "HorizontalRule", G->buf+G->pos));
   return 1;
-  l1459:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1475:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HorizontalRule", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Reference(GREG *G)
-{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "Reference"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1471;  if (!yy_LocMarker(G)) { goto l1471; }  yyDo(G, yySet, -1, 0);  if (!yy_NonindentSpace(G)) { goto l1471; }
-  {  int yypos1472= G->pos, yythunkpos1472= G->thunkpos;  if (!yymatchString(G, "[]")) goto l1472;  goto l1471;
-  l1472:;	  G->pos= yypos1472; G->thunkpos= yythunkpos1472;
-  }  if (!yy_Label(G)) { goto l1471; }  if (!yymatchChar(G, ':')) goto l1471;  if (!yy_Spnl(G)) { goto l1471; }  if (!yy_RefSrc(G)) { goto l1471; }  if (!yy_Spnl(G)) { goto l1471; }  if (!yy_RefTitle(G)) { goto l1471; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1471;
-  l1473:;	
-  {  int yypos1474= G->pos, yythunkpos1474= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1474; }  goto l1473;
-  l1474:;	  G->pos= yypos1474; G->thunkpos= yythunkpos1474;
+{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 2, 0);
+  yyprintf((stderr, "%s\n", "Reference"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1487;  if (!yy_LocMarker(G)) { goto l1487; }  yyDo(G, yySet, -2, 0);  if (!yy_NonindentSpace(G)) { goto l1487; }
+  {  int yypos1488= G->pos, yythunkpos1488= G->thunkpos;  if (!yymatchString(G, "[]")) goto l1488;  goto l1487;
+  l1488:;	  G->pos= yypos1488; G->thunkpos= yythunkpos1488;
+  }  if (!yy_Label(G)) { goto l1487; }  yyDo(G, yySet, -1, 0);  if (!yymatchChar(G, ':')) goto l1487;  if (!yy_Spnl(G)) { goto l1487; }  if (!yy_RefSrc(G)) { goto l1487; }  if (!yy_RefTitle(G)) { goto l1487; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1487;  if (!yy_BlankLine(G)) { goto l1487; }
+  l1489:;	
+  {  int yypos1490= G->pos, yythunkpos1490= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1490; }  goto l1489;
+  l1490:;	  G->pos= yypos1490; G->thunkpos= yythunkpos1490;
   }  yyDo(G, yy_1_Reference, G->begin, G->end);
-  yyprintf((stderr, "  ok   %s @ %s\n", "Reference", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
+  yyprintf((stderr, "  ok   %s @ %s\n", "Reference", G->buf+G->pos));  yyDo(G, yyPop, 2, 0);
   return 1;
-  l1471:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1487:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Reference", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Note(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Note"));  yyText(G, G->begin, G->end);  if (!( EXT(EXT_NOTES) )) goto l1475;  if (!yy_NonindentSpace(G)) { goto l1475; }  if (!yy_RawNoteReference(G)) { goto l1475; }  if (!yymatchChar(G, ':')) goto l1475;  if (!yy_Sp(G)) { goto l1475; }  if (!yy_RawNoteBlock(G)) { goto l1475; }
-  l1476:;	
-  {  int yypos1477= G->pos, yythunkpos1477= G->thunkpos;
-  {  int yypos1478= G->pos, yythunkpos1478= G->thunkpos;  if (!yy_Indent(G)) { goto l1477; }  G->pos= yypos1478; G->thunkpos= yythunkpos1478;
-  }  if (!yy_RawNoteBlock(G)) { goto l1477; }  goto l1476;
-  l1477:;	  G->pos= yypos1477; G->thunkpos= yythunkpos1477;
+  yyprintf((stderr, "%s\n", "Note"));  yyText(G, G->begin, G->end);  if (!( EXT(EXT_NOTES) )) goto l1491;  if (!yy_NonindentSpace(G)) { goto l1491; }  if (!yy_RawNoteReference(G)) { goto l1491; }  if (!yymatchChar(G, ':')) goto l1491;  if (!yy_Sp(G)) { goto l1491; }  if (!yy_RawNoteBlock(G)) { goto l1491; }
+  l1492:;	
+  {  int yypos1493= G->pos, yythunkpos1493= G->thunkpos;
+  {  int yypos1494= G->pos, yythunkpos1494= G->thunkpos;  if (!yy_Indent(G)) { goto l1493; }  G->pos= yypos1494; G->thunkpos= yythunkpos1494;
+  }  if (!yy_RawNoteBlock(G)) { goto l1493; }  goto l1492;
+  l1493:;	  G->pos= yypos1493; G->thunkpos= yythunkpos1493;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Note", G->buf+G->pos));
   return 1;
-  l1475:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1491:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Note", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Verbatim(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "Verbatim"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1479;  if (!yy_LocMarker(G)) { goto l1479; }  yyDo(G, yySet, -1, 0);  if (!yy_VerbatimChunk(G)) { goto l1479; }
-  l1480:;	
-  {  int yypos1481= G->pos, yythunkpos1481= G->thunkpos;  if (!yy_VerbatimChunk(G)) { goto l1481; }  goto l1480;
-  l1481:;	  G->pos= yypos1481; G->thunkpos= yythunkpos1481;
-  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1479;  yyDo(G, yy_1_Verbatim, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "Verbatim"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1495;  if (!yy_LocMarker(G)) { goto l1495; }  yyDo(G, yySet, -1, 0);  if (!yy_VerbatimChunk(G)) { goto l1495; }
+  l1496:;	
+  {  int yypos1497= G->pos, yythunkpos1497= G->thunkpos;  if (!yy_VerbatimChunk(G)) { goto l1497; }  goto l1496;
+  l1497:;	  G->pos= yypos1497; G->thunkpos= yythunkpos1497;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1495;  yyDo(G, yy_1_Verbatim, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "Verbatim", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1479:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1495:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Verbatim", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_BlockQuote(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "BlockQuote"));  if (!yy_BlockQuoteRaw(G)) { goto l1482; }  yyDo(G, yySet, -1, 0);  yyDo(G, yy_1_BlockQuote, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "BlockQuote"));  if (!yy_BlockQuoteRaw(G)) { goto l1498; }  yyDo(G, yySet, -1, 0);  yyDo(G, yy_1_BlockQuote, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "BlockQuote", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l1482:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1498:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "BlockQuote", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_BlankLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "BlankLine"));  if (!yy_Sp(G)) { goto l1483; }  if (!yy_Newline(G)) { goto l1483; }
+  yyprintf((stderr, "%s\n", "BlankLine"));  if (!yy_Sp(G)) { goto l1499; }  if (!yy_Newline(G)) { goto l1499; }
   yyprintf((stderr, "  ok   %s @ %s\n", "BlankLine", G->buf+G->pos));
   return 1;
-  l1483:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1499:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "BlankLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_LocMarker(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "LocMarker"));
-  {  int yypos1485= G->pos, yythunkpos1485= G->thunkpos;  if (!yymatchDot(G)) goto l1484;  G->pos= yypos1485; G->thunkpos= yythunkpos1485;
+  {  int yypos1501= G->pos, yythunkpos1501= G->thunkpos;  if (!yymatchDot(G)) goto l1500;  G->pos= yypos1501; G->thunkpos= yythunkpos1501;
   }  yyDo(G, yy_1_LocMarker, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "LocMarker", G->buf+G->pos));
   return 1;
-  l1484:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1500:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "LocMarker", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Block(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Block"));
-  l1487:;	
-  {  int yypos1488= G->pos, yythunkpos1488= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1488; }  goto l1487;
-  l1488:;	  G->pos= yypos1488; G->thunkpos= yythunkpos1488;
+  l1503:;	
+  {  int yypos1504= G->pos, yythunkpos1504= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1504; }  goto l1503;
+  l1504:;	  G->pos= yypos1504; G->thunkpos= yythunkpos1504;
   }
-  {  int yypos1489= G->pos, yythunkpos1489= G->thunkpos;  if (!yy_BlockQuote(G)) { goto l1490; }  goto l1489;
-  l1490:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_Verbatim(G)) { goto l1491; }  goto l1489;
-  l1491:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_Note(G)) { goto l1492; }  goto l1489;
-  l1492:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_Reference(G)) { goto l1493; }  goto l1489;
-  l1493:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_HorizontalRule(G)) { goto l1494; }  goto l1489;
-  l1494:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_Heading(G)) { goto l1495; }  goto l1489;
-  l1495:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_OrderedList(G)) { goto l1496; }  goto l1489;
-  l1496:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_BulletList(G)) { goto l1497; }  goto l1489;
-  l1497:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_HtmlBlock(G)) { goto l1498; }  goto l1489;
-  l1498:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_StyleBlock(G)) { goto l1499; }  goto l1489;
-  l1499:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_Para(G)) { goto l1500; }  goto l1489;
-  l1500:;	  G->pos= yypos1489; G->thunkpos= yythunkpos1489;  if (!yy_Plain(G)) { goto l1486; }
+  {  int yypos1505= G->pos, yythunkpos1505= G->thunkpos;  if (!yy_BlockQuote(G)) { goto l1506; }  goto l1505;
+  l1506:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_Verbatim(G)) { goto l1507; }  goto l1505;
+  l1507:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_Note(G)) { goto l1508; }  goto l1505;
+  l1508:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_Reference(G)) { goto l1509; }  goto l1505;
+  l1509:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_HorizontalRule(G)) { goto l1510; }  goto l1505;
+  l1510:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_Heading(G)) { goto l1511; }  goto l1505;
+  l1511:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_OrderedList(G)) { goto l1512; }  goto l1505;
+  l1512:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_BulletList(G)) { goto l1513; }  goto l1505;
+  l1513:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_HtmlBlock(G)) { goto l1514; }  goto l1505;
+  l1514:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_StyleBlock(G)) { goto l1515; }  goto l1505;
+  l1515:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_Para(G)) { goto l1516; }  goto l1505;
+  l1516:;	  G->pos= yypos1505; G->thunkpos= yythunkpos1505;  if (!yy_Plain(G)) { goto l1502; }
   }
-  l1489:;	
+  l1505:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Block", G->buf+G->pos));
   return 1;
-  l1486:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l1502:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Block", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Doc(GREG *G)
 {
   yyprintf((stderr, "%s\n", "Doc"));
-  l1502:;	
-  {  int yypos1503= G->pos, yythunkpos1503= G->thunkpos;  if (!yy_Block(G)) { goto l1503; }  goto l1502;
-  l1503:;	  G->pos= yypos1503; G->thunkpos= yythunkpos1503;
+  l1518:;	
+  {  int yypos1519= G->pos, yythunkpos1519= G->thunkpos;  if (!yy_Block(G)) { goto l1519; }  goto l1518;
+  l1519:;	  G->pos= yypos1519; G->thunkpos= yythunkpos1519;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Doc", G->buf+G->pos));
   return 1;
@@ -6274,16 +6405,32 @@ YY_PARSE(void) YY_NAME(parse_free)(GREG *G)
  */
 
 
-void parse_markdown(parser_data *p_data)
+void _parse(parser_data *p_data, yyrule start_rule)
 {
     MKD_PRINTF("\nPARSER: ");
     
     GREG *g = yyparse_new(p_data);
-    yyparse(g);
+    if (start_rule == NULL)
+    	yyparse(g);
+    else
+    	yyparse_from(g, start_rule);
     yyparse_free(g);
     
     MKD_PRINTF("\n\n");
 }
 
+void parse_markdown(parser_data *p_data)
+{
+    _parse(p_data, NULL);
+}
 
+void parse_references(parser_data *p_data)
+{
+	p_data->parsing_only_references = true;
+    _parse(p_data, yy_References);
+	p_data->parsing_only_references = false;
+	
+    p_data->references = p_data->head_elems[REFERENCE];
+    p_data->head_elems[REFERENCE] = NULL;
+}
 
