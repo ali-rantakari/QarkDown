@@ -1,10 +1,10 @@
 #ifndef QARKDOWNTEXTEDIT_H
 #define QARKDOWNTEXTEDIT_H
 
-#include <QTextEdit>
+#include <QTextBrowser>
 #include <QEvent>
 
-class QarkdownTextEdit : public QTextEdit
+class QarkdownTextEdit : public QTextBrowser
 {
     Q_OBJECT
 public:

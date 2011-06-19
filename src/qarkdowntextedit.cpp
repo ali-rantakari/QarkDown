@@ -5,8 +5,16 @@
 #include <QTextBlock>
 
 QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
-    QTextEdit(parent)
+    QTextBrowser(parent)
 {
+    this->setReadOnly(false);
+
+    // Don't open links by yourself; emit the anchorClicked() signal
+    // instead. Make links clickable.
+    this->setOpenLinks(false);
+    this->setTextInteractionFlags(this->textInteractionFlags()
+                                  | Qt::LinksAccessibleByMouse);
+
     _indentString = "    ";
     _spacesIndentWidthHint = 4;
 }

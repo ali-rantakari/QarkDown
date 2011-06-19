@@ -32,6 +32,7 @@ public slots:
 
     void preferencesUpdated();
 
+    void anchorClicked(const QUrl &link);
     void commitDataHandler(QSessionManager &manager);
     void aboutToQuitHandler();
     void handleContentsChange(int position, int charsRemoved, int charsAdded);

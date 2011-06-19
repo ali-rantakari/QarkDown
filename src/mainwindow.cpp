@@ -172,6 +172,7 @@ void MainWindow::setupEditor()
     editor = new QarkdownTextEdit;
     editor->setAcceptRichText(false);
     highlighter = new HGMarkdownHighlighter(editor->document());
+    highlighter->setMakeLinksClickable(true);
 
     applyPersistedFontInfo();
     applyHighlighterPreferences();
@@ -220,6 +221,13 @@ void MainWindow::performStartupTasks()
             this, SLOT(handleContentsChange(int,int,int)));
     connect(preferencesDialog, SIGNAL(updated()),
             this, SLOT(preferencesUpdated()));
+    connect(editor, SIGNAL(anchorClicked(QUrl)),
+            this, SLOT(anchorClicked(QUrl)));
+}
+
+void MainWindow::anchorClicked(const QUrl &link)
+{
+    qDebug() << "anchor clicked:" << link;
 }
 
 void MainWindow::commitDataHandler(QSessionManager &manager)

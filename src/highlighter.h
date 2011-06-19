@@ -37,8 +37,12 @@ public:
     void setStyles(QVector<HighlightingStyle> &styles);
     double waitInterval();
     void setWaitInterval(double value);
+    bool makeLinksClickable();
+    void setMakeLinksClickable(bool value);
 
 protected:
+    void beginListeningForContentChanged();
+    void stopListeningForContentChanged();
 
 private slots:
     void handleContentsChange(int position, int charsRemoved, int charsAdded);
@@ -46,6 +50,9 @@ private slots:
     void timerTimeout();
 
 private:
+    bool _makeLinksClickable;
+    bool _needToVerifyContentChange;
+    bool _linkStylesExistInDocument;
     int _waitIntervalMilliseconds;
     QTimer *timer;
     QTextDocument *document;
@@ -53,6 +60,7 @@ private:
     bool parsePending;
     element **cached_elements;
     QVector<HighlightingStyle> *highlightingStyles;
+    QString cachedContent;
 
     void clearFormatting();
     void highlight();
