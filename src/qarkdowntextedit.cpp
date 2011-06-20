@@ -15,6 +15,7 @@ QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
 
     _indentString = "    ";
     _spacesIndentWidthHint = 4;
+    _anchorClickKeyModifiers = Qt::NoModifier;
 }
 
 QString QarkdownTextEdit::indentString()
@@ -34,6 +35,16 @@ void QarkdownTextEdit::setSpacesIndentWidthHint(int value)
 {
     _spacesIndentWidthHint = value;
 }
+
+Qt::KeyboardModifiers QarkdownTextEdit::anchorClickKeyboardModifiers()
+{
+    return _anchorClickKeyModifiers;
+}
+void QarkdownTextEdit::setAnchorClickKeyboardModifiers(Qt::KeyboardModifiers value)
+{
+    _anchorClickKeyModifiers = value;
+}
+
 
 
 bool QarkdownTextEdit::selectionContainsOnlyFullLines(QTextCursor selection)
@@ -140,33 +151,44 @@ QString QarkdownTextEdit::getAnchorHrefAtPos(QPoint pos)
 
 void QarkdownTextEdit::mouseMoveEvent(QMouseEvent *e)
 {
-    QString href = getAnchorHrefAtPos(e->pos());
-    if (href.isNull())
-        SET_CURSOR(Qt::IBeamCursor);
+    if ((e->modifiers() & _anchorClickKeyModifiers) == _anchorClickKeyModifiers)
+    {
+        QString href = getAnchorHrefAtPos(e->pos());
+        if (href.isNull())
+            SET_CURSOR(Qt::IBeamCursor);
+        else
+            SET_CURSOR(Qt::PointingHandCursor);
+    }
     else
-        SET_CURSOR(Qt::PointingHandCursor);
+        SET_CURSOR(Qt::IBeamCursor);
     QTextEdit::mouseMoveEvent(e);
 }
 
 void QarkdownTextEdit::mousePressEvent(QMouseEvent *e)
 {
-    // The caret is placed upon press (not release) so we disable
-    // that here if the mouse is pressed on an anchor:
-    QString href = getAnchorHrefAtPos(e->pos());
-    if (!href.isNull()) {
-        e->ignore();
-        return;
+    if ((e->modifiers() & _anchorClickKeyModifiers) == _anchorClickKeyModifiers)
+    {
+        // The caret is placed upon press (not release) so we disable
+        // that here if the mouse is pressed on an anchor:
+        QString href = getAnchorHrefAtPos(e->pos());
+        if (!href.isNull()) {
+            e->ignore();
+            return;
+        }
     }
     QTextEdit::mouseReleaseEvent(e);
 }
 
 void QarkdownTextEdit::mouseReleaseEvent(QMouseEvent *e)
 {
-    QString href = getAnchorHrefAtPos(e->pos());
-    if (!href.isNull()) {
-        emit anchorClicked(QUrl(href));
-        e->ignore();
-        return;
+    if ((e->modifiers() & _anchorClickKeyModifiers) == _anchorClickKeyModifiers)
+    {
+        QString href = getAnchorHrefAtPos(e->pos());
+        if (!href.isNull()) {
+            emit anchorClicked(QUrl(href));
+            e->ignore();
+            return;
+        }
     }
     QTextEdit::mouseReleaseEvent(e);
 }

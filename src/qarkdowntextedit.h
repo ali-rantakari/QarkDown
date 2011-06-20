@@ -23,9 +23,14 @@ public:
     int spacesIndentWidthHint();
     void setSpacesIndentWidthHint(int value);
 
+    /** @brief Keyboard modifiers required for clicking on anchors. */
+    Qt::KeyboardModifiers anchorClickKeyboardModifiers();
+    void setAnchorClickKeyboardModifiers(Qt::KeyboardModifiers value);
+
 protected:
     QString _indentString;
     int _spacesIndentWidthHint;
+    Qt::KeyboardModifiers _anchorClickKeyModifiers;
 
     bool event(QEvent *e);
     void mouseMoveEvent(QMouseEvent *e);

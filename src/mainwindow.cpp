@@ -5,10 +5,8 @@
 
 /*
 TODO:
-- Make links clickable only if Ctrl pressed down
 - Open links (URLs & mailto:) with QDesktopServices
 - Make references clickable as well
-- Fix undo/redo
 - Document the highlighter interface
 
 - Use QTextOption::ShowTabsAndSpaces
@@ -182,6 +180,7 @@ void MainWindow::setupEditor()
 {
     editor = new QarkdownTextEdit;
     editor->setAcceptRichText(false);
+    editor->setAnchorClickKeyboardModifiers(Qt::ControlModifier);
     highlighter = new HGMarkdownHighlighter(editor->document());
 
     applyPersistedFontInfo();
