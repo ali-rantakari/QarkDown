@@ -54,8 +54,6 @@ private slots:
 
 private:
     bool _makeLinksClickable;
-    bool _needToVerifyContentChange;
-    bool _linkStylesExistInDocument;
     int _waitIntervalMilliseconds;
     QTimer *timer;
     QTextDocument *document;

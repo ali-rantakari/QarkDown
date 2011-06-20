@@ -3,17 +3,15 @@
 #include <QDebug>
 #include <QKeyEvent>
 #include <QTextBlock>
+#include <QTextLayout>
+#include <QApplication>
+#include <QToolTip>
 
 QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
-    QTextBrowser(parent)
+    QTextEdit(parent)
 {
-    this->setReadOnly(false);
-
-    // Don't open links by yourself; emit the anchorClicked() signal
-    // instead. Make links clickable.
-    this->setOpenLinks(false);
-    this->setTextInteractionFlags(this->textInteractionFlags()
-                                  | Qt::LinksAccessibleByMouse);
+    this->setUndoRedoEnabled(true);
+    this->setMouseTracking(true);
 
     _indentString = "    ";
     _spacesIndentWidthHint = 4;
@@ -75,32 +73,83 @@ QList<int> QarkdownTextEdit::getLineStartPositionsInSelection(QTextCursor select
 
 bool QarkdownTextEdit::event(QEvent *e)
 {
-    if (e->type() != QEvent::KeyPress)
-        return QTextEdit::event(e);
+    if (e->type() == QEvent::KeyPress)
+    {
+        QKeyEvent *ke = static_cast<QKeyEvent *>(e);
 
-    QKeyEvent *ke = static_cast<QKeyEvent *>(e);
-    if (ke->key() != Qt::Key_Tab
-        && ke->key() != Qt::Key_Backtab)
-        return QTextEdit::event(e);
+        // Indenting selections with tab
+        if (ke->key() == Qt::Key_Tab || ke->key() == Qt::Key_Backtab)
+        {
+            QTextCursor cursor = this->textCursor();
+            if (cursor.hasSelection() && !cursor.hasComplexSelection())
+            {
+                if (!selectionContainsOnlyFullLines(cursor)) {
+                    cursor.clearSelection();
+                    setTextCursor(cursor);
+                    return true;
+                }
 
-    QTextCursor cursor = this->textCursor();
+                if (ke->key() == Qt::Key_Tab)
+                    indentSelectedLines();
+                else // backtab
+                    unindentSelectedLines();
+                return true;
+            }
+        }
+    }
+    else if (e->type() == QEvent::ToolTip)
+    {
+        QHelpEvent *he = static_cast<QHelpEvent *>(e);
 
-    if (!cursor.hasSelection()
-        || cursor.hasComplexSelection())
-        return QTextEdit::event(e);
-
-    if (!selectionContainsOnlyFullLines(cursor)) {
-        cursor.clearSelection();
-        setTextCursor(cursor);
+        QString href = getAnchorHrefAtPos(he->pos());
+        if (!href.isNull())
+            QToolTip::showText(he->globalPos(), href);
+        else {
+            QToolTip::hideText();
+            e->ignore();
+        }
         return true;
     }
-
-    if (ke->key() == Qt::Key_Tab)
-        indentSelectedLines();
-    else // backtab
-        unindentSelectedLines();
-    return true;
+    return QTextEdit::event(e);
 }
+
+QString QarkdownTextEdit::getAnchorHrefAtPos(QPoint pos)
+{
+    QTextCursor cur = cursorForPosition(pos);
+    QList<QTextLayout::FormatRange> formats = cur.block().layout()->additionalFormats();
+    int posInBlock = cur.position() - cur.block().position();
+    foreach (QTextLayout::FormatRange range, formats)
+    {
+        if (posInBlock < range.start || range.start + range.length < posInBlock)
+            continue;
+        QString href = range.format.anchorHref();
+        if (!href.isNull())
+            return href;
+    }
+    return QString();
+}
+
+
+// setCursor() doesn't seem to work on OS X so let's go ahead
+// and shoot a shotgun at the problem:
+#ifdef Q_WS_MAC
+#define SET_CURSOR(x) QApplication::setOverrideCursor(x)
+#else
+#define SET_CURSOR(x) setCursor(x)
+#endif
+
+void QarkdownTextEdit::mouseMoveEvent(QMouseEvent *e)
+{
+    QString href = getAnchorHrefAtPos(e->pos());
+    if (href.isNull()) {
+        SET_CURSOR(Qt::IBeamCursor);
+        QTextEdit::mouseMoveEvent(e);
+        return;
+    }
+    SET_CURSOR(Qt::PointingHandCursor);
+    QTextEdit::mouseMoveEvent(e);
+}
+
 
 
 void QarkdownTextEdit::indentSelectedLines()

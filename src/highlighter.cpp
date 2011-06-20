@@ -24,8 +24,7 @@ HGMarkdownHighlighter::HGMarkdownHighlighter(QTextDocument *parent,
     highlightingStyles = NULL;
     workerThread = NULL;
     cached_elements = NULL;
-    _needToVerifyContentChange = _makeLinksClickable = false;
-    _linkStylesExistInDocument = false;
+    _makeLinksClickable = false;
     _waitIntervalMilliseconds = (int)(aWaitInterval*1000);
     timer = new QTimer(this);
     timer->setSingleShot(true);
@@ -58,7 +57,7 @@ bool HGMarkdownHighlighter::makeLinksClickable()
 }
 void HGMarkdownHighlighter::setMakeLinksClickable(bool value)
 {
-    _needToVerifyContentChange = _makeLinksClickable = value;
+    _makeLinksClickable = value;
 }
 
 
@@ -140,25 +139,12 @@ void HGMarkdownHighlighter::setDefaultStyles()
 
 void HGMarkdownHighlighter::clearFormatting()
 {
-    QTextCharFormat noLinksCharFormat;
-    noLinksCharFormat.setAnchor(false);
-    noLinksCharFormat.setAnchorHref(QString());
-    QTextCursor blockCursor(document);
-
     QTextBlock block = document->firstBlock();
     while (block.isValid())
     {
         block.layout()->clearAdditionalFormats();
-        if (_linkStylesExistInDocument)
-        {
-            int blockpos = block.position();
-            blockCursor.setPosition(blockpos);
-            blockCursor.setPosition(blockpos+block.length(), QTextCursor::KeepAnchor);
-            blockCursor.mergeCharFormat(noLinksCharFormat);
-        }
         block = block.next();
     }
-    _linkStylesExistInDocument = false;
 }
 
 void HGMarkdownHighlighter::highlight()
@@ -202,19 +188,18 @@ void HGMarkdownHighlighter::highlight()
                 QTextLayout::FormatRange r;
                 r.format = style.format;
 
-                /*
                 if (_makeLinksClickable && elem_cursor->type == LINK
                     && elem_cursor->address != NULL)
                 {
                     qDebug() << "adding link:" << elem_cursor->address;
 
+                    QString address(elem_cursor->address);
                     QTextCharFormat linkFormat(r.format);
                     linkFormat.setAnchor(true);
-                    linkFormat.setAnchorHref(QString(elem_cursor->address));
-                    linkFormat.setAnchorName("anchor-name");
+                    linkFormat.setAnchorHref(address);
+                    linkFormat.setToolTip(address);
                     r.format = linkFormat;
                 }
-                */
 
                 if (j == startBlockNum) {
                     r.start = elem_cursor->pos - blockpos;
@@ -231,30 +216,6 @@ void HGMarkdownHighlighter::highlight()
 
                 list.append(r);
                 layout->setAdditionalFormats(list);
-
-
-                if (_makeLinksClickable && elem_cursor->type == LINK
-                    && elem_cursor->address != NULL)
-                {
-                    // This will invoke another contentChange() signal, which is
-                    // why _makeLinksClickable and _needToVerifyContentChange
-                    // should have the same value and thus we need to check in
-                    // the contentChange handler whether the contents have actually
-                    // changed or not.
-                    QString address(elem_cursor->address);
-
-                    QTextCharFormat linkFormat;
-                    linkFormat.setAnchor(true);
-                    linkFormat.setAnchorHref(address);
-                    linkFormat.setToolTip(address);
-
-                    QTextCursor cursor(document);
-                    cursor.setPosition(elem_cursor->pos);
-                    cursor.setPosition(elem_cursor->end, QTextCursor::KeepAnchor);
-                    cursor.mergeCharFormat(linkFormat);
-
-                    _linkStylesExistInDocument = true;
-                }
             }
 
             elem_cursor = elem_cursor->next;
@@ -305,16 +266,6 @@ void HGMarkdownHighlighter::handleContentsChange(int position, int charsRemoved,
     Q_UNUSED(position);
     if (charsRemoved == 0 && charsAdded == 0)
         return;
-
-    if (_needToVerifyContentChange)
-    {
-        // Since the signal gives us no way to distinguish between formatting
-        // changes and content changes, we must do it ourselves :(
-        QString currentContent = document->toPlainText();
-        if (!cachedContent.isEmpty() && currentContent == cachedContent)
-            return;
-        cachedContent = currentContent;
-    }
 
     //qDebug() << "contents changed. chars removed/added:" << charsRemoved << charsAdded;
 

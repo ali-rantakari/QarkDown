@@ -1,10 +1,10 @@
 #ifndef QARKDOWNTEXTEDIT_H
 #define QARKDOWNTEXTEDIT_H
 
-#include <QTextBrowser>
+#include <QTextEdit>
 #include <QEvent>
 
-class QarkdownTextEdit : public QTextBrowser
+class QarkdownTextEdit : public QTextEdit
 {
     Q_OBJECT
 public:
@@ -27,6 +27,9 @@ protected:
     int _spacesIndentWidthHint;
 
     bool event(QEvent *e);
+    void mouseMoveEvent(QMouseEvent *e);
+
+    QString getAnchorHrefAtPos(QPoint pos);
     bool selectionContainsOnlyFullLines(QTextCursor selection);
     QList<int> getLineStartPositionsInSelection(QTextCursor selection);
     void indentSelectedLines();

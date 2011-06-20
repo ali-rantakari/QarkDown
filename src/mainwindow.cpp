@@ -11,6 +11,7 @@ TODO:
 - Fix undo/redo
 - Document the highlighter interface
 
+- Use QTextOption::ShowTabsAndSpaces
 - Tabbed interface; multiple files open
 - Changing styles settings
 */
@@ -230,8 +231,6 @@ void MainWindow::performStartupTasks()
             this, SLOT(handleContentsChange(int,int,int)));
     connect(preferencesDialog, SIGNAL(updated()),
             this, SLOT(preferencesUpdated()));
-    connect(editor, SIGNAL(anchorClicked(QUrl)),
-            this, SLOT(anchorClicked(QUrl)));
 }
 
 void MainWindow::anchorClicked(const QUrl &link)
