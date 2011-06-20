@@ -5,7 +5,6 @@
 
 /*
 TODO:
-- Open links (URLs & mailto:) with QDesktopServices
 - Make references clickable as well
 - Document the highlighter interface
 
@@ -237,6 +236,7 @@ void MainWindow::performStartupTasks()
 void MainWindow::anchorClicked(const QUrl &link)
 {
     qDebug() << "anchor clicked:" << link;
+    QDesktopServices::openUrl(link);
 }
 
 void MainWindow::commitDataHandler(QSessionManager &manager)
