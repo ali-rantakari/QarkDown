@@ -141,26 +141,18 @@ QString QarkdownTextEdit::getAnchorHrefAtPos(QPoint pos)
 }
 
 
-// setCursor() doesn't seem to work on OS X so let's go ahead
-// and shoot a shotgun at the problem:
-#ifdef Q_WS_MAC
-#define SET_CURSOR(x) QApplication::setOverrideCursor(x)
-#else
-#define SET_CURSOR(x) setCursor(x)
-#endif
-
 void QarkdownTextEdit::mouseMoveEvent(QMouseEvent *e)
 {
     if ((e->modifiers() & _anchorClickKeyModifiers) == _anchorClickKeyModifiers)
     {
         QString href = getAnchorHrefAtPos(e->pos());
         if (href.isNull())
-            SET_CURSOR(Qt::IBeamCursor);
+            QApplication::setOverrideCursor(Qt::IBeamCursor);
         else
-            SET_CURSOR(Qt::PointingHandCursor);
+            QApplication::setOverrideCursor(Qt::PointingHandCursor);
     }
     else
-        SET_CURSOR(Qt::IBeamCursor);
+        QApplication::setOverrideCursor(Qt::IBeamCursor);
     QTextEdit::mouseMoveEvent(e);
 }
 
