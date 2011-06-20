@@ -141,15 +141,35 @@ QString QarkdownTextEdit::getAnchorHrefAtPos(QPoint pos)
 void QarkdownTextEdit::mouseMoveEvent(QMouseEvent *e)
 {
     QString href = getAnchorHrefAtPos(e->pos());
-    if (href.isNull()) {
+    if (href.isNull())
         SET_CURSOR(Qt::IBeamCursor);
-        QTextEdit::mouseMoveEvent(e);
-        return;
-    }
-    SET_CURSOR(Qt::PointingHandCursor);
+    else
+        SET_CURSOR(Qt::PointingHandCursor);
     QTextEdit::mouseMoveEvent(e);
 }
 
+void QarkdownTextEdit::mousePressEvent(QMouseEvent *e)
+{
+    // The caret is placed upon press (not release) so we disable
+    // that here if the mouse is pressed on an anchor:
+    QString href = getAnchorHrefAtPos(e->pos());
+    if (!href.isNull()) {
+        e->ignore();
+        return;
+    }
+    QTextEdit::mouseReleaseEvent(e);
+}
+
+void QarkdownTextEdit::mouseReleaseEvent(QMouseEvent *e)
+{
+    QString href = getAnchorHrefAtPos(e->pos());
+    if (!href.isNull()) {
+        emit anchorClicked(QUrl(href));
+        e->ignore();
+        return;
+    }
+    QTextEdit::mouseReleaseEvent(e);
+}
 
 
 void QarkdownTextEdit::indentSelectedLines()

@@ -3,6 +3,7 @@
 
 #include <QTextEdit>
 #include <QEvent>
+#include <QUrl>
 
 class QarkdownTextEdit : public QTextEdit
 {
@@ -28,6 +29,8 @@ protected:
 
     bool event(QEvent *e);
     void mouseMoveEvent(QMouseEvent *e);
+    void mousePressEvent(QMouseEvent *e);
+    void mouseReleaseEvent(QMouseEvent *e);
 
     QString getAnchorHrefAtPos(QPoint pos);
     bool selectionContainsOnlyFullLines(QTextCursor selection);
@@ -36,6 +39,7 @@ protected:
     void unindentSelectedLines();
 
 signals:
+    void anchorClicked(QUrl url);
 
 public slots:
 
