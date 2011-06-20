@@ -325,3 +325,14 @@ void HGMarkdownHighlighter::timerTimeout()
 {
     this->parse();
 }
+
+void HGMarkdownHighlighter::highlightNow()
+{
+    highlight();
+}
+
+void HGMarkdownHighlighter::parseAndHighlightNow()
+{
+    parse();
+}
+

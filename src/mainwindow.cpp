@@ -5,6 +5,12 @@
 
 /*
 TODO:
+- Make links clickable only if Ctrl pressed down
+- Open links (URLs & mailto:) with QDesktopServices
+- Make references clickable as well
+- Fix undo/redo
+- Document the highlighter interface
+
 - Tabbed interface; multiple files open
 - Changing styles settings
 */
@@ -124,6 +130,9 @@ void MainWindow::applyHighlighterPreferences()
     double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
                                                QVariant(DEF_HIGHLIGHT_INTERVAL)).toDouble();
     highlighter->setWaitInterval(highlightInterval);
+    bool clickableLinks = settings->value(SETTING_CLICKABLE_LINKS,
+                                          QVariant(DEF_CLICKABLE_LINKS)).toBool();
+    highlighter->setMakeLinksClickable(clickableLinks);
 }
 
 void MainWindow::applyEditorPreferences()
@@ -154,6 +163,7 @@ void MainWindow::preferencesUpdated()
     applyPersistedFontInfo();
     applyHighlighterPreferences();
     applyEditorPreferences();
+    highlighter->highlightNow();
 }
 
 void MainWindow::setDirty(bool value)
@@ -172,7 +182,6 @@ void MainWindow::setupEditor()
     editor = new QarkdownTextEdit;
     editor->setAcceptRichText(false);
     highlighter = new HGMarkdownHighlighter(editor->document());
-    highlighter->setMakeLinksClickable(true);
 
     applyPersistedFontInfo();
     applyHighlighterPreferences();

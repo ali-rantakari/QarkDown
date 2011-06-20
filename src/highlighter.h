@@ -34,6 +34,9 @@ class HGMarkdownHighlighter : public QObject
 
 public:
     HGMarkdownHighlighter(QTextDocument *parent = 0, double aWaitInterval = 1);
+    void highlightNow();
+    void parseAndHighlightNow();
+
     void setStyles(QVector<HighlightingStyle> &styles);
     double waitInterval();
     void setWaitInterval(double value);

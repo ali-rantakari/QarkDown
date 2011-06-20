@@ -77,6 +77,11 @@ void PreferencesDialog::updateUIFromSettings()
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
                                             QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
     ui->rememberLastFileCheckBox->setChecked(rememberLastFile);
+
+    // make links clickable
+    bool clickableLinks = settings->value(SETTING_CLICKABLE_LINKS,
+                                          QVariant(DEF_CLICKABLE_LINKS)).toBool();
+    ui->linksClickableCheckBox->setChecked(clickableLinks);
 }
 
 void PreferencesDialog::updateSettingsFromUI()
@@ -86,6 +91,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox->value());
     settings->setValue(SETTING_INDENT_WITH_TABS, ui->indentRadioTabs->isChecked());
     settings->setValue(SETTING_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox->isChecked());
+    settings->setValue(SETTING_CLICKABLE_LINKS, ui->linksClickableCheckBox->isChecked());
     settings->sync();
 }
 
