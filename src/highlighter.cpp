@@ -188,12 +188,16 @@ void HGMarkdownHighlighter::highlight()
                 QTextLayout::FormatRange r;
                 r.format = style.format;
 
-                if (_makeLinksClickable && elem_cursor->type == LINK
+                if (_makeLinksClickable
+                    && (elem_cursor->type == LINK
+                        || elem_cursor->type == AUTO_LINK_URL
+                        || elem_cursor->type == AUTO_LINK_EMAIL
+                        || elem_cursor->type == REFERENCE)
                     && elem_cursor->address != NULL)
                 {
-                    qDebug() << "adding link:" << elem_cursor->address;
-
                     QString address(elem_cursor->address);
+                    if (elem_cursor->type == AUTO_LINK_EMAIL && !address.startsWith("mailto:"))
+                        address = "mailto:" + address;
                     QTextCharFormat linkFormat(r.format);
                     linkFormat.setAnchor(true);
                     linkFormat.setAnchorHref(address);
