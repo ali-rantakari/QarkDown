@@ -241,11 +241,12 @@ void HGMarkdownHighlighter::highlight()
                     // should have the same value and thus we need to check in
                     // the contentChange handler whether the contents have actually
                     // changed or not.
+                    QString address(elem_cursor->address);
 
                     QTextCharFormat linkFormat;
                     linkFormat.setAnchor(true);
-                    linkFormat.setAnchorHref(QString(elem_cursor->address));
-                    //linkFormat.setAnchorName("anchor-name");
+                    linkFormat.setAnchorHref(address);
+                    linkFormat.setToolTip(address);
 
                     QTextCursor cursor(document);
                     cursor.setPosition(elem_cursor->pos);
