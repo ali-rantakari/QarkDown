@@ -1319,10 +1319,8 @@ YY_ACTION(void) yy_1_Reference(GREG *G, char *yytext, int yyleng, yythunk *thunk
   yyprintf((stderr, "do yy_1_Reference\n"));
   
                 element *el = elem_s(REFERENCE);
-                if (PARSING_REFERENCES) {
-                    el->label = strdup(l->label);
-                    el->address = strdup(r->address);
-                }
+                el->label = strdup(l->label);
+                el->address = strdup(r->address);
                 ADD(el);
                 FREE_LABEL(l);
                 FREE_ADDRESS(r);
