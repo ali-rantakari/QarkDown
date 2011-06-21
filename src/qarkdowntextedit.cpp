@@ -147,12 +147,12 @@ void QarkdownTextEdit::mouseMoveEvent(QMouseEvent *e)
     {
         QString href = getAnchorHrefAtPos(e->pos());
         if (href.isNull())
-            QApplication::setOverrideCursor(Qt::IBeamCursor);
+            viewport()->setCursor(Qt::IBeamCursor);
         else
-            QApplication::setOverrideCursor(Qt::PointingHandCursor);
+            viewport()->setCursor(Qt::PointingHandCursor);
     }
     else
-        QApplication::setOverrideCursor(Qt::IBeamCursor);
+        viewport()->setCursor(Qt::IBeamCursor);
     QTextEdit::mouseMoveEvent(e);
 }
 
