@@ -38,10 +38,14 @@ protected:
     void mouseReleaseEvent(QMouseEvent *e);
 
     QString getAnchorHrefAtPos(QPoint pos);
+    bool isBorderChar(QChar character);
+    bool cursorIsBeforeLineContentStart(QTextCursor cursor);
     bool selectionContainsOnlyFullLines(QTextCursor selection);
     QList<int> getLineStartPositionsInSelection(QTextCursor selection);
     void indentSelectedLines();
     void unindentSelectedLines();
+    void indentAtCursor();
+    void unindentAtCursor();
 
 signals:
     void anchorClicked(QUrl url);
