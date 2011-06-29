@@ -6,9 +6,10 @@
 #include <QTextLayout>
 #include <QApplication>
 #include <QToolTip>
+#include <QPainter>
 
 QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
-    QTextEdit(parent)
+    QPlainTextEdit(parent)
 {
     this->setUndoRedoEnabled(true);
     this->setMouseTracking(true);
@@ -16,6 +17,21 @@ QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
     _indentString = "    ";
     _spacesIndentWidthHint = 4;
     _anchorClickKeyModifiers = Qt::NoModifier;
+    _highlightCurrentLine = true;
+
+    lineNumberArea = new LineNumberArea(this);
+
+    connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberAreaWidth(int)));
+    connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberArea(QRect,int)));
+    connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(applyHighlightingToCurrentLine()));
+
+    updateLineNumberAreaWidth(0);
+    applyHighlightingToCurrentLine();
+}
+
+QarkdownTextEdit::~QarkdownTextEdit()
+{
+    delete lineNumberArea;
 }
 
 QString QarkdownTextEdit::indentString()
@@ -43,6 +59,15 @@ Qt::KeyboardModifiers QarkdownTextEdit::anchorClickKeyboardModifiers()
 void QarkdownTextEdit::setAnchorClickKeyboardModifiers(Qt::KeyboardModifiers value)
 {
     _anchorClickKeyModifiers = value;
+}
+
+bool QarkdownTextEdit::highlightCurrentLine()
+{
+    return _highlightCurrentLine;
+}
+void QarkdownTextEdit::setHighlightCurrentLine(bool value)
+{
+    _highlightCurrentLine = value;
 }
 
 
@@ -149,7 +174,7 @@ bool QarkdownTextEdit::event(QEvent *e)
         }
         return true;
     }
-    return QTextEdit::event(e);
+    return QPlainTextEdit::event(e);
 }
 
 QString QarkdownTextEdit::getAnchorHrefAtPos(QPoint pos)
@@ -181,7 +206,7 @@ void QarkdownTextEdit::mouseMoveEvent(QMouseEvent *e)
     }
     else
         viewport()->setCursor(Qt::IBeamCursor);
-    QTextEdit::mouseMoveEvent(e);
+    QPlainTextEdit::mouseMoveEvent(e);
 }
 
 void QarkdownTextEdit::mousePressEvent(QMouseEvent *e)
@@ -196,7 +221,7 @@ void QarkdownTextEdit::mousePressEvent(QMouseEvent *e)
             return;
         }
     }
-    QTextEdit::mouseReleaseEvent(e);
+    QPlainTextEdit::mouseReleaseEvent(e);
 }
 
 void QarkdownTextEdit::mouseReleaseEvent(QMouseEvent *e)
@@ -210,8 +235,18 @@ void QarkdownTextEdit::mouseReleaseEvent(QMouseEvent *e)
             return;
         }
     }
-    QTextEdit::mouseReleaseEvent(e);
+    QPlainTextEdit::mouseReleaseEvent(e);
 }
+
+void QarkdownTextEdit::resizeEvent(QResizeEvent *e)
+ {
+     QPlainTextEdit::resizeEvent(e);
+
+     QRect cr = contentsRect();
+     lineNumberArea->setGeometry(QRect(cr.left(), cr.top(),
+                                       lineNumberAreaWidth(), cr.height()));
+ }
+
 
 int QarkdownTextEdit::guessNumOfSpacesToDeleteUponUnindenting()
 {
@@ -321,4 +356,98 @@ void QarkdownTextEdit::unindentAtCursor()
     }
 
     removalCursor.endEditBlock();
+}
+
+
+
+
+
+
+
+int QarkdownTextEdit::lineNumberAreaWidth()
+{
+    int digits = 1;
+    int max = qMax(1, document()->blockCount());
+    while (max >= 10) {
+        max /= 10;
+        ++digits;
+    }
+
+    int space = 3 + fontMetrics().width(QLatin1Char('9')) * digits;
+
+    return space;
+}
+
+void QarkdownTextEdit::updateLineNumberAreaWidth(int /* newBlockCount */)
+{
+    setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
+}
+
+void QarkdownTextEdit::updateLineNumberArea(const QRect &rect, int dy)
+{
+    if (dy)
+        lineNumberArea->scroll(0, dy);
+    else
+        lineNumberArea->update(0, rect.y(), lineNumberArea->width(), rect.height());
+    if (rect.contains(viewport()->rect()))
+        updateLineNumberAreaWidth(0);
+}
+
+void QarkdownTextEdit::applyHighlightingToCurrentLine()
+{
+    if (!_highlightCurrentLine)
+        return;
+
+    QList<QTextEdit::ExtraSelection> extraSelections;
+
+    if (!isReadOnly())
+    {
+        QTextEdit::ExtraSelection selection;
+
+        QColor lineColor = QColor(Qt::yellow).lighter(180);
+
+        QTextCursor selCur(textCursor());
+        QTextBlock b = selCur.block();
+        selCur.setPosition(b.position());
+        selCur.setPosition(b.position()+b.length()-1, QTextCursor::KeepAnchor);
+
+        // highlight only if line is not empty
+        if (selCur.selectionStart() < selCur.selectionEnd())
+        {
+            selection.format.setBackground(lineColor);
+            selection.cursor = selCur;
+            extraSelections.append(selection);
+        }
+    }
+
+    setExtraSelections(extraSelections);
+}
+
+void QarkdownTextEdit::lineNumberAreaPaintEvent(QPaintEvent *event)
+{
+    return; // crash on the next line!
+
+    QPainter painter(lineNumberArea);
+    painter.fillRect(event->rect(), Qt::lightGray);
+
+    QTextBlock block = firstVisibleBlock();
+    int blockNumber = block.blockNumber();
+    int top = (int) blockBoundingGeometry(block).translated(contentOffset()).top();
+    int bottom = top + (int) blockBoundingRect(block).height();
+
+    while (block.isValid() && top <= event->rect().bottom())
+    {
+        if (block.isVisible() && bottom >= event->rect().top())
+        {
+            QString number = QString::number(blockNumber + 1);
+            painter.setPen(Qt::black);
+            painter.drawText(0, top, lineNumberArea->width(), fontMetrics().height(),
+                             Qt::AlignRight, number);
+        }
+
+        block = block.next();
+        top = bottom;
+        bottom = top + (int) blockBoundingRect(block).height();
+        ++blockNumber;
+    }
 }

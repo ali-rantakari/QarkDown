@@ -222,7 +222,7 @@ void MainWindow::setDirty(bool value)
 void MainWindow::setupEditor()
 {
     editor = new QarkdownTextEdit;
-    editor->setAcceptRichText(false);
+    //editor->setAcceptRichText(false);
     editor->setAnchorClickKeyboardModifiers(Qt::ControlModifier);
     highlighter = new HGMarkdownHighlighter(editor->document());
 
