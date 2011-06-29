@@ -66,7 +66,7 @@ void PreferencesDialog::updateUIFromSettings()
     // indent with tabs
     bool indentWithTabs = settings->value(SETTING_INDENT_WITH_TABS,
                                           QVariant(DEF_INDENT_WITH_TABS)).toBool();
-    (indentWithTabs ? ui->indentRadioTabs : ui->indentRadioSpaces)->setChecked(true);
+    ui->tabsWithSpacesCheckBox->setChecked(indentWithTabs);
 
     // highlight interval
     double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
@@ -89,7 +89,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_FONT, ui->fontLabel->font().toString());
     settings->setValue(SETTING_TAB_WIDTH, ui->tabWidthSpinBox->value());
     settings->setValue(SETTING_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox->value());
-    settings->setValue(SETTING_INDENT_WITH_TABS, ui->indentRadioTabs->isChecked());
+    settings->setValue(SETTING_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox->isChecked());
     settings->setValue(SETTING_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox->isChecked());
     settings->setValue(SETTING_CLICKABLE_LINKS, ui->linksClickableCheckBox->isChecked());
     settings->sync();
