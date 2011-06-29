@@ -10,6 +10,8 @@
 #define SETTING_REMEMBER_LAST_FILE "RememberLastOpenFile"
 #define SETTING_REMEMBER_WINDOW "RememberLastWindowSizeAndPos"
 #define SETTING_CLICKABLE_LINKS "ClickableLinks"
+#define SETTING_LINE_HIGHLIGHT_CURRENT_LINE "HighlightCurrentLine"
+#define SETTING_LINE_HIGHLIGHT_COLOR "LineHighlightColor"
 
 #define SETTING_LAST_FILE "LastFile"
 #define SETTING_WINDOW_GEOMETRY "LastWindowGeometry"
@@ -23,5 +25,7 @@
 #define DEF_REMEMBER_LAST_FILE  false
 #define DEF_REMEMBER_WINDOW     true
 #define DEF_CLICKABLE_LINKS     false
+#define DEF_LINE_HIGHLIGHT_CURRENT_LINE true
+#define DEF_LINE_HIGHLIGHT_COLOR QColor(Qt::yellow).lighter(180)
 
 #endif // DEFAULTPREFERENCES_H

@@ -193,6 +193,10 @@ void MainWindow::applyEditorPreferences()
             indentStr += " ";
         editor->setIndentString(indentStr);
     }
+
+    QColor lineHighlightColor = settings->value(SETTING_LINE_HIGHLIGHT_COLOR,
+                                                QVariant(DEF_LINE_HIGHLIGHT_COLOR)).value<QColor>();
+    editor->setCurrentLineHighlightColor(lineHighlightColor);
 }
 
 void MainWindow::showPreferences()
@@ -222,7 +226,6 @@ void MainWindow::setDirty(bool value)
 void MainWindow::setupEditor()
 {
     editor = new QarkdownTextEdit;
-    //editor->setAcceptRichText(false);
     editor->setAnchorClickKeyboardModifiers(Qt::ControlModifier);
     highlighter = new HGMarkdownHighlighter(editor->document());
 

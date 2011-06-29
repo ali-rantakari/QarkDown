@@ -18,6 +18,7 @@ QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
     _spacesIndentWidthHint = 4;
     _anchorClickKeyModifiers = Qt::NoModifier;
     _highlightCurrentLine = true;
+    _lineHighlightColor = QColor(Qt::yellow).lighter(180);
 
     lineNumberArea = NULL;
     lineNumberArea = new LineNumberArea(this);
@@ -69,6 +70,16 @@ bool QarkdownTextEdit::highlightCurrentLine()
 void QarkdownTextEdit::setHighlightCurrentLine(bool value)
 {
     _highlightCurrentLine = value;
+}
+
+QColor QarkdownTextEdit::currentLineHighlightColor()
+{
+    return _lineHighlightColor;
+}
+
+void QarkdownTextEdit::setCurrentLineHighlightColor(QColor value)
+{
+    _lineHighlightColor = value;
 }
 
 
@@ -405,8 +416,6 @@ void QarkdownTextEdit::applyHighlightingToCurrentLine()
     {
         QTextEdit::ExtraSelection selection;
 
-        QColor lineColor = QColor(Qt::yellow).lighter(180);
-
         QTextCursor selCur(textCursor());
         QTextBlock b = selCur.block();
         selCur.setPosition(b.position());
@@ -415,7 +424,7 @@ void QarkdownTextEdit::applyHighlightingToCurrentLine()
         // highlight only if line is not empty
         if (selCur.selectionStart() < selCur.selectionEnd())
         {
-            selection.format.setBackground(lineColor);
+            selection.format.setBackground(_lineHighlightColor);
             selection.cursor = selCur;
             extraSelections.append(selection);
         }

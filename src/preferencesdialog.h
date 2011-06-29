@@ -20,6 +20,7 @@ public slots:
     void accepted();
     void rejected();
     void fontButtonClicked();
+    void lineHighlightColorButtonClicked();
 
 signals:
     void updated();

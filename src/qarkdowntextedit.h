@@ -33,6 +33,9 @@ public:
     bool highlightCurrentLine();
     void setHighlightCurrentLine(bool value);
 
+    QColor currentLineHighlightColor();
+    void setCurrentLineHighlightColor(QColor value);
+
     void lineNumberAreaPaintEvent(QPaintEvent *event);
     int lineNumberAreaWidth();
 
@@ -42,6 +45,7 @@ protected:
     Qt::KeyboardModifiers _anchorClickKeyModifiers;
     LineNumberArea *lineNumberArea;
     bool _highlightCurrentLine;
+    QColor _lineHighlightColor;
 
     bool event(QEvent *e);
     void mouseMoveEvent(QMouseEvent *e);
