@@ -5,7 +5,6 @@
 
 /*
 TODO:
-- Remember window position & size preference
 - Line numbers
 - Document the highlighter interface
 
@@ -31,6 +30,19 @@ MainWindow::~MainWindow()
 {
     delete settings;
     delete preferencesDialog;
+}
+
+void MainWindow::show()
+{
+    QSize defaultSize(640, 512);
+    resize(defaultSize);
+
+    bool rememberWindow = settings->value(SETTING_REMEMBER_WINDOW,
+                                          QVariant(DEF_REMEMBER_WINDOW)).toBool();
+    if (rememberWindow)
+        restoreGeometry(settings->value(SETTING_WINDOW_GEOMETRY).toByteArray());
+
+    QMainWindow::show();
 }
 
 void MainWindow::newFile()
@@ -322,6 +334,10 @@ void MainWindow::commitDataHandler(QSessionManager &manager)
 void MainWindow::aboutToQuitHandler()
 {
     // No user interaction allowed here
+    bool rememberWindow = settings->value(SETTING_REMEMBER_WINDOW,
+                                          QVariant(DEF_REMEMBER_WINDOW)).toBool();
+    if (rememberWindow)
+        settings->setValue(SETTING_WINDOW_GEOMETRY, saveGeometry());
     settings->sync();
 }
 

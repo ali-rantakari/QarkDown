@@ -8,7 +8,6 @@ int main(int argc, char *argv[])
 {
     QarkdownApplication app(argc, argv);
     MainWindow window;
-    window.resize(640, 512);
     window.show();
     app.mainWindow = &window;
     if (argc > 1)
