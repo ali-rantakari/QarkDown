@@ -5,9 +5,11 @@
 
 /*
 TODO:
-- Make references clickable as well
+- Remember window position & size preference
+- Line numbers
 - Document the highlighter interface
 
+- Get icon working on OS X
 - Use QTextOption::ShowTabsAndSpaces
 - Tabbed interface; multiple files open
 - Changing styles settings
@@ -107,6 +109,34 @@ void MainWindow::applyPersistedFontInfo()
     editor->setTabStopWidth(fontMetrics.charWidth("m", 0) * tabWidthInChars);
 }
 
+void MainWindow::selectTextToSearchFor()
+{
+    bool ok;
+    QString str = QInputDialog::getText(this, tr("Find Text"),
+                                        tr("Enter text to find:"),
+                                        QLineEdit::Normal, searchString, &ok);
+    if (!ok || str.isEmpty())
+        return;
+    searchString = str;
+    findNextMenuAction->setEnabled(true);
+    findPreviousMenuAction->setEnabled(true);
+    findNextSearchMatch();
+}
+
+void MainWindow::findNextSearchMatch()
+{
+    if (searchString.isEmpty())
+        return;
+    editor->find(searchString);
+}
+
+void MainWindow::findPreviousSearchMatch()
+{
+    if (searchString.isEmpty())
+        return;
+    editor->find(searchString, QTextDocument::FindBackward);
+}
+
 void MainWindow::increaseFontSize()
 {
     QFont font(editor->font());
@@ -199,6 +229,19 @@ void MainWindow::setupFileMenu()
                         QKeySequence::Save);
     fileMenu->addAction(tr("E&xit"), qApp, SLOT(quit()),
                         QKeySequence::Quit);
+
+    QMenu *editMenu = new QMenu(tr("&Edit"), this);
+    menuBar()->addMenu(editMenu);
+    editMenu->addAction(tr("Find..."), this, SLOT(selectTextToSearchFor()),
+                        QKeySequence::Find);
+    findNextMenuAction = editMenu->addAction(tr("Find Next"),
+                                             this, SLOT(findNextSearchMatch()),
+                                             QKeySequence::FindNext);
+    findPreviousMenuAction = editMenu->addAction(tr("Find Previous"),
+                                                 this, SLOT(findPreviousSearchMatch()),
+                                                 QKeySequence::FindPrevious);
+    findNextMenuAction->setEnabled(false);
+    findPreviousMenuAction->setEnabled(false);
 
     QMenu *toolsMenu = new QMenu(tr("&Tools"), this);
     menuBar()->addMenu(toolsMenu);

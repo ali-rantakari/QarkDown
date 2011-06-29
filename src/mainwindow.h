@@ -30,6 +30,10 @@ public slots:
     void decreaseFontSize();
     void showPreferences();
 
+    void selectTextToSearchFor();
+    void findNextSearchMatch();
+    void findPreviousSearchMatch();
+
     void preferencesUpdated();
 
     void anchorClicked(const QUrl &link);
@@ -52,6 +56,10 @@ private:
     QarkdownTextEdit *editor;
     HGMarkdownHighlighter *highlighter;
     QString openFilePath;
+    QString searchString;
+
+    QAction *findNextMenuAction;
+    QAction *findPreviousMenuAction;
 };
 
 #endif
