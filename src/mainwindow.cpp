@@ -39,8 +39,10 @@ void MainWindow::show()
 
     bool rememberWindow = settings->value(SETTING_REMEMBER_WINDOW,
                                           QVariant(DEF_REMEMBER_WINDOW)).toBool();
-    if (rememberWindow)
+    if (rememberWindow) {
         restoreGeometry(settings->value(SETTING_WINDOW_GEOMETRY).toByteArray());
+        restoreState(settings->value(SETTING_WINDOW_STATE).toByteArray());
+    }
 
     QMainWindow::show();
 }
@@ -336,8 +338,10 @@ void MainWindow::aboutToQuitHandler()
     // No user interaction allowed here
     bool rememberWindow = settings->value(SETTING_REMEMBER_WINDOW,
                                           QVariant(DEF_REMEMBER_WINDOW)).toBool();
-    if (rememberWindow)
+    if (rememberWindow) {
         settings->setValue(SETTING_WINDOW_GEOMETRY, saveGeometry());
+        settings->setValue(SETTING_WINDOW_STATE, saveState());
+    }
     settings->sync();
 }
 

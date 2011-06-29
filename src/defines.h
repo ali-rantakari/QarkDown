@@ -13,6 +13,7 @@
 
 #define SETTING_LAST_FILE "LastFile"
 #define SETTING_WINDOW_GEOMETRY "LastWindowGeometry"
+#define SETTING_WINDOW_STATE "LastWindowState"
 
 #define DEF_FONT_FAMILY         "Courier"
 #define DEF_FONT_SIZE           12
