@@ -19,6 +19,7 @@ QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
     _anchorClickKeyModifiers = Qt::NoModifier;
     _highlightCurrentLine = true;
 
+    lineNumberArea = NULL;
     lineNumberArea = new LineNumberArea(this);
 
     connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberAreaWidth(int)));
@@ -425,8 +426,6 @@ void QarkdownTextEdit::applyHighlightingToCurrentLine()
 
 void QarkdownTextEdit::lineNumberAreaPaintEvent(QPaintEvent *event)
 {
-    return; // crash on the next line!
-
     QPainter painter(lineNumberArea);
     painter.fillRect(event->rect(), Qt::lightGray);
 
@@ -439,10 +438,11 @@ void QarkdownTextEdit::lineNumberAreaPaintEvent(QPaintEvent *event)
     {
         if (block.isVisible() && bottom >= event->rect().top())
         {
-            QString number = QString::number(blockNumber + 1);
+            QString lineNumberString = QString::number(blockNumber + 1);
             painter.setPen(Qt::black);
+            painter.setFont(this->font());
             painter.drawText(0, top, lineNumberArea->width(), fontMetrics().height(),
-                             Qt::AlignRight, number);
+                             Qt::AlignRight, lineNumberString);
         }
 
         block = block.next();
@@ -450,4 +450,21 @@ void QarkdownTextEdit::lineNumberAreaPaintEvent(QPaintEvent *event)
         bottom = top + (int) blockBoundingRect(block).height();
         ++blockNumber;
     }
+}
+
+
+
+
+LineNumberArea::LineNumberArea(QarkdownTextEdit *ed) : QWidget(ed)
+{
+    editor = ed;
+}
+
+void LineNumberArea::paintEvent(QPaintEvent *event)
+{
+    editor->lineNumberAreaPaintEvent(event);
+}
+
+QSize LineNumberArea::sizeHint() const {
+    return QSize(editor->lineNumberAreaWidth(), 0);
 }

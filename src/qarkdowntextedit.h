@@ -73,18 +73,12 @@ private slots:
 class LineNumberArea : public QWidget
 {
 public:
-    LineNumberArea(QarkdownTextEdit *editor) : QWidget(editor) {
-        editor = editor;
-    }
+    explicit LineNumberArea(QarkdownTextEdit *editor);
 
-    QSize sizeHint() const {
-        return QSize(editor->lineNumberAreaWidth(), 0);
-    }
+    QSize sizeHint() const;
 
 protected:
-    void paintEvent(QPaintEvent *event) {
-        editor->lineNumberAreaPaintEvent(event);
-    }
+    void paintEvent(QPaintEvent *event);
 
 private:
     QarkdownTextEdit *editor;
