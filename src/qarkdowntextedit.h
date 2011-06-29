@@ -42,6 +42,7 @@ protected:
     bool cursorIsBeforeLineContentStart(QTextCursor cursor);
     bool selectionContainsOnlyFullLines(QTextCursor selection);
     QList<int> getLineStartPositionsInSelection(QTextCursor selection);
+    int guessNumOfSpacesToDeleteUponUnindenting();
     void indentSelectedLines();
     void unindentSelectedLines();
     void indentAtCursor();
