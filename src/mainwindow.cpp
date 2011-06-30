@@ -167,6 +167,14 @@ void MainWindow::decreaseFontSize()
     persistFontInfo();
 }
 
+void MainWindow::about()
+{
+    QMessageBox::information(this, "About QarkDown",
+                             "Copyright 2011 Ali Rantakari"
+                             "\n\n"
+                             "http://hasseg.org/qarkdown");
+}
+
 void MainWindow::applyHighlighterPreferences()
 {
     double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
@@ -267,14 +275,16 @@ void MainWindow::setupFileMenu()
 
     QMenu *toolsMenu = new QMenu(tr("&Tools"), this);
     menuBar()->addMenu(toolsMenu);
-    QKeySequence increaseFontSizeKey("Ctrl++");
     toolsMenu->addAction(tr("Increase Font Size"), this, SLOT(increaseFontSize()),
-                         increaseFontSizeKey);
-    QKeySequence decreaseFontSizeKey("Ctrl+-");
+                         QKeySequence("Ctrl++"));
     toolsMenu->addAction(tr("Decrease Font Size"), this, SLOT(decreaseFontSize()),
-                         decreaseFontSizeKey);
+                         QKeySequence("Ctrl+-"));
     toolsMenu->addAction(tr("Preferences..."), this, SLOT(showPreferences()),
                          QKeySequence::Preferences);
+
+    QMenu *helpMenu = new QMenu(tr("&Help"), this);
+    menuBar()->addMenu(helpMenu);
+    helpMenu->addAction(tr("About QarkDown"), this, SLOT(about()));
 }
 
 void MainWindow::performStartupTasks()
