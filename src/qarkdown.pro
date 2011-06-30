@@ -23,7 +23,8 @@ FORMS += \
 
 OTHER_FILES += \
     cfg/win.rc \
-    cfg/Info.plist
+    cfg/Info.plist \
+    cfg/linux.qrc
 
 win32 {
     RC_FILE += cfg/win.rc
@@ -34,3 +35,9 @@ macx {
     QMAKE_INFO_PLIST = cfg/Info.plist
 }
 
+linux {
+    RESOURCES += cfg/linux.qrc
+}
+
+RESOURCES += \
+    cfg/linux.qrc
