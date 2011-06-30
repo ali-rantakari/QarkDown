@@ -25,7 +25,12 @@ OTHER_FILES += \
     cfg/win.rc \
     cfg/Info.plist
 
-win32:RC_FILE += cfg/win.rc
+win32 {
+    RC_FILE += cfg/win.rc
+}
 
-mac:RC_FILE += gfx/icon.icns
-mac:QMAKE_INFO_PLIST = cfg/Info.plist
+macx {
+    RC_FILE += gfx/icon.icns
+    QMAKE_INFO_PLIST = cfg/Info.plist
+}
+
