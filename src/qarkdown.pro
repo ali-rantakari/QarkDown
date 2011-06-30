@@ -22,10 +22,10 @@ FORMS += \
     preferencesdialog.ui
 
 OTHER_FILES += \
-    win.rc \
-    Info.plist
+    cfg/win.rc \
+    cfg/Info.plist
 
-win32:RC_FILE += win.rc
+win32:RC_FILE += cfg/win.rc
 
 mac:RC_FILE += gfx/icon.icns
-mac:QMAKE_INFO_PLIST = Info.plist
+mac:QMAKE_INFO_PLIST = cfg/Info.plist
