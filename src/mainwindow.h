@@ -7,7 +7,7 @@
 
 #include "highlighter.h"
 #include "preferencesdialog.h"
-#include "qarkdowntextedit.h"
+#include "editor/qarkdowntextedit.h"
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;

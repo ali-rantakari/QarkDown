@@ -5,9 +5,9 @@
 #include <QEvent>
 #include <QUrl>
 
-class LineNumberArea; // forward declaration
+#include "linenumberingplaintextedit.h"
 
-class QarkdownTextEdit : public QPlainTextEdit
+class QarkdownTextEdit : public LineNumberingPlainTextEdit
 {
     Q_OBJECT
 public:
@@ -36,14 +36,10 @@ public:
     QColor currentLineHighlightColor();
     void setCurrentLineHighlightColor(QColor value);
 
-    void lineNumberAreaPaintEvent(QPaintEvent *event);
-    int lineNumberAreaWidth();
-
 protected:
     QString _indentString;
     int _spacesIndentWidthHint;
     Qt::KeyboardModifiers _anchorClickKeyModifiers;
-    LineNumberArea *lineNumberArea;
     bool _highlightCurrentLine;
     QColor _lineHighlightColor;
 
@@ -51,7 +47,6 @@ protected:
     void mouseMoveEvent(QMouseEvent *e);
     void mousePressEvent(QMouseEvent *e);
     void mouseReleaseEvent(QMouseEvent *e);
-    void resizeEvent(QResizeEvent *event);
 
     QString getAnchorHrefAtPos(QPoint pos);
     bool isBorderChar(QChar character);
@@ -68,24 +63,7 @@ signals:
     void anchorClicked(QUrl url);
 
 private slots:
-    void updateLineNumberAreaWidth(int newBlockCount);
-    void updateLineNumberArea(const QRect &, int);
     void applyHighlightingToCurrentLine();
-};
-
-
-class LineNumberArea : public QWidget
-{
-public:
-    explicit LineNumberArea(QarkdownTextEdit *editor);
-
-    QSize sizeHint() const;
-
-protected:
-    void paintEvent(QPaintEvent *event);
-
-private:
-    QarkdownTextEdit *editor;
 };
 
 

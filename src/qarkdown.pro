@@ -4,15 +4,17 @@ HEADERS         = markdown_parser.h \
     mainwindow.h \
     preferencesdialog.h \
     defines.h \
-    qarkdowntextedit.h \
-    qarkdownapplication.h
+    qarkdownapplication.h \
+    editor/qarkdowntextedit.h \
+    editor/linenumberingplaintextedit.h
 SOURCES         = markdown_parser.c\
                   highlighter.cpp \
                   main.cpp \
     mainwindow.cpp \
     preferencesdialog.cpp \
-    qarkdowntextedit.cpp \
-    qarkdownapplication.cpp
+    qarkdownapplication.cpp \
+    editor/qarkdowntextedit.cpp \
+    editor/linenumberingplaintextedit.cpp
 
 FORMS += \
     preferencesdialog.ui
