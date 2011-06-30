@@ -1,18 +1,20 @@
-HEADERS         = markdown_parser.h \
-                  markdown_definitions.h \
-                  highlighter.h \
+HEADERS = \
+    defines.h\
+    qarkdownapplication.h \
     mainwindow.h \
     preferencesdialog.h \
-    defines.h \
-    qarkdownapplication.h \
+    peg-markdown-highlight/markdown_parser.h \
+    peg-markdown-highlight/markdown_definitions.h \
+    peg-markdown-highlight/highlighter.h \
     editor/qarkdowntextedit.h \
     editor/linenumberingplaintextedit.h
-SOURCES         = markdown_parser.c\
-                  highlighter.cpp \
-                  main.cpp \
+SOURCES = \
+    main.cpp \
+    qarkdownapplication.cpp \
     mainwindow.cpp \
     preferencesdialog.cpp \
-    qarkdownapplication.cpp \
+    peg-markdown-highlight/markdown_parser.c\
+    peg-markdown-highlight/highlighter.cpp \
     editor/qarkdowntextedit.cpp \
     editor/linenumberingplaintextedit.cpp
 

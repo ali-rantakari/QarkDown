@@ -5,7 +5,7 @@
 #include <QSettings>
 #include <QSessionManager>
 
-#include "highlighter.h"
+#include "peg-markdown-highlight/highlighter.h"
 #include "preferencesdialog.h"
 #include "editor/qarkdowntextedit.h"
 
