@@ -64,6 +64,7 @@ signals:
 
 private slots:
     void applyHighlightingToCurrentLine();
+    void removeCurrentLineHighlighting();
 };
 
 

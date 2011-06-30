@@ -62,6 +62,11 @@ bool QarkdownTextEdit::highlightCurrentLine()
 void QarkdownTextEdit::setHighlightCurrentLine(bool value)
 {
     _highlightCurrentLine = value;
+
+    if (_highlightCurrentLine)
+        applyHighlightingToCurrentLine();
+    else
+        removeCurrentLineHighlighting();
 }
 
 QColor QarkdownTextEdit::currentLineHighlightColor()
@@ -380,5 +385,11 @@ void QarkdownTextEdit::applyHighlightingToCurrentLine()
         }
     }
 
+    setExtraSelections(extraSelections);
+}
+
+void QarkdownTextEdit::removeCurrentLineHighlighting()
+{
+    QList<QTextEdit::ExtraSelection> extraSelections;
     setExtraSelections(extraSelections);
 }
