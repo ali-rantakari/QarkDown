@@ -179,6 +179,7 @@ void MainWindow::applyHighlighterPreferences()
 
 void MainWindow::applyEditorPreferences()
 {
+    // Indentation
     bool indentWithTabs = settings->value(SETTING_INDENT_WITH_TABS,
                                           QVariant(DEF_INDENT_WITH_TABS)).toBool();
     int tabWidthInChars = settings->value(SETTING_TAB_WIDTH,
@@ -194,6 +195,10 @@ void MainWindow::applyEditorPreferences()
         editor->setIndentString(indentStr);
     }
 
+    // Current line highlighting
+    bool highlightCurrentLine = settings->value(SETTING_HIGHLIGHT_CURRENT_LINE,
+                                                QVariant(DEF_HIGHLIGHT_CURRENT_LINE)).toBool();
+    editor->setHighlightCurrentLine(highlightCurrentLine);
     QColor lineHighlightColor = settings->value(SETTING_LINE_HIGHLIGHT_COLOR,
                                                 QVariant(DEF_LINE_HIGHLIGHT_COLOR)).value<QColor>();
     editor->setCurrentLineHighlightColor(lineHighlightColor);

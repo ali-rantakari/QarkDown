@@ -47,6 +47,12 @@ void PreferencesDialog::setFontToLabel(QFont font)
     ui->fontLabel->setText(font.family()+" "+sizeStr);
 }
 
+
+// Some helper macros
+#define PREF_TO_UI_INT(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toInt())
+#define PREF_TO_UI_DOUBLE(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toDouble())
+#define PREF_TO_UI_BOOL_CHECKBOX(pref, def, elem) elem->setChecked(settings->value(pref, QVariant(def)).toBool())
+
 void PreferencesDialog::updateUIFromSettings()
 {
     // font
@@ -60,30 +66,12 @@ void PreferencesDialog::updateUIFromSettings()
     }
     setFontToLabel(font);
 
-    // tab width
-    int tabWidthInChars = settings->value(SETTING_TAB_WIDTH,
-                                          QVariant(DEF_TAB_WIDTH)).toInt();
-    ui->tabWidthSpinBox->setValue(tabWidthInChars);
-
-    // indent with tabs
-    bool indentWithTabs = settings->value(SETTING_INDENT_WITH_TABS,
-                                          QVariant(DEF_INDENT_WITH_TABS)).toBool();
-    ui->tabsWithSpacesCheckBox->setChecked(indentWithTabs);
-
-    // highlight interval
-    double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
-                                               QVariant(DEF_HIGHLIGHT_INTERVAL)).toDouble();
-    ui->highlightIntervalSpinBox->setValue(highlightInterval);
-
-    // remember last open file
-    bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
-                                            QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
-    ui->rememberLastFileCheckBox->setChecked(rememberLastFile);
-
-    // make links clickable
-    bool clickableLinks = settings->value(SETTING_CLICKABLE_LINKS,
-                                          QVariant(DEF_CLICKABLE_LINKS)).toBool();
-    ui->linksClickableCheckBox->setChecked(clickableLinks);
+    PREF_TO_UI_INT(SETTING_TAB_WIDTH, DEF_TAB_WIDTH, ui->tabWidthSpinBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_INDENT_WITH_TABS, DEF_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox);
+    PREF_TO_UI_DOUBLE(SETTING_HIGHLIGHT_INTERVAL, DEF_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_REMEMBER_LAST_FILE, DEF_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_CLICKABLE_LINKS, DEF_CLICKABLE_LINKS, ui->linksClickableCheckBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_HIGHLIGHT_CURRENT_LINE, DEF_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox);
 
     // line highlight color
     QColor lineHighlightColor = settings->value(SETTING_LINE_HIGHLIGHT_COLOR,
@@ -101,6 +89,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox->isChecked());
     settings->setValue(SETTING_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox->isChecked());
     settings->setValue(SETTING_CLICKABLE_LINKS, ui->linksClickableCheckBox->isChecked());
+    settings->setValue(SETTING_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox->isChecked());
     settings->setValue(SETTING_LINE_HIGHLIGHT_COLOR, ui->highlightLineColorLabel->palette().background().color());
     settings->sync();
 }
