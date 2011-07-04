@@ -12,6 +12,7 @@
 #define SETTING_CLICKABLE_LINKS "ClickableLinks"
 #define SETTING_HIGHLIGHT_CURRENT_LINE "HighlightCurrentLine"
 #define SETTING_LINE_HIGHLIGHT_COLOR "LineHighlightColor"
+#define SETTING_STYLE "HighlightingStyle"
 
 #define SETTING_LAST_FILE "LastFile"
 #define SETTING_WINDOW_GEOMETRY "LastWindowGeometry"
@@ -27,5 +28,6 @@
 #define DEF_CLICKABLE_LINKS     false
 #define DEF_HIGHLIGHT_CURRENT_LINE true
 #define DEF_LINE_HIGHLIGHT_COLOR QColor(Qt::yellow).lighter(180)
+#define DEF_STYLE               "default"
 
 #endif // DEFAULTPREFERENCES_H

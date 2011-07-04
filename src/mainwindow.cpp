@@ -5,13 +5,11 @@
 
 /*
 TODO:
-- Line numbers
-- Document the highlighter interface
-
-- Get icon working on OS X
-- Use QTextOption::ShowTabsAndSpaces
-- Tabbed interface; multiple files open
 - Changing styles settings
+- Tabbed interface; multiple files open
+- Document the highlighter interface
+- Use QTextOption::ShowTabsAndSpaces
+- Update mechanism
 */
 
 
@@ -180,9 +178,14 @@ void MainWindow::applyHighlighterPreferences()
     double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
                                                QVariant(DEF_HIGHLIGHT_INTERVAL)).toDouble();
     highlighter->setWaitInterval(highlightInterval);
+
     bool clickableLinks = settings->value(SETTING_CLICKABLE_LINKS,
                                           QVariant(DEF_CLICKABLE_LINKS)).toBool();
     highlighter->setMakeLinksClickable(clickableLinks);
+
+    QString highlightingStyle = settings->value(SETTING_STYLE,
+                                                QVariant(DEF_STYLE)).toString();
+    highlighter->getStylesFromStylesheet(":/styles/"+highlightingStyle, editor);
 }
 
 void MainWindow::applyEditorPreferences()

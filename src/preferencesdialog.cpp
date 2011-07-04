@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QFontDialog>
 #include <QColorDialog>
+#include <QDir>
 
 PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     QDialog(parent),
@@ -66,19 +67,33 @@ void PreferencesDialog::updateUIFromSettings()
     }
     setFontToLabel(font);
 
-    PREF_TO_UI_INT(SETTING_TAB_WIDTH, DEF_TAB_WIDTH, ui->tabWidthSpinBox);
-    PREF_TO_UI_BOOL_CHECKBOX(SETTING_INDENT_WITH_TABS, DEF_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox);
-    PREF_TO_UI_DOUBLE(SETTING_HIGHLIGHT_INTERVAL, DEF_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox);
-    PREF_TO_UI_BOOL_CHECKBOX(SETTING_REMEMBER_LAST_FILE, DEF_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox);
-    PREF_TO_UI_BOOL_CHECKBOX(SETTING_CLICKABLE_LINKS, DEF_CLICKABLE_LINKS, ui->linksClickableCheckBox);
-    PREF_TO_UI_BOOL_CHECKBOX(SETTING_HIGHLIGHT_CURRENT_LINE, DEF_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox);
-
     // line highlight color
     QColor lineHighlightColor = settings->value(SETTING_LINE_HIGHLIGHT_COLOR,
                                                 QVariant(DEF_LINE_HIGHLIGHT_COLOR)).value<QColor>();
     QPalette palette = ui->highlightLineColorLabel->palette();
     palette.setColor(ui->highlightLineColorLabel->backgroundRole(), lineHighlightColor);
     ui->highlightLineColorLabel->setPalette(palette);
+
+    // styles
+    QString highlightingStyle = settings->value(SETTING_STYLE,
+                                                QVariant(DEF_STYLE)).toString();
+    ui->stylesComboBox->clear();
+    int i = 0;
+    foreach (QString style, QDir(":/styles/").entryList())
+    {
+        ui->stylesComboBox->addItem(style);
+        if (style == highlightingStyle)
+            ui->stylesComboBox->setCurrentIndex(i);
+        i++;
+    }
+
+    // others
+    PREF_TO_UI_INT(SETTING_TAB_WIDTH, DEF_TAB_WIDTH, ui->tabWidthSpinBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_INDENT_WITH_TABS, DEF_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox);
+    PREF_TO_UI_DOUBLE(SETTING_HIGHLIGHT_INTERVAL, DEF_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_REMEMBER_LAST_FILE, DEF_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_CLICKABLE_LINKS, DEF_CLICKABLE_LINKS, ui->linksClickableCheckBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_HIGHLIGHT_CURRENT_LINE, DEF_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox);
 }
 
 void PreferencesDialog::updateSettingsFromUI()
@@ -91,6 +106,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_CLICKABLE_LINKS, ui->linksClickableCheckBox->isChecked());
     settings->setValue(SETTING_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox->isChecked());
     settings->setValue(SETTING_LINE_HIGHLIGHT_COLOR, ui->highlightLineColorLabel->palette().background().color());
+    settings->setValue(SETTING_STYLE, ui->stylesComboBox->currentText());
     settings->sync();
 }
 

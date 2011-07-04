@@ -1,6 +1,10 @@
 #include <QtGui>
 #include "highlighter.h"
 
+extern "C" {
+#include "styleparser.h"
+}
+
 
 WorkerThread::~WorkerThread()
 {
@@ -135,6 +139,84 @@ void HGMarkdownHighlighter::setDefaultStyles()
     STY(BLOCKQUOTE, blockquote);
 
     this->setStyles(*styles);
+}
+
+QColor colorFromARGBStyle(attr_argb_color *color)
+{
+    QColor qcolor;
+    qcolor.setAlpha(color->alpha);
+    qcolor.setRed(color->red);
+    qcolor.setGreen(color->green);
+    qcolor.setBlue(color->blue);
+    return qcolor;
+}
+
+QBrush brushFromARGBStyle(attr_argb_color *color)
+{
+    return QBrush(colorFromARGBStyle(color));
+}
+
+QTextCharFormat getCharFormatFromStyleAttributes(style_attribute *list)
+{
+    QTextCharFormat format;
+    while (list != NULL)
+    {
+        if (list->type == attr_type_foreground_color)
+            format.setForeground(brushFromARGBStyle(list->value->argb_color));
+        else if (list->type == attr_type_background_color)
+            format.setBackground(brushFromARGBStyle(list->value->argb_color));
+        else if (list->type == attr_type_font_weight && list->value->font_weight == attr_font_weight_bold)
+            format.setFontWeight(QFont::Bold);
+        else if (list->type == attr_type_font_style && list->value->font_style == attr_font_style_italic)
+            format.setFontItalic(true);
+        list = list->next;
+    }
+    return format;
+}
+
+void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainTextEdit *editor)
+{
+    QString stylesheet;
+    QFile file(filePath);
+    if (file.open(QIODevice::ReadOnly)) {
+        QTextStream stream(&file);
+        stylesheet = stream.readAll();
+    }
+    QByteArray arr = stylesheet.toUtf8();
+    const char *stylesheet_cstring = arr.data();
+
+    QVector<HighlightingStyle> *styles = new QVector<HighlightingStyle>();
+
+    style_collection *raw_styles = parse_styles((char *)stylesheet_cstring, NULL);
+
+    for (int i = 0; i < NUM_LANG_TYPES; i++)
+    {
+        style_attribute *cur = raw_styles->element_styles[i];
+        if (cur == NULL)
+            continue;
+        element_type lang_element_type = cur->lang_element_type;
+        QTextCharFormat format = getCharFormatFromStyleAttributes(cur);
+        STY(lang_element_type, format);
+    }
+
+    this->setStyles(*styles);
+
+    if (editor != NULL && raw_styles->editor_styles != NULL)
+    {
+        QPalette palette = editor->palette();
+
+        style_attribute *cur = raw_styles->editor_styles;
+        while (cur != NULL)
+        {
+            if (cur->type == attr_type_background_color)
+                palette.setColor(QPalette::Base, colorFromARGBStyle(cur->value->argb_color));
+            else if (cur->type == attr_type_foreground_color)
+                palette.setColor(QPalette::Text, colorFromARGBStyle(cur->value->argb_color));
+            cur = cur->next;
+        }
+
+        editor->setPalette(palette);
+    }
 }
 
 void HGMarkdownHighlighter::clearFormatting()

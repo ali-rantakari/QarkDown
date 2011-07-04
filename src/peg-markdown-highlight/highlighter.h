@@ -3,6 +3,7 @@
 
 #include <QTextCharFormat>
 #include <QThread>
+#include <QPlainTextEdit>
 
 extern "C" {
 #include "markdown_parser.h"
@@ -38,6 +39,8 @@ public:
     void parseAndHighlightNow();
 
     void setStyles(QVector<HighlightingStyle> &styles);
+    void getStylesFromStylesheet(QString filePath, QPlainTextEdit *editor);
+
     double waitInterval();
     void setWaitInterval(double value);
     bool makeLinksClickable();
