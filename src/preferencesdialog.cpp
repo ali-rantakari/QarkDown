@@ -7,6 +7,7 @@
 #include <QFontDialog>
 #include <QColorDialog>
 #include <QDesktopServices>
+#include <QMessageBox>
 
 PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     QDialog(parent),
@@ -22,8 +23,9 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
 
 #ifdef Q_WS_WIN
     QFont font = ui->infoLabel1->font();
-    font.setPointSize(7);
+    font.setPointSize(8);
     ui->infoLabel1->setFont(font);
+    ui->infoLabel2->setFont(font);
 #endif
 
     setupConnections();
@@ -189,7 +191,21 @@ void PreferencesDialog::fontButtonClicked()
 
 void PreferencesDialog::openStylesFolderButtonClicked()
 {
-    QDesktopServices::openUrl(QUrl("file:///" + userStylesDir().absolutePath()));
+    QString stylesDirPath = userStylesDir().absolutePath();
+
+    // Let's make sure the path exists
+    if (!QFile::exists(stylesDirPath)) {
+        QDir dir;
+        dir.mkpath(stylesDirPath);
+    }
+
+    bool couldOpen = QDesktopServices::openUrl(QUrl("file:///" + stylesDirPath));
+    if (!couldOpen)
+        QMessageBox::information(this, "Could not open folder",
+                                 "For some reason " + QCoreApplication::applicationName()
+                                 + " could not open the folder. You'll have to do it "
+                                 + "manually. The path is:\n\n"
+                                 + stylesDirPath);
 }
 
 void PreferencesDialog::lineHighlightColorButtonClicked()

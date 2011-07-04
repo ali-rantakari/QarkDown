@@ -370,7 +370,7 @@
          <widget class="QComboBox" name="stylesComboBox"/>
         </item>
         <item>
-         <widget class="QLabel" name="label_7">
+         <widget class="QLabel" name="infoLabel2">
           <property name="font">
            <font>
             <pointsize>11</pointsize>
