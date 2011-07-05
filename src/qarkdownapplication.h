@@ -11,6 +11,8 @@ public:
     explicit QarkdownApplication(int &argc, char **argv);
     MainWindow *mainWindow;
 
+    QString applicationStoragePath();
+
 protected:
     bool event(QEvent *event);
 
