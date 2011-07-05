@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <QSettings>
+#include <QDir>
 
 namespace Ui {
     class PreferencesDialog;
@@ -32,6 +33,8 @@ private:
     void setFontToLabel(QFont font);
     QSettings *settings;
     Ui::PreferencesDialog *ui;
+    QDir userStylesDir();
+    QStringList userStyleFiles();
 };
 
 #endif // PREFERENCESDIALOG_H

@@ -188,9 +188,13 @@ void MainWindow::applyHighlighterPreferences()
                                           QVariant(DEF_CLICKABLE_LINKS)).toBool();
     highlighter->setMakeLinksClickable(clickableLinks);
 
-    QString highlightingStyle = settings->value(SETTING_STYLE,
+    // TODO: handle cases where style file does not exist!
+    QString styleFilePath = settings->value(SETTING_STYLE,
                                                 QVariant(DEF_STYLE)).toString();
-    highlighter->getStylesFromStylesheet(":/styles/"+highlightingStyle, editor);
+    if (!QFile::exists(styleFilePath))
+        styleFilePath = DEF_STYLE;
+    highlighter->getStylesFromStylesheet(styleFilePath, editor);
+    qDebug() << "applied style from:" << styleFilePath;
 }
 
 void MainWindow::applyEditorPreferences()

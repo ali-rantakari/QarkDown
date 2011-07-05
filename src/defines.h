@@ -28,6 +28,6 @@
 #define DEF_CLICKABLE_LINKS     false
 #define DEF_HIGHLIGHT_CURRENT_LINE true
 #define DEF_LINE_HIGHLIGHT_COLOR QColor(Qt::yellow).lighter(180)
-#define DEF_STYLE               "default"
+#define DEF_STYLE               ":/styles/default"
 
 #endif // DEFAULTPREFERENCES_H

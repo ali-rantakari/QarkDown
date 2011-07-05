@@ -1,11 +1,11 @@
 #include "preferencesdialog.h"
 #include "ui_preferencesdialog.h"
 #include "defines.h"
+#include "qarkdownapplication.h"
 
 #include <QDebug>
 #include <QFontDialog>
 #include <QColorDialog>
-#include <QDir>
 
 PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     QDialog(parent),
@@ -49,6 +49,19 @@ void PreferencesDialog::setFontToLabel(QFont font)
 }
 
 
+QDir PreferencesDialog::userStylesDir()
+{
+    return QDir(((QarkdownApplication *)qApp)->applicationStoragePath() + "/styles/");
+}
+
+QStringList PreferencesDialog::userStyleFiles()
+{
+    QStringList nameFilters;
+    nameFilters << "*.style";
+    return userStylesDir().entryList(nameFilters);
+}
+
+
 // Some helper macros
 #define PREF_TO_UI_INT(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toInt())
 #define PREF_TO_UI_DOUBLE(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toDouble())
@@ -81,10 +94,31 @@ void PreferencesDialog::updateUIFromSettings()
     int i = 0;
     foreach (QString style, QDir(":/styles/").entryList())
     {
-        ui->stylesComboBox->addItem(style);
-        if (style == highlightingStyle)
+        QString builtinStyleFullPath = QDir(":/styles/" + style).absolutePath();
+        ui->stylesComboBox->addItem(style, QVariant(builtinStyleFullPath));
+        if (builtinStyleFullPath == highlightingStyle)
             ui->stylesComboBox->setCurrentIndex(i);
         i++;
+    }
+
+    // TODO: handle name collisions between built-in and user styles
+
+    QString userStylesDirPath = userStylesDir().absolutePath();
+    QStringList userStyles = userStyleFiles();
+    if (userStyles.length() > 0)
+    {
+        ui->stylesComboBox->insertSeparator(i);
+        i++;
+
+        foreach (QString styleFile, userStyles)
+        {
+            QString userStyleName = "user: " + styleFile;
+            QString userStyleFullPath = QDir(userStylesDirPath + "/" + styleFile).absolutePath();
+            ui->stylesComboBox->addItem(userStyleName, QVariant(userStyleFullPath));
+            if (userStyleFullPath == highlightingStyle)
+                ui->stylesComboBox->setCurrentIndex(i);
+            i++;
+        }
     }
 
     // others
@@ -106,7 +140,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_CLICKABLE_LINKS, ui->linksClickableCheckBox->isChecked());
     settings->setValue(SETTING_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox->isChecked());
     settings->setValue(SETTING_LINE_HIGHLIGHT_COLOR, ui->highlightLineColorLabel->palette().background().color());
-    settings->setValue(SETTING_STYLE, ui->stylesComboBox->currentText());
+    settings->setValue(SETTING_STYLE, ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString());
     settings->sync();
 }
 
