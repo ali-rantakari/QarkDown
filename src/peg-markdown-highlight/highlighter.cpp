@@ -189,6 +189,7 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
 
     style_collection *raw_styles = parse_styles((char *)stylesheet_cstring, NULL);
 
+    // Set language element styles
     for (int i = 0; i < NUM_LANG_TYPES; i++)
     {
         style_attribute *cur = raw_styles->element_styles[i];
@@ -201,6 +202,7 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
 
     this->setStyles(*styles);
 
+    // Set editor styles
     if (editor != NULL && raw_styles->editor_styles != NULL)
     {
         QPalette palette = editor->palette();
@@ -217,6 +219,8 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
 
         editor->setPalette(palette);
     }
+
+    free_style_collection(raw_styles);
 }
 
 void HGMarkdownHighlighter::clearFormatting()

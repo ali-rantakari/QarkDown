@@ -111,6 +111,19 @@ sem_value *new_sem_value(char *name, char *value)
     return v;
 }
 
+void free_sem_values(sem_value *list)
+{
+    sem_value *cur = list;
+    while (cur != NULL)
+    {
+        if (cur->name != NULL) free(cur->name);
+        if (cur->value != NULL) free(cur->value);
+        sem_value *this = cur;
+        cur = cur->next;
+        free(this);
+    }
+}
+
 static sem_value *cons(sem_value *elem, sem_value *list)
 {
     elem->next = list;
@@ -637,6 +650,8 @@ YY_ACTION(void) yy_2_StyleDef(GREG *G, char *yytext, int yyleng, yythunk *thunk,
   yyprintf((stderr, "do yy_2_StyleDef\n"));
    interpret_and_add_style((style_parser_data *)G->data,
                                           l->name, x);
+                  free_sem_values(x);
+                  free_sem_values(l);
                 ;
 #undef a
 #undef l
@@ -1018,10 +1033,47 @@ style_collection *parse_styles(char *input, void(*error_callback)(char*))
 {
     style_parser_data *p_data = new_style_parser_data(input);
     p_data->error_callback = error_callback;
+    
     _sty_parse(p_data);
-    return p_data->styles;
+    
+    style_collection *ret = p_data->styles;
+    free(p_data);
+    return ret;
 }
 
+void free_style_attributes(style_attribute *list)
+{
+    style_attribute *cur = list;
+    while (cur != NULL)
+    {
+        if (cur->name != NULL)
+            free(cur->name);
+        if (cur->value != NULL)
+        {
+            if (cur->type == attr_type_foreground_color
+                || cur->type == attr_type_background_color)
+                free(cur->value->argb_color);
+            if (cur->type == attr_type_font_family)
+                free(cur->value->font_family);
+            if (cur->type == attr_type_other)
+                free(cur->value->string);
+            free(cur->value);
+        }
+        style_attribute *this = cur;
+        cur = cur->next;
+        free(this);
+    }
+}
+
+void free_style_collection(style_collection *coll)
+{
+    free_style_attributes(coll->editor_styles);
+    int i;
+    for (i = 0; i < NUM_LANG_TYPES; i++)
+        free_style_attributes(coll->element_styles[i]);
+    free(coll->element_styles);
+    free(coll);
+}
 
 
 
