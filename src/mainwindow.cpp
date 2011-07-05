@@ -167,10 +167,15 @@ void MainWindow::decreaseFontSize()
 
 void MainWindow::about()
 {
-    QMessageBox::information(this, "About QarkDown",
-                             "Copyright 2011 Ali Rantakari"
-                             "\n\n"
-                             "http://hasseg.org/qarkdown");
+    QString title = "About " + QCoreApplication::applicationName();
+    QString msg =
+            QCoreApplication::applicationName() +
+            " version " + QCoreApplication::applicationVersion() +
+            "\n\n"
+            "Copyright 2011 Ali Rantakari"
+            "\n\n"
+            "http://hasseg.org/qarkdown";
+    QMessageBox::information(this, title, msg);
 }
 
 void MainWindow::applyHighlighterPreferences()
