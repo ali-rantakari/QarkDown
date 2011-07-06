@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QFontDialog>
 #include <QColorDialog>
+#include <QDesktopServices>
 
 PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     QDialog(parent),
@@ -16,6 +17,8 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
 
     stylesModel = new QStandardItemModel();
     ui->stylesComboBox->setModel(stylesModel);
+
+    ui->openStylesFolderButton->setToolTip(userStylesDir().absolutePath());
 
 #ifdef Q_WS_WIN
     QFont font = ui->infoLabel1->font();
@@ -38,7 +41,10 @@ void PreferencesDialog::setupConnections()
     connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accepted()));
     connect(ui->buttonBox, SIGNAL(rejected()), this, SLOT(rejected()));
     connect(ui->fontButton, SIGNAL(clicked()), this, SLOT(fontButtonClicked()));
-    connect(ui->highightLineColorButton, SIGNAL(clicked()), this, SLOT(lineHighlightColorButtonClicked()));
+    connect(ui->openStylesFolderButton, SIGNAL(clicked()),
+            this, SLOT(openStylesFolderButtonClicked()));
+    connect(ui->highightLineColorButton, SIGNAL(clicked()),
+            this, SLOT(lineHighlightColorButtonClicked()));
 }
 
 void PreferencesDialog::setFontToLabel(QFont font)
@@ -179,6 +185,11 @@ void PreferencesDialog::fontButtonClicked()
     if (!ok)
         return;
     setFontToLabel(newFont);
+}
+
+void PreferencesDialog::openStylesFolderButtonClicked()
+{
+    QDesktopServices::openUrl(QUrl("file:///" + userStylesDir().absolutePath()));
 }
 
 void PreferencesDialog::lineHighlightColorButtonClicked()

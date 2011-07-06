@@ -22,6 +22,7 @@ public slots:
     void accepted();
     void rejected();
     void fontButtonClicked();
+    void openStylesFolderButtonClicked();
     void lineHighlightColorButtonClicked();
 
 signals:
