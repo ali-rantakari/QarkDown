@@ -14,6 +14,9 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     settings = appSettings;
     ui->setupUi(this);
 
+    stylesModel = new QStandardItemModel();
+    ui->stylesComboBox->setModel(stylesModel);
+
 #ifdef Q_WS_WIN
     QFont font = ui->infoLabel1->font();
     font.setPointSize(7);
@@ -27,6 +30,7 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
 PreferencesDialog::~PreferencesDialog()
 {
     delete ui;
+    delete stylesModel;
 }
 
 void PreferencesDialog::setupConnections()
@@ -62,6 +66,60 @@ QStringList PreferencesDialog::userStyleFiles()
 }
 
 
+
+void PreferencesDialog::updateStylesCheckBoxFromSettings()
+{
+# define STYLABEL(varname, name) \
+    QStandardItem *varname = new QStandardItem(name);\
+    varname->setSelectable(false);\
+    varname->setEnabled(false);\
+    rootItem->appendRow(varname)
+# define STYITEM(name, data) \
+    QStandardItem *item = new QStandardItem(name);\
+    item->setData(QVariant(data), Qt::UserRole);\
+    rootItem->appendRow(item)
+
+    QString selectedStylePath = settings->value(SETTING_STYLE,
+                                                QVariant(DEF_STYLE)).toString();
+
+    stylesModel->clear();
+    QStandardItem *rootItem = stylesModel->invisibleRootItem();
+
+    int indexToSelect = 1;
+    int i = 0;
+
+    STYLABEL(builtinStylesLabel, "Built-in Styles:");
+    i++;
+
+    foreach (QString builtInStyleName, QDir(":/styles/").entryList())
+    {
+        QString builtinStyleFullPath = QDir(":/styles/" + builtInStyleName).absolutePath();
+        STYITEM(builtInStyleName, builtinStyleFullPath);
+        if (builtinStyleFullPath == selectedStylePath)
+            indexToSelect = i;
+        i++;
+    }
+
+    QString userStylesDirPath = userStylesDir().absolutePath();
+    QStringList userStyles = userStyleFiles();
+    if (userStyles.length() > 0)
+    {
+        STYLABEL(userStylesLabel, "User Styles:");
+        i++;
+
+        foreach (QString userStyleFile, userStyles)
+        {
+            QString userStyleFullPath = QDir(userStylesDirPath + "/" + userStyleFile).absolutePath();
+            STYITEM(QFileInfo(userStyleFile).baseName(), userStyleFullPath);
+            if (userStyleFullPath == selectedStylePath)
+                indexToSelect = i;
+            i++;
+        }
+    }
+    ui->stylesComboBox->setCurrentIndex(indexToSelect);
+}
+
+
 // Some helper macros
 #define PREF_TO_UI_INT(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toInt())
 #define PREF_TO_UI_DOUBLE(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toDouble())
@@ -88,38 +146,7 @@ void PreferencesDialog::updateUIFromSettings()
     ui->highlightLineColorLabel->setPalette(palette);
 
     // styles
-    QString highlightingStyle = settings->value(SETTING_STYLE,
-                                                QVariant(DEF_STYLE)).toString();
-    ui->stylesComboBox->clear();
-    int i = 0;
-    foreach (QString style, QDir(":/styles/").entryList())
-    {
-        QString builtinStyleFullPath = QDir(":/styles/" + style).absolutePath();
-        ui->stylesComboBox->addItem(style, QVariant(builtinStyleFullPath));
-        if (builtinStyleFullPath == highlightingStyle)
-            ui->stylesComboBox->setCurrentIndex(i);
-        i++;
-    }
-
-    // TODO: handle name collisions between built-in and user styles
-
-    QString userStylesDirPath = userStylesDir().absolutePath();
-    QStringList userStyles = userStyleFiles();
-    if (userStyles.length() > 0)
-    {
-        ui->stylesComboBox->insertSeparator(i);
-        i++;
-
-        foreach (QString styleFile, userStyles)
-        {
-            QString userStyleName = "user: " + styleFile;
-            QString userStyleFullPath = QDir(userStylesDirPath + "/" + styleFile).absolutePath();
-            ui->stylesComboBox->addItem(userStyleName, QVariant(userStyleFullPath));
-            if (userStyleFullPath == highlightingStyle)
-                ui->stylesComboBox->setCurrentIndex(i);
-            i++;
-        }
-    }
+    updateStylesCheckBoxFromSettings();
 
     // others
     PREF_TO_UI_INT(SETTING_TAB_WIDTH, DEF_TAB_WIDTH, ui->tabWidthSpinBox);
