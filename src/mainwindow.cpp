@@ -188,9 +188,11 @@ void MainWindow::applyHighlighterPreferences()
                                           QVariant(DEF_CLICKABLE_LINKS)).toBool();
     highlighter->setMakeLinksClickable(clickableLinks);
 
-    // TODO: handle cases where style file does not exist!
+    // Apply style
+    connect(highlighter, SIGNAL(styleParsingErrors(QStringList*)),
+            this, SLOT(reportStyleParsingErrors(QStringList*)));
     QString styleFilePath = settings->value(SETTING_STYLE,
-                                                QVariant(DEF_STYLE)).toString();
+                                            QVariant(DEF_STYLE)).toString();
     if (!QFile::exists(styleFilePath))
         styleFilePath = DEF_STYLE;
     highlighter->getStylesFromStylesheet(styleFilePath, editor);
@@ -318,6 +320,14 @@ void MainWindow::performStartupTasks()
             this, SLOT(preferencesUpdated()));
     connect(editor, SIGNAL(anchorClicked(QUrl)),
             this, SLOT(anchorClicked(QUrl)));
+}
+
+void MainWindow::reportStyleParsingErrors(QStringList *list)
+{
+    QString msg;
+    for (int i = 0; i < list->size(); i++)
+        msg += "-- " + list->at(i) + "\n";
+    QMessageBox::warning(this, "Errors in parsing style", msg);
 }
 
 void MainWindow::anchorClicked(const QUrl &link)

@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QSettings>
 #include <QSessionManager>
+#include <QStringList>
 
 #include "peg-markdown-highlight/highlighter.h"
 #include "preferencesdialog.h"
@@ -42,6 +43,8 @@ public slots:
     void commitDataHandler(QSessionManager &manager);
     void aboutToQuitHandler();
     void handleContentsChange(int position, int charsRemoved, int charsAdded);
+
+    void reportStyleParsingErrors(QStringList *list);
 
 private:
     void setupEditor();

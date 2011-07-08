@@ -29,6 +29,7 @@ HGMarkdownHighlighter::HGMarkdownHighlighter(QTextDocument *parent,
     workerThread = NULL;
     cached_elements = NULL;
     _makeLinksClickable = false;
+    styleParsingErrorList = new QStringList();
     _waitIntervalMilliseconds = (int)(aWaitInterval*1000);
     timer = new QTimer(this);
     timer->setSingleShot(true);
@@ -38,6 +39,12 @@ HGMarkdownHighlighter::HGMarkdownHighlighter(QTextDocument *parent,
     beginListeningForContentChanged();
 
     this->parse();
+}
+
+HGMarkdownHighlighter::~HGMarkdownHighlighter()
+{
+    delete styleParsingErrorList;
+    delete timer;
 }
 
 void HGMarkdownHighlighter::setStyles(QVector<HighlightingStyle> &styles)
@@ -174,6 +181,17 @@ QTextCharFormat getCharFormatFromStyleAttributes(style_attribute *list)
     return format;
 }
 
+
+void styleParserErrorCallback(char *error_message, void *context)
+{
+    ((HGMarkdownHighlighter*)context)->handleStyleParsingError(error_message);
+}
+
+void HGMarkdownHighlighter::handleStyleParsingError(char *error_message)
+{
+    styleParsingErrorList->append(QString(error_message));
+}
+
 void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainTextEdit *editor)
 {
     QString stylesheet;
@@ -187,7 +205,11 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
 
     QVector<HighlightingStyle> *styles = new QVector<HighlightingStyle>();
 
-    style_collection *raw_styles = parse_styles((char *)stylesheet_cstring, NULL);
+    styleParsingErrorList->clear();
+    style_collection *raw_styles = parse_styles((char *)stylesheet_cstring,
+                                                &styleParserErrorCallback, this);
+    if (styleParsingErrorList->count() > 0)
+        emit styleParsingErrors(styleParsingErrorList);
 
     // Set language element styles
     for (int i = 0; i < NUM_LANG_TYPES; i++)

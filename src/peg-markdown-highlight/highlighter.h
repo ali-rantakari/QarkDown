@@ -35,6 +35,8 @@ class HGMarkdownHighlighter : public QObject
 
 public:
     HGMarkdownHighlighter(QTextDocument *parent = 0, double aWaitInterval = 1);
+    ~HGMarkdownHighlighter();
+
     void highlightNow();
     void parseAndHighlightNow();
 
@@ -45,6 +47,11 @@ public:
     void setWaitInterval(double value);
     bool makeLinksClickable();
     void setMakeLinksClickable(bool value);
+
+    void handleStyleParsingError(char *error_message);
+
+signals:
+    void styleParsingErrors(QStringList *errors);
 
 protected:
     void beginListeningForContentChanged();
@@ -65,11 +72,13 @@ private:
     element **cached_elements;
     QVector<HighlightingStyle> *highlightingStyles;
     QString cachedContent;
+    QStringList *styleParsingErrorList;
 
     void clearFormatting();
     void highlight();
     void parse();
     void setDefaultStyles();
+
 };
 
 #endif
