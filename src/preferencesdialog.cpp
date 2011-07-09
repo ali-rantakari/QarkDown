@@ -15,6 +15,7 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
 {
     settings = appSettings;
     ui->setupUi(this);
+    ui->tabWidget->setCurrentIndex(0);
 
     stylesModel = new QStandardItemModel();
     ui->stylesComboBox->setModel(stylesModel);
