@@ -132,6 +132,7 @@ void PreferencesDialog::updateStylesCheckBoxFromSettings()
 #define PREF_TO_UI_INT(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toInt())
 #define PREF_TO_UI_DOUBLE(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toDouble())
 #define PREF_TO_UI_BOOL_CHECKBOX(pref, def, elem) elem->setChecked(settings->value(pref, QVariant(def)).toBool())
+#define PREF_TO_UI_BOOL_INVERT_CHECKBOX(pref, def, elem) elem->setChecked(!settings->value(pref, QVariant(def)).toBool())
 
 void PreferencesDialog::updateUIFromSettings()
 {
@@ -158,7 +159,7 @@ void PreferencesDialog::updateUIFromSettings()
 
     // others
     PREF_TO_UI_INT(SETTING_TAB_WIDTH, DEF_TAB_WIDTH, ui->tabWidthSpinBox);
-    PREF_TO_UI_BOOL_CHECKBOX(SETTING_INDENT_WITH_TABS, DEF_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox);
+    PREF_TO_UI_BOOL_INVERT_CHECKBOX(SETTING_INDENT_WITH_TABS, DEF_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox);
     PREF_TO_UI_DOUBLE(SETTING_HIGHLIGHT_INTERVAL, DEF_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox);
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_REMEMBER_LAST_FILE, DEF_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox);
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_CLICKABLE_LINKS, DEF_CLICKABLE_LINKS, ui->linksClickableCheckBox);
@@ -170,7 +171,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_FONT, ui->fontLabel->font().toString());
     settings->setValue(SETTING_TAB_WIDTH, ui->tabWidthSpinBox->value());
     settings->setValue(SETTING_HIGHLIGHT_INTERVAL, ui->highlightIntervalSpinBox->value());
-    settings->setValue(SETTING_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox->isChecked());
+    settings->setValue(SETTING_INDENT_WITH_TABS, !ui->tabsWithSpacesCheckBox->isChecked());
     settings->setValue(SETTING_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox->isChecked());
     settings->setValue(SETTING_CLICKABLE_LINKS, ui->linksClickableCheckBox->isChecked());
     settings->setValue(SETTING_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox->isChecked());
