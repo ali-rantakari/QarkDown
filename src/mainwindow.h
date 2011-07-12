@@ -27,6 +27,7 @@ public slots:
     void newFile();
     void openFile(const QString &path = QString());
     void saveFile();
+    void revertToSaved();
 
     void increaseFontSize();
     void decreaseFontSize();
@@ -65,6 +66,7 @@ private:
 
     QAction *findNextMenuAction;
     QAction *findPreviousMenuAction;
+    QAction *revertToSavedMenuAction;
 };
 
 #endif

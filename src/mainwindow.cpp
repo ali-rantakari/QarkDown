@@ -49,6 +49,7 @@ void MainWindow::newFile()
 {
     editor->clear();
     openFilePath = QString();
+    revertToSavedMenuAction->setEnabled(false);
     setDirty(false);
 }
 
@@ -69,6 +70,7 @@ void MainWindow::openFile(const QString &path)
 
     editor->setPlainText(file.readAll());
     openFilePath = fileName;
+    revertToSavedMenuAction->setEnabled(true);
 
     file.close();
     setDirty(false);
@@ -93,8 +95,16 @@ void MainWindow::saveFile()
     file.close();
 
     openFilePath = saveFilePath;
+    revertToSavedMenuAction->setEnabled(true);
     setWindowTitle(QFileInfo(openFilePath).fileName());
     setDirty(false);
+}
+
+void MainWindow::revertToSaved()
+{
+    if (openFilePath.isNull())
+        return;
+    openFile(openFilePath);
 }
 
 void MainWindow::persistFontInfo()
@@ -271,12 +281,15 @@ void MainWindow::setupFileMenu()
                         QKeySequence::Open);
     fileMenu->addAction(tr("&Save"), this, SLOT(saveFile()),
                         QKeySequence::Save);
+    revertToSavedMenuAction = fileMenu->addAction(tr("&Revert to Saved"), this,
+                                                  SLOT(revertToSaved()));
+    revertToSavedMenuAction->setEnabled(false);
     fileMenu->addAction(tr("E&xit"), qApp, SLOT(quit()),
                         QKeySequence::Quit);
 
     QMenu *editMenu = new QMenu(tr("&Edit"), this);
     menuBar()->addMenu(editMenu);
-    editMenu->addAction(tr("Find..."), this, SLOT(selectTextToSearchFor()),
+    editMenu->addAction(tr("&Find..."), this, SLOT(selectTextToSearchFor()),
                         QKeySequence::Find);
     findNextMenuAction = editMenu->addAction(tr("Find Next"),
                                              this, SLOT(findNextSearchMatch()),
@@ -293,7 +306,7 @@ void MainWindow::setupFileMenu()
                          QKeySequence("Ctrl++"));
     toolsMenu->addAction(tr("Decrease Font Size"), this, SLOT(decreaseFontSize()),
                          QKeySequence("Ctrl+-"));
-    toolsMenu->addAction(tr("Preferences..."), this, SLOT(showPreferences()),
+    toolsMenu->addAction(tr("&Preferences..."), this, SLOT(showPreferences()),
                          QKeySequence::Preferences);
 
     QMenu *helpMenu = new QMenu(tr("&Help"), this);
