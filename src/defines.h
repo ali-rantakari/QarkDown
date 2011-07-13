@@ -11,7 +11,6 @@
 #define SETTING_REMEMBER_WINDOW "RememberLastWindowSizeAndPos"
 #define SETTING_CLICKABLE_LINKS "ClickableLinks"
 #define SETTING_HIGHLIGHT_CURRENT_LINE "HighlightCurrentLine"
-#define SETTING_LINE_HIGHLIGHT_COLOR "LineHighlightColor"
 #define SETTING_STYLE "HighlightingStyle"
 
 #define SETTING_LAST_FILE "LastFile"

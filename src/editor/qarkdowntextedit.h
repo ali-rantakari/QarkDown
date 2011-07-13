@@ -6,6 +6,7 @@
 #include <QUrl>
 
 #include "linenumberingplaintextedit.h"
+#include "defines.h"
 
 class QarkdownTextEdit : public LineNumberingPlainTextEdit
 {

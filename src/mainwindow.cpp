@@ -5,7 +5,7 @@
 
 /*
 TODO:
-- Changing styles settings
+- Reset editor styles to defaults when parsing stylesheet
 - Tabbed interface; multiple files open
 - Document the highlighter interface
 - Use QTextOption::ShowTabsAndSpaces
@@ -206,6 +206,7 @@ void MainWindow::applyHighlighterPreferences()
     if (!QFile::exists(styleFilePath))
         styleFilePath = DEF_STYLE;
     highlighter->getStylesFromStylesheet(styleFilePath, editor);
+    editor->setCurrentLineHighlightColor(highlighter->currentLineHighlightColor);
     qDebug() << "applied style from:" << styleFilePath;
 }
 
@@ -231,9 +232,6 @@ void MainWindow::applyEditorPreferences()
     bool highlightCurrentLine = settings->value(SETTING_HIGHLIGHT_CURRENT_LINE,
                                                 QVariant(DEF_HIGHLIGHT_CURRENT_LINE)).toBool();
     editor->setHighlightCurrentLine(highlightCurrentLine);
-    QColor lineHighlightColor = settings->value(SETTING_LINE_HIGHLIGHT_COLOR,
-                                                QVariant(DEF_LINE_HIGHLIGHT_COLOR)).value<QColor>();
-    editor->setCurrentLineHighlightColor(lineHighlightColor);
 }
 
 void MainWindow::showPreferences()

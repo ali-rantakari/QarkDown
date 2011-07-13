@@ -27,6 +27,16 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     font.setPointSize(8);
     ui->infoLabel1->setFont(font);
     ui->infoLabel2->setFont(font);
+    ui->infoLabel3->setFont(font);
+    ui->linkInfoLabel->setFont(font);
+#endif
+
+#ifdef Q_WS_MACX
+    ui->linkInfoLabel->setText("If enabled, you can click on links while holding "
+                               "the Command key.");
+#else
+    ui->linkInfoLabel->setText("If enabled, you can click on links while holding "
+                               "the Ctrl key.");
 #endif
 
     setupConnections();
@@ -46,8 +56,6 @@ void PreferencesDialog::setupConnections()
     connect(ui->fontButton, SIGNAL(clicked()), this, SLOT(fontButtonClicked()));
     connect(ui->openStylesFolderButton, SIGNAL(clicked()),
             this, SLOT(openStylesFolderButtonClicked()));
-    connect(ui->highightLineColorButton, SIGNAL(clicked()),
-            this, SLOT(lineHighlightColorButtonClicked()));
 }
 
 void PreferencesDialog::setFontToLabel(QFont font)
@@ -148,13 +156,6 @@ void PreferencesDialog::updateUIFromSettings()
     }
     setFontToLabel(font);
 
-    // line highlight color
-    QColor lineHighlightColor = settings->value(SETTING_LINE_HIGHLIGHT_COLOR,
-                                                QVariant(DEF_LINE_HIGHLIGHT_COLOR)).value<QColor>();
-    QPalette palette = ui->highlightLineColorLabel->palette();
-    palette.setColor(ui->highlightLineColorLabel->backgroundRole(), lineHighlightColor);
-    ui->highlightLineColorLabel->setPalette(palette);
-
     // styles
     updateStylesCheckBoxFromSettings();
 
@@ -176,7 +177,6 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox->isChecked());
     settings->setValue(SETTING_CLICKABLE_LINKS, ui->linksClickableCheckBox->isChecked());
     settings->setValue(SETTING_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox->isChecked());
-    settings->setValue(SETTING_LINE_HIGHLIGHT_COLOR, ui->highlightLineColorLabel->palette().background().color());
     settings->setValue(SETTING_STYLE, ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString());
     settings->sync();
 }
@@ -208,15 +208,6 @@ void PreferencesDialog::openStylesFolderButtonClicked()
                                  + " could not open the folder. You'll have to do it "
                                  + "manually. The path is:\n\n"
                                  + stylesDirPath);
-}
-
-void PreferencesDialog::lineHighlightColorButtonClicked()
-{
-    QColor currColor = ui->highlightLineColorLabel->palette().background().color();
-    QColor newColor = QColorDialog::getColor(currColor, this);
-    QPalette palette = ui->highlightLineColorLabel->palette();
-    palette.setColor(ui->highlightLineColorLabel->backgroundRole(), newColor);
-    ui->highlightLineColorLabel->setPalette(palette);
 }
 
 void PreferencesDialog::accepted()

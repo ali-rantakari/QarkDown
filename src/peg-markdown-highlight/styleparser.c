@@ -15,7 +15,6 @@ struct _GREG;
  */
 
 #include "styleparser.h"
-#include <stdbool.h>
 #include <stdarg.h>
 #include <ctype.h>
 
@@ -49,38 +48,6 @@ int our_vasprintf(char **strptr, const char *fmt, va_list argptr)
 #define YY_NAME(N) style_yy##N
 
 
-attr_argb_color *new_argb_color(int r, int g, int b, int a) {
-    attr_argb_color *c = (attr_argb_color *)malloc(sizeof(attr_argb_color));
-    c->red = r; c->green = g; c->blue = b; c->alpha = a;
-    return c;
-}
-attr_argb_color *new_argb_from_hex(long hex, bool has_alpha) {
-    // 0xaarrggbb
-    int a = has_alpha ? ((hex >> 24) & 0xFF) : 255;
-    int r = ((hex >> 16) & 0xFF);
-    int g = ((hex >> 8) & 0xFF);
-    int b = (hex & 0xFF);
-    return new_argb_color(r,g,b,a);
-}
-attr_argb_color *new_argb_from_hex_str(char *str) {
-    // "aarrggbb"
-    long num = strtol(str, NULL, 16);
-    return new_argb_from_hex(num, (strlen(str) == 8));
-}
-
-attr_value *new_attr_value() {
-    return (attr_value *)malloc(sizeof(attr_value));
-}
-
-style_attribute *new_attr(char *name, attr_type type) {
-    style_attribute *attr = (style_attribute *)malloc(sizeof(style_attribute));
-    attr->name = strdup(name);
-    attr->type = type;
-    attr->next = NULL;
-    return attr;
-}
-
-
 // Parsing context data
 typedef struct
 {
@@ -91,10 +58,6 @@ typedef struct
     int styles_pos;
     style_collection *styles;
 } style_parser_data;
-
-
-
-
 
 typedef struct sem_value
 {
@@ -131,6 +94,146 @@ static sem_value *cons(sem_value *elem, sem_value *list)
     return elem;
 }
 
+void report_error(style_parser_data *p_data, char *str, ...)
+{
+    if (p_data->error_callback == NULL)
+        return;
+    va_list argptr;
+    va_start(argptr, str);
+    char *errmsg;
+    our_vasprintf(&errmsg, str, argptr);
+    va_end(argptr);
+    p_data->error_callback(errmsg, p_data->error_callback_context);
+    free(errmsg);
+}
+
+
+
+char *trim_str(char *str)
+{
+    while (isspace(*str))
+        str++;
+    if (*str == '\0')
+        return str;
+    char *end = str + strlen(str) - 1;
+    while (end > str && isspace(*end))
+        end--;
+    *(end+1) = '\0';
+    return str;
+}
+
+char *strcpy_lower(char *str)
+{
+    char *low = strdup(str);
+    int i;
+    int len = strlen(str);
+    for (i = 0; i < len; i++)
+        *(low+i) = tolower(*(low+i));
+    return low;
+}
+
+char *standardize_str(char *str)
+{
+    return strcpy_lower(trim_str(str));
+}
+
+
+
+
+attr_argb_color *new_argb_color(int r, int g, int b, int a)
+{
+    attr_argb_color *c = (attr_argb_color *)malloc(sizeof(attr_argb_color));
+    c->red = r; c->green = g; c->blue = b; c->alpha = a;
+    return c;
+}
+attr_argb_color *new_argb_from_hex(long hex, bool has_alpha)
+{
+    // 0xaarrggbb
+    int a = has_alpha ? ((hex >> 24) & 0xFF) : 255;
+    int r = ((hex >> 16) & 0xFF);
+    int g = ((hex >> 8) & 0xFF);
+    int b = (hex & 0xFF);
+    return new_argb_color(r,g,b,a);
+}
+attr_argb_color *new_argb_from_hex_str(style_parser_data *p_data, char *str)
+{
+    // "aarrggbb"
+    int len = strlen(str);
+    if (len != 6 && len != 8) {
+        report_error(p_data,
+                     "Value '%s' is not a valid color value: it should be a "
+                     "hexadecimal number, 6 or 8 characters long.",
+                     str);
+        return NULL;
+    }
+    char *endptr = NULL;
+    long num = strtol(str, &endptr, 16);
+    if (*endptr != '\0') {
+        report_error(p_data,
+                     "Value '%s' is not a valid color value: the character "
+                     "'%c' is invalid. The color value should be a hexadecimal "
+                     "number, 6 or 8 characters long.",
+                     str, *endptr);
+        return NULL;
+    }
+    return new_argb_from_hex(num, (len == 8));
+}
+
+attr_value *new_attr_value()
+{
+    return (attr_value *)malloc(sizeof(attr_value));
+}
+
+attr_font_styles *new_font_styles()
+{
+    attr_font_styles *ret = (attr_font_styles *)
+                            malloc(sizeof(attr_font_styles));
+    ret->italic = false;
+    ret->bold = false;
+    ret->underlined = false;
+    return ret;
+}
+
+style_attribute *new_attr(char *name, attr_type type)
+{
+    style_attribute *attr = (style_attribute *)malloc(sizeof(style_attribute));
+    attr->name = strdup(name);
+    attr->type = type;
+    attr->next = NULL;
+    return attr;
+}
+
+void free_style_attributes(style_attribute *list)
+{
+    style_attribute *cur = list;
+    while (cur != NULL)
+    {
+        if (cur->name != NULL)
+            free(cur->name);
+        if (cur->value != NULL)
+        {
+            if (cur->type == attr_type_foreground_color
+                || cur->type == attr_type_background_color
+                || cur->type == attr_type_caret_color)
+                free(cur->value->argb_color);
+            else if (cur->type == attr_type_font_family)
+                free(cur->value->font_family);
+            else if (cur->type == attr_type_font_style)
+                free(cur->value->font_styles);
+            else if (cur->type == attr_type_other)
+                free(cur->value->string);
+            free(cur->value);
+        }
+        style_attribute *this = cur;
+        cur = cur->next;
+        free(this);
+    }
+}
+
+
+
+
+
 
 char **get_element_type_names()
 {
@@ -138,6 +241,9 @@ char **get_element_type_names()
     if (elem_type_names == NULL)
     {
         elem_type_names = (char **)malloc(sizeof(char*) * NUM_LANG_TYPES);
+        int i;
+        for (i = 0; i < NUM_LANG_TYPES; i++)
+            elem_type_names[i] = NULL;
         elem_type_names[LINK] = "LINK";
         elem_type_names[AUTO_LINK_URL] = "AUTO_LINK_URL";
         elem_type_names[AUTO_LINK_EMAIL] = "AUTO_LINK_EMAIL";
@@ -173,7 +279,10 @@ element_type element_type_from_name(char *name)
     int i;
     for (i = 0; i < NUM_LANG_TYPES; i++)
     {
-        if (strcmp(elem_type_names[i], name) == 0)
+        char *i_name = elem_type_names[i];
+        if (i_name == NULL)
+            continue;
+        if (strcmp(i_name, name) == 0)
             return i;
     }
     
@@ -183,7 +292,10 @@ element_type element_type_from_name(char *name)
 char *element_name_from_type(element_type type)
 {
     char **elem_type_names = get_element_type_names();
-    return elem_type_names[type];
+    char* ret = elem_type_names[type];
+    if (ret == NULL)
+        return "unknown type";
+    return ret;
 }
 
 
@@ -195,10 +307,11 @@ attr_type attr_type_from_name(char *name)
     else IF_ATTR_NAME("foreground-color") return attr_type_foreground_color;
     else IF_ATTR_NAME("background") return attr_type_background_color;
     else IF_ATTR_NAME("background-color") return attr_type_background_color;
+    else IF_ATTR_NAME("caret") return attr_type_caret_color;
+    else IF_ATTR_NAME("caret-color") return attr_type_caret_color;
     else IF_ATTR_NAME("font-size") return attr_type_font_size_pt;
     else IF_ATTR_NAME("font-family") return attr_type_font_family;
     else IF_ATTR_NAME("font-style") return attr_type_font_style;
-    else IF_ATTR_NAME("font-weight") return attr_type_font_weight;
     return attr_type_other;
 }
 
@@ -210,46 +323,62 @@ char *attr_name_from_type(attr_type type)
             return "foreground-color"; break;
         case attr_type_background_color:
             return "background-color"; break;
+        case attr_type_caret_color:
+            return "caret-color"; break;
         case attr_type_font_size_pt:
             return "font-size"; break;
         case attr_type_font_family:
             return "font-family"; break;
         case attr_type_font_style:
             return "font-style"; break;
-        case attr_type_font_weight:
-            return "font-weight"; break;
         default:
             return "unknown";
     }
 }
 
 
-void report_error(style_parser_data *p_data, char *str, ...)
+typedef struct multi_value
 {
-    if (p_data->error_callback == NULL)
-        return;
-    va_list argptr;
-    va_start(argptr, str);
-    char *errmsg;
-    our_vasprintf(&errmsg, str, argptr);
-    va_end(argptr);
-    p_data->error_callback(errmsg, p_data->error_callback_context);
-    free(errmsg);
+    char *value;
+    struct multi_value *next;
+} multi_value;
+
+multi_value *split_multi_value(char *input)
+{
+    multi_value *head = NULL;
+    
+    char *c = input;
+    while (*c != '\0')
+    {
+        size_t i;
+        for (i = 0; (*(c+i) != '\0' && *(c+i) != ','); i++);
+        multi_value *mv = (multi_value *)malloc(sizeof(multi_value));
+        mv->value = (char *)malloc(sizeof(char)*i + 1);
+        *mv->value = '\0';
+        strncat(mv->value, c, i);
+        mv->next = head;
+        head = mv;
+        if (*(c+i) == ',')
+            i++;
+        c += i;
+    }
+    
+    return head;
+}
+
+void free_multi_value(multi_value *val)
+{
+    multi_value *cur = val;
+    while (cur != NULL)
+    {
+        multi_value *this = cur;
+        free(this->value);
+        free(this);
+        cur = cur->next;
+    }
 }
 
 
-char *trim_str(char *str)
-{
-    while (isspace(*str))
-        str++;
-    if (*str == '\0')
-        return str;
-    char *end = str + strlen(str) - 1;
-    while (end > str && isspace(*end))
-        end--;
-    *(end+1) = '\0';
-    return str;
-}
 
 
 #define EQUALS(a,b) (strcmp(a, b) == 0)
@@ -268,17 +397,27 @@ style_attribute *interpret_attributes(style_parser_data *p_data,
         attr->value = new_attr_value();
         
         if (atype == attr_type_foreground_color
-            || atype == attr_type_background_color)
+            || atype == attr_type_background_color
+            || atype == attr_type_caret_color)
         {
-            // todo: handle conversion errors somehow
             char *hexstr = trim_str(cur->value);
-            attr->value->argb_color = new_argb_from_hex_str(hexstr);
+            // new_argb_from_hex_str() reports conversion errors
+            attr->value->argb_color = new_argb_from_hex_str(p_data, hexstr);
+            if (attr->value->argb_color == NULL) {
+                free_style_attributes(attr);
+                attr = NULL;
+            }
         }
         else if (atype == attr_type_font_size_pt)
         {
-            // todo: trim non-digits off from value (e.g. "14pt")
-            // todo: handle conversion errors somehow
-            attr->value->font_size_pt = atoi(cur->value);
+            char *endptr = NULL;
+            attr->value->font_size_pt = (int)strtol(cur->value, &endptr, 10);
+            if (endptr == cur->value) {
+                report_error(p_data, "Value '%s' is invalid for attribute '%s'",
+                             cur->value, cur->name);
+                free_style_attributes(attr);
+                attr = NULL;
+            }
         }
         else if (atype == attr_type_font_family)
         {
@@ -286,36 +425,39 @@ style_attribute *interpret_attributes(style_parser_data *p_data,
         }
         else if (atype == attr_type_font_style)
         {
-            // todo: standardize input (trim; lowercase)
-            attr_font_style style = attr_font_style_normal;
-            if (EQUALS(cur->value, "italic"))
-                style = attr_font_style_italic;
-            else if (EQUALS(cur->value, "condensed"))
-                style = attr_font_style_condensed;
-            else
-                report_error(p_data, "Value '%s' is invalid for attribute '%s'",
-                             cur->value, cur->name);
-            attr->value->font_style = style;
-        }
-        else if (atype == attr_type_font_weight)
-        {
-            // todo: standardize input (trim; lowercase)
-            attr_font_weight weight = attr_font_weight_normal;
-            if (EQUALS(cur->value, "bold"))
-                weight = attr_font_weight_bold;
-            else
-                report_error(p_data, "Value '%s' is invalid for attribute '%s'",
-                             cur->value, cur->name);
-            attr->value->font_weight = weight;
+            attr->value->font_styles = new_font_styles();
+            multi_value *values = split_multi_value(cur->value);
+            multi_value *value_cur = values;
+            while (value_cur != NULL)
+            {
+                char *standardized_value = standardize_str(value_cur->value);
+                
+                if (EQUALS(standardized_value, "italic"))
+                    attr->value->font_styles->italic = true;
+                else if (EQUALS(standardized_value, "bold"))
+                    attr->value->font_styles->bold = true;
+                else if (EQUALS(standardized_value, "underlined"))
+                    attr->value->font_styles->underlined = true;
+                else {
+                    report_error(p_data, "Value '%s' is invalid for attribute '%s'",
+                                 standardized_value, cur->name);
+                }
+                
+                free(standardized_value);
+                value_cur = value_cur->next;
+            }
+            free_multi_value(values);
         }
         else if (atype == attr_type_other)
         {
             attr->value->string = strdup(cur->value);
         }
         
-        // add to linked list
-        attr->next = attrs;
-        attrs = attr;
+        if (attr != NULL) {
+            // add to linked list
+            attr->next = attrs;
+            attrs = attr;
+        }
         
         cur = cur->next;
     }
@@ -324,26 +466,38 @@ style_attribute *interpret_attributes(style_parser_data *p_data,
 }
 
 
-// The element_type value that stands in as an indicator of "editor-wide"
-// style definitions:
-#define EDITOR_STYLE_TYPE  SEPARATOR
-
 void interpret_and_add_style(style_parser_data *p_data,
                              char *element_type_name,
                              sem_value *raw_attributes)
 {
+    bool isEditorType = false;
+    bool isCurrentLineType = false;
+    bool isSelectionType = false;
     element_type type = element_type_from_name(element_type_name);
-    if (EQUALS(element_type_name, "editor"))
-        type = EDITOR_STYLE_TYPE;
-    if (type == NO_TYPE) {
-        report_error(p_data,
-            "Style rule '%s' is not a language element type name or 'editor'",
-            element_type_name);
-        return;
+    if (type == NO_TYPE)
+    {
+        if (EQUALS(element_type_name, "editor"))
+            isEditorType = true, type = NO_TYPE;
+        else if (EQUALS(element_type_name, "editor-current-line"))
+            isCurrentLineType = true, type = NO_TYPE;
+        else if (EQUALS(element_type_name, "editor-selection"))
+            isSelectionType = true, type = NO_TYPE;
+        else {
+            report_error(p_data,
+                "Style rule '%s' is not a language element type name or "
+                "one of the following: 'editor', 'editor-current-line', "
+                "'editor-selection'",
+                element_type_name);
+            return;
+        }
     }
     style_attribute *attrs = interpret_attributes(p_data, type, raw_attributes);
-    if (type == EDITOR_STYLE_TYPE)
+    if (isEditorType)
         p_data->styles->editor_styles = attrs;
+    else if (isCurrentLineType)
+        p_data->styles->editor_current_line_styles = attrs;
+    else if (isSelectionType)
+        p_data->styles->editor_selection_styles = attrs;
     else
         p_data->styles->element_styles[(p_data->styles_pos)++] = attrs;
 }
@@ -606,11 +760,11 @@ YY_RULE(int) yy_Spacechar(GREG *G); /* 18 */
 YY_RULE(int) yy_BeginLineComment(GREG *G); /* 17 */
 YY_RULE(int) yy_AttrValueChar(GREG *G); /* 16 */
 YY_RULE(int) yy_AttrNameChar(GREG *G); /* 15 */
-YY_RULE(int) yy_AssignOp(GREG *G); /* 14 */
-YY_RULE(int) yy_Eof(GREG *G); /* 13 */
-YY_RULE(int) yy_StyleAttr(GREG *G); /* 12 */
-YY_RULE(int) yy_Indent(GREG *G); /* 11 */
-YY_RULE(int) yy_StyleLabelChar(GREG *G); /* 10 */
+YY_RULE(int) yy_Eof(GREG *G); /* 14 */
+YY_RULE(int) yy_StyleAttr(GREG *G); /* 13 */
+YY_RULE(int) yy_AssignOp(GREG *G); /* 12 */
+YY_RULE(int) yy_StyleLabelChar(GREG *G); /* 11 */
+YY_RULE(int) yy_Indent(GREG *G); /* 10 */
 YY_RULE(int) yy_StyleAttrLine(GREG *G); /* 9 */
 YY_RULE(int) yy_Newline(GREG *G); /* 8 */
 YY_RULE(int) yy_Sp(GREG *G); /* 7 */
@@ -724,85 +878,82 @@ YY_RULE(int) yy_AttrNameChar(GREG *G)
   yyprintf((stderr, "  fail %s @ %s\n", "AttrNameChar", G->buf+G->pos));
   return 0;
 }
-YY_RULE(int) yy_AssignOp(GREG *G)
-{  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "AssignOp"));
-  {  int yypos11= G->pos, yythunkpos11= G->thunkpos;  if (!yymatchChar(G, ':')) goto l12;  goto l11;
-  l12:;	  G->pos= yypos11; G->thunkpos= yythunkpos11;  if (!yymatchChar(G, '=')) goto l10;
-  }
-  l11:;	
-  yyprintf((stderr, "  ok   %s @ %s\n", "AssignOp", G->buf+G->pos));
-  return 1;
-  l10:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
-  yyprintf((stderr, "  fail %s @ %s\n", "AssignOp", G->buf+G->pos));
-  return 0;
-}
 YY_RULE(int) yy_Eof(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Eof"));
-  {  int yypos14= G->pos, yythunkpos14= G->thunkpos;  if (!yymatchDot(G)) goto l14;  goto l13;
-  l14:;	  G->pos= yypos14; G->thunkpos= yythunkpos14;
+  {  int yypos11= G->pos, yythunkpos11= G->thunkpos;  if (!yymatchDot(G)) goto l11;  goto l10;
+  l11:;	  G->pos= yypos11; G->thunkpos= yythunkpos11;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Eof", G->buf+G->pos));
   return 1;
-  l13:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l10:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Eof", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StyleAttr(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleAttr"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l15;  if (!yy_AttrNameChar(G)) { goto l15; }
-  l16:;	
-  {  int yypos17= G->pos, yythunkpos17= G->thunkpos;  if (!yy_AttrNameChar(G)) { goto l17; }  goto l16;
-  l17:;	  G->pos= yypos17; G->thunkpos= yythunkpos17;
-  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l15;  yyDo(G, yy_1_StyleAttr, G->begin, G->end);  if (!yy_Sp(G)) { goto l15; }  if (!yy_AssignOp(G)) { goto l15; }  if (!yy_Sp(G)) { goto l15; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l15;  if (!yy_AttrValueChar(G)) { goto l15; }
-  l18:;	
-  {  int yypos19= G->pos, yythunkpos19= G->thunkpos;  if (!yy_AttrValueChar(G)) { goto l19; }  goto l18;
-  l19:;	  G->pos= yypos19; G->thunkpos= yythunkpos19;
-  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l15;  yyDo(G, yy_2_StyleAttr, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "StyleAttr"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l12;  if (!yy_AttrNameChar(G)) { goto l12; }
+  l13:;	
+  {  int yypos14= G->pos, yythunkpos14= G->thunkpos;  if (!yy_AttrNameChar(G)) { goto l14; }  goto l13;
+  l14:;	  G->pos= yypos14; G->thunkpos= yythunkpos14;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l12;  yyDo(G, yy_1_StyleAttr, G->begin, G->end);  if (!yy_Sp(G)) { goto l12; }  if (!yy_AssignOp(G)) { goto l12; }  if (!yy_Sp(G)) { goto l12; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l12;  if (!yy_AttrValueChar(G)) { goto l12; }
+  l15:;	
+  {  int yypos16= G->pos, yythunkpos16= G->thunkpos;  if (!yy_AttrValueChar(G)) { goto l16; }  goto l15;
+  l16:;	  G->pos= yypos16; G->thunkpos= yythunkpos16;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l12;  yyDo(G, yy_2_StyleAttr, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleAttr", G->buf+G->pos));
   return 1;
-  l15:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l12:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleAttr", G->buf+G->pos));
   return 0;
 }
-YY_RULE(int) yy_Indent(GREG *G)
+YY_RULE(int) yy_AssignOp(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "Indent"));
-  {  int yypos21= G->pos, yythunkpos21= G->thunkpos;  if (!yymatchChar(G, '\t')) goto l22;  goto l21;
-  l22:;	  G->pos= yypos21; G->thunkpos= yythunkpos21;  if (!yymatchString(G, "    ")) goto l20;
+  yyprintf((stderr, "%s\n", "AssignOp"));
+  {  int yypos18= G->pos, yythunkpos18= G->thunkpos;  if (!yymatchChar(G, ':')) goto l19;  goto l18;
+  l19:;	  G->pos= yypos18; G->thunkpos= yythunkpos18;  if (!yymatchChar(G, '=')) goto l17;
   }
-  l21:;	
-  yyprintf((stderr, "  ok   %s @ %s\n", "Indent", G->buf+G->pos));
+  l18:;	
+  yyprintf((stderr, "  ok   %s @ %s\n", "AssignOp", G->buf+G->pos));
   return 1;
-  l20:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
-  yyprintf((stderr, "  fail %s @ %s\n", "Indent", G->buf+G->pos));
+  l17:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  yyprintf((stderr, "  fail %s @ %s\n", "AssignOp", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StyleLabelChar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleLabelChar"));  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\000\377\003\376\377\377\207\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l23;
+  yyprintf((stderr, "%s\n", "StyleLabelChar"));  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\040\377\003\376\377\377\207\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l20;
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleLabelChar", G->buf+G->pos));
   return 1;
-  l23:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l20:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleLabelChar", G->buf+G->pos));
   return 0;
 }
+YY_RULE(int) yy_Indent(GREG *G)
+{
+  yyprintf((stderr, "%s\n", "Indent"));
+  l22:;	
+  {  int yypos23= G->pos, yythunkpos23= G->thunkpos;
+  {  int yypos24= G->pos, yythunkpos24= G->thunkpos;  if (!yymatchChar(G, '\t')) goto l25;  goto l24;
+  l25:;	  G->pos= yypos24; G->thunkpos= yythunkpos24;  if (!yymatchChar(G, ' ')) goto l23;
+  }
+  l24:;	  goto l22;
+  l23:;	  G->pos= yypos23; G->thunkpos= yythunkpos23;
+  }
+  yyprintf((stderr, "  ok   %s @ %s\n", "Indent", G->buf+G->pos));
+  return 1;
+}
 YY_RULE(int) yy_StyleAttrLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "StyleAttrLine"));
-  {  int yypos25= G->pos, yythunkpos25= G->thunkpos;  if (!yy_Indent(G)) { goto l25; }  goto l26;
-  l25:;	  G->pos= yypos25; G->thunkpos= yythunkpos25;
-  }
-  l26:;	  if (!yy_StyleAttr(G)) { goto l24; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l24; }
+  yyprintf((stderr, "%s\n", "StyleAttrLine"));  if (!yy_Indent(G)) { goto l26; }  if (!yy_StyleAttr(G)) { goto l26; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l26; }
   {  int yypos27= G->pos, yythunkpos27= G->thunkpos;  if (!yy_LineComment(G)) { goto l28; }  goto l27;
   l28:;	  G->pos= yypos27; G->thunkpos= yythunkpos27;  if (!yy_Newline(G)) { goto l29; }  goto l27;
-  l29:;	  G->pos= yypos27; G->thunkpos= yythunkpos27;  if (!yy_Eof(G)) { goto l24; }
+  l29:;	  G->pos= yypos27; G->thunkpos= yythunkpos27;  if (!yy_Eof(G)) { goto l26; }
   }
   l27:;	  yyDo(G, yy_1_StyleAttrLine, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleAttrLine", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l24:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l26:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleAttrLine", G->buf+G->pos));
   return 0;
 }
@@ -835,15 +986,15 @@ YY_RULE(int) yy_Sp(GREG *G)
 }
 YY_RULE(int) yy_StyleLabel(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleLabel"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l38;
-  {  int yypos39= G->pos, yythunkpos39= G->thunkpos;  if (!yymatchString(G, "editor")) goto l40;  goto l39;
-  l40:;	  G->pos= yypos39; G->thunkpos= yythunkpos39;  if (!yy_StyleLabelChar(G)) { goto l38; }
-  l41:;	
-  {  int yypos42= G->pos, yythunkpos42= G->thunkpos;  if (!yy_StyleLabelChar(G)) { goto l42; }  goto l41;
-  l42:;	  G->pos= yypos42; G->thunkpos= yythunkpos42;
+  yyprintf((stderr, "%s\n", "StyleLabel"));  if (!yy_Indent(G)) { goto l38; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l38;  if (!yy_StyleLabelChar(G)) { goto l38; }
+  l39:;	
+  {  int yypos40= G->pos, yythunkpos40= G->thunkpos;  if (!yy_StyleLabelChar(G)) { goto l40; }  goto l39;
+  l40:;	  G->pos= yypos40; G->thunkpos= yythunkpos40;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l38;  yyDo(G, yy_1_StyleLabel, G->begin, G->end);  if (!yy_Sp(G)) { goto l38; }
+  {  int yypos41= G->pos, yythunkpos41= G->thunkpos;  if (!yy_AssignOp(G)) { goto l41; }  goto l42;
+  l41:;	  G->pos= yypos41; G->thunkpos= yythunkpos41;
   }
-  }
-  l39:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l38;  yyDo(G, yy_1_StyleLabel, G->begin, G->end);
+  l42:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleLabel", G->buf+G->pos));
   return 1;
   l38:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
@@ -1015,8 +1166,22 @@ style_collection *new_style_collection()
         sc->element_styles[i] = NULL;
     
     sc->editor_styles = NULL;
+    sc->editor_current_line_styles = NULL;
+    sc->editor_selection_styles = NULL;
     
     return sc;
+}
+
+void free_style_collection(style_collection *coll)
+{
+    free_style_attributes(coll->editor_styles);
+    free_style_attributes(coll->editor_current_line_styles);
+    free_style_attributes(coll->editor_selection_styles);
+    int i;
+    for (i = 0; i < NUM_LANG_TYPES; i++)
+        free_style_attributes(coll->element_styles[i]);
+    free(coll->element_styles);
+    free(coll);
 }
 
 style_parser_data *new_style_parser_data(char *input)
@@ -1042,40 +1207,6 @@ style_collection *parse_styles(char *input, void(*error_callback)(char*,void*),
     style_collection *ret = p_data->styles;
     free(p_data);
     return ret;
-}
-
-void free_style_attributes(style_attribute *list)
-{
-    style_attribute *cur = list;
-    while (cur != NULL)
-    {
-        if (cur->name != NULL)
-            free(cur->name);
-        if (cur->value != NULL)
-        {
-            if (cur->type == attr_type_foreground_color
-                || cur->type == attr_type_background_color)
-                free(cur->value->argb_color);
-            if (cur->type == attr_type_font_family)
-                free(cur->value->font_family);
-            if (cur->type == attr_type_other)
-                free(cur->value->string);
-            free(cur->value);
-        }
-        style_attribute *this = cur;
-        cur = cur->next;
-        free(this);
-    }
-}
-
-void free_style_collection(style_collection *coll)
-{
-    free_style_attributes(coll->editor_styles);
-    int i;
-    for (i = 0; i < NUM_LANG_TYPES; i++)
-        free_style_attributes(coll->element_styles[i]);
-    free(coll->element_styles);
-    free(coll);
 }
 
 

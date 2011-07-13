@@ -17,7 +17,7 @@ QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
     _spacesIndentWidthHint = 4;
     _anchorClickKeyModifiers = Qt::NoModifier;
     _highlightCurrentLine = true;
-    _lineHighlightColor = QColor(Qt::yellow).lighter(180);
+    _lineHighlightColor = DEF_LINE_HIGHLIGHT_COLOR;
 
     connect(this, SIGNAL(cursorPositionChanged()),
             this, SLOT(applyHighlightingToCurrentLine()));
@@ -76,7 +76,7 @@ QColor QarkdownTextEdit::currentLineHighlightColor()
 
 void QarkdownTextEdit::setCurrentLineHighlightColor(QColor value)
 {
-    _lineHighlightColor = value;
+    _lineHighlightColor = (value.isValid()) ? value : DEF_LINE_HIGHLIGHT_COLOR;
 }
 
 

@@ -6,14 +6,15 @@
 editor
 foreground: 93a1a1 # base1
 background: 002b36 # base03
+caret: ffffff
 
 H1
 foreground: 6c71c4 # violet
-font-weight: bold
+font-style: bold
 
 H2
 foreground: 6c71c4 # violet
-font-weight: bold
+font-style: bold
 
 H3
 foreground: 6c71c4 # violet
@@ -60,7 +61,7 @@ font-style: italic
 
 STRONG
 foreground: dc322f # red
-font-weight: bold
+font-style: bold
 
 HTML_ENTITY
 foreground: 6c71c4 # violet

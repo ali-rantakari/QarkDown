@@ -1,5 +1,6 @@
 
 #include "markdown_definitions.h"
+#include <stdbool.h>
 
 // Attribute value types
 typedef struct
@@ -10,39 +11,32 @@ typedef struct
     int alpha;
 } attr_argb_color;
 
-typedef enum
-{
-    attr_font_style_normal,
-    attr_font_style_condensed,
-    attr_font_style_italic
-} attr_font_style;
-
-typedef enum
-{
-    attr_font_weight_normal,
-    attr_font_weight_bold
-} attr_font_weight;
-
 // Style attribute types
 typedef enum
 {
     attr_type_foreground_color,
     attr_type_background_color,
+    attr_type_caret_color,
     attr_type_font_size_pt,
     attr_type_font_family,
     attr_type_font_style,
-    attr_type_font_weight,
     attr_type_other
 } attr_type;
+
+typedef struct
+{
+    bool italic;
+    bool bold;
+    bool underlined;
+} attr_font_styles;
 
 // Style attribute value
 typedef union
 {
     attr_argb_color *argb_color;
+    attr_font_styles *font_styles;
     int font_size_pt;
     char *font_family;
-    attr_font_style font_style;
-    attr_font_weight font_weight;
     char *string;
 } attr_value;
 
@@ -60,6 +54,8 @@ typedef struct style_attribute
 typedef struct
 {
     style_attribute *editor_styles;
+    style_attribute *editor_current_line_styles;
+    style_attribute *editor_selection_styles;
     style_attribute **element_styles;
 } style_collection;
 

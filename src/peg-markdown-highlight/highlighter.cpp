@@ -172,10 +172,15 @@ QTextCharFormat getCharFormatFromStyleAttributes(style_attribute *list)
             format.setForeground(brushFromARGBStyle(list->value->argb_color));
         else if (list->type == attr_type_background_color)
             format.setBackground(brushFromARGBStyle(list->value->argb_color));
-        else if (list->type == attr_type_font_weight && list->value->font_weight == attr_font_weight_bold)
-            format.setFontWeight(QFont::Bold);
-        else if (list->type == attr_type_font_style && list->value->font_style == attr_font_style_italic)
-            format.setFontItalic(true);
+        else if (list->type == attr_type_font_style)
+        {
+            if (list->value->font_styles->bold)
+                format.setFontWeight(QFont::Bold);
+            if (list->value->font_styles->italic)
+                format.setFontItalic(true);
+            if (list->value->font_styles->underlined)
+                format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
+        }
         list = list->next;
     }
     return format;
@@ -225,18 +230,49 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
     this->setStyles(*styles);
 
     // Set editor styles
-    if (editor != NULL && raw_styles->editor_styles != NULL)
+    if (editor != NULL)
     {
         QPalette palette = editor->palette();
 
-        style_attribute *cur = raw_styles->editor_styles;
-        while (cur != NULL)
+        // Editor area styles
+        if (raw_styles->editor_styles != NULL)
         {
-            if (cur->type == attr_type_background_color)
-                palette.setColor(QPalette::Base, colorFromARGBStyle(cur->value->argb_color));
-            else if (cur->type == attr_type_foreground_color)
-                palette.setColor(QPalette::Text, colorFromARGBStyle(cur->value->argb_color));
-            cur = cur->next;
+            style_attribute *cur = raw_styles->editor_styles;
+            while (cur != NULL)
+            {
+                if (cur->type == attr_type_background_color)
+                    palette.setColor(QPalette::Base, colorFromARGBStyle(cur->value->argb_color));
+                else if (cur->type == attr_type_foreground_color)
+                    palette.setColor(QPalette::Text, colorFromARGBStyle(cur->value->argb_color));
+                cur = cur->next;
+            }
+        }
+
+        // Selection styles
+        if (raw_styles->editor_selection_styles != NULL)
+        {
+            style_attribute *cur = raw_styles->editor_selection_styles;
+            while (cur != NULL)
+            {
+                if (cur->type == attr_type_background_color)
+                    palette.setColor(QPalette::Highlight, colorFromARGBStyle(cur->value->argb_color));
+                else if (cur->type == attr_type_foreground_color)
+                    palette.setColor(QPalette::HighlightedText, colorFromARGBStyle(cur->value->argb_color));
+                cur = cur->next;
+            }
+        }
+
+        // Current line styles (not applied; simply stored into a public
+        // ivar so that someone else can read it from there)
+        if (raw_styles->editor_current_line_styles != NULL)
+        {
+            style_attribute *cur = raw_styles->editor_current_line_styles;
+            while (cur != NULL)
+            {
+                if (cur->type == attr_type_background_color)
+                    currentLineHighlightColor = colorFromARGBStyle(cur->value->argb_color);
+                cur = cur->next;
+            }
         }
 
         editor->setPalette(palette);

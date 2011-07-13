@@ -36,6 +36,7 @@ class HGMarkdownHighlighter : public QObject
 public:
     HGMarkdownHighlighter(QTextDocument *parent = 0, double aWaitInterval = 1);
     ~HGMarkdownHighlighter();
+    QColor currentLineHighlightColor;
 
     void highlightNow();
     void parseAndHighlightNow();
