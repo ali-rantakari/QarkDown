@@ -5,7 +5,6 @@
 
 /*
 TODO:
-- Reset editor styles to defaults when parsing stylesheet
 - Tabbed interface; multiple files open
 - Document the highlighter interface
 - Use QTextOption::ShowTabsAndSpaces

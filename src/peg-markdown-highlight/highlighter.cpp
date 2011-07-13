@@ -186,6 +186,20 @@ QTextCharFormat getCharFormatFromStyleAttributes(style_attribute *list)
     return format;
 }
 
+QPalette getDefaultPlainTextEditPalette()
+{
+    static bool hasBeenCached = false;
+    static QPalette palette;
+    if (!hasBeenCached)
+    {
+        QPlainTextEdit *pte = new QPlainTextEdit();
+        palette = pte->palette();
+        delete pte;
+        hasBeenCached = true;
+    }
+    return palette;
+}
+
 
 void styleParserErrorCallback(char *error_message, void *context)
 {
@@ -232,7 +246,7 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
     // Set editor styles
     if (editor != NULL)
     {
-        QPalette palette = editor->palette();
+        QPalette palette = getDefaultPlainTextEditPalette();
 
         // Editor area styles
         if (raw_styles->editor_styles != NULL)
@@ -274,6 +288,8 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
                 cur = cur->next;
             }
         }
+        else
+            currentLineHighlightColor = QColor();
 
         editor->setPalette(palette);
     }
