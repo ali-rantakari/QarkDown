@@ -9,14 +9,14 @@ extern "C" {
 WorkerThread::~WorkerThread()
 {
     if (result != NULL)
-        free_elements(result);
+        pmh_free_elements(result);
     free(content);
 }
 void WorkerThread::run()
 {
     if (content == NULL)
         return;
-    markdown_to_elements(content, 0, &result);
+    pmh_markdown_to_elements(content, pmh_EXT_NONE, &result);
 }
 
 
@@ -91,59 +91,59 @@ void HGMarkdownHighlighter::setDefaultStyles()
     QTextCharFormat header1; header1.setForeground(QBrush(Qt::black));
     header1.setBackground(QBrush(QColor(178,178,207)));
     header1.setFontWeight(QFont::Bold);
-    STY(H1, header1);
+    STY(pmh_H1, header1);
 
     QTextCharFormat header2; header2.setForeground(QBrush(Qt::darkBlue));
     header2.setBackground(QBrush(QColor(204,204,227)));
     header2.setFontWeight(QFont::Bold);
-    STY(H2, header2);
+    STY(pmh_H2, header2);
 
     QTextCharFormat smallerHeaders; smallerHeaders.setForeground(QBrush(Qt::darkBlue));
     smallerHeaders.setBackground(QBrush(QColor(230,230,240)));
-    STY(H3, smallerHeaders);
-    STY(H4, smallerHeaders);
-    STY(H5, smallerHeaders);
-    STY(H6, smallerHeaders);
+    STY(pmh_H3, smallerHeaders);
+    STY(pmh_H4, smallerHeaders);
+    STY(pmh_H5, smallerHeaders);
+    STY(pmh_H6, smallerHeaders);
 
     QTextCharFormat hrule; hrule.setForeground(QBrush(Qt::darkGray));
     hrule.setBackground(QBrush(Qt::lightGray));
-    STY(HRULE, hrule);
+    STY(pmh_HRULE, hrule);
 
     QTextCharFormat list; list.setForeground(QBrush(Qt::darkMagenta));
-    STY(LIST_BULLET, list);
-    STY(LIST_ENUMERATOR, list);
+    STY(pmh_LIST_BULLET, list);
+    STY(pmh_LIST_ENUMERATOR, list);
 
     QTextCharFormat link; link.setForeground(QBrush(Qt::darkCyan));
     link.setBackground(QBrush(QColor(237,241,242)));
-    STY(LINK, link);
-    STY(AUTO_LINK_URL, link);
-    STY(AUTO_LINK_EMAIL, link);
+    STY(pmh_LINK, link);
+    STY(pmh_AUTO_LINK_URL, link);
+    STY(pmh_AUTO_LINK_EMAIL, link);
 
     QTextCharFormat image; image.setForeground(QBrush(Qt::darkCyan));
     image.setBackground(QBrush(Qt::cyan));
-    STY(IMAGE, image);
+    STY(pmh_IMAGE, image);
 
     QTextCharFormat ref; ref.setForeground(QBrush(QColor(213,178,178)));
-    STY(REFERENCE, ref);
+    STY(pmh_REFERENCE, ref);
 
     QTextCharFormat code; code.setForeground(QBrush(Qt::darkGreen));
     code.setBackground(QBrush(QColor(235,242,235)));
-    STY(CODE, code);
-    STY(VERBATIM, code);
+    STY(pmh_CODE, code);
+    STY(pmh_VERBATIM, code);
 
     QTextCharFormat emph; emph.setForeground(QBrush(Qt::darkYellow));
     emph.setFontItalic(true);
-    STY(EMPH, emph);
+    STY(pmh_EMPH, emph);
 
     QTextCharFormat strong; strong.setForeground(QBrush(QColor(115,50,115)));
     strong.setFontWeight(QFont::Bold);
-    STY(STRONG, strong);
+    STY(pmh_STRONG, strong);
 
     QTextCharFormat comment; comment.setForeground(QBrush(Qt::gray));
-    STY(COMMENT, comment);
+    STY(pmh_COMMENT, comment);
 
     QTextCharFormat blockquote; blockquote.setForeground(QBrush(Qt::darkRed));
-    STY(BLOCKQUOTE, blockquote);
+    STY(pmh_BLOCKQUOTE, blockquote);
 
     this->setStyles(*styles);
 }
@@ -231,12 +231,12 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
         emit styleParsingErrors(styleParsingErrorList);
 
     // Set language element styles
-    for (int i = 0; i < NUM_LANG_TYPES; i++)
+    for (int i = 0; i < pmh_NUM_LANG_TYPES; i++)
     {
         style_attribute *cur = raw_styles->element_styles[i];
         if (cur == NULL)
             continue;
-        element_type lang_element_type = cur->lang_element_type;
+        pmh_element_type lang_element_type = cur->lang_element_type;
         QTextCharFormat format = getCharFormatFromStyleAttributes(cur);
         STY(lang_element_type, format);
     }
@@ -322,7 +322,7 @@ void HGMarkdownHighlighter::highlight()
     for (int i = 0; i < highlightingStyles->size(); i++)
     {
         HighlightingStyle style = highlightingStyles->at(i);
-        element *elem_cursor = cached_elements[style.type];
+        pmh_element *elem_cursor = cached_elements[style.type];
         while (elem_cursor != NULL)
         {
             if (elem_cursor->end <= elem_cursor->pos) {
@@ -349,14 +349,14 @@ void HGMarkdownHighlighter::highlight()
                 r.format = style.format;
 
                 if (_makeLinksClickable
-                    && (elem_cursor->type == LINK
-                        || elem_cursor->type == AUTO_LINK_URL
-                        || elem_cursor->type == AUTO_LINK_EMAIL
-                        || elem_cursor->type == REFERENCE)
+                    && (elem_cursor->type == pmh_LINK
+                        || elem_cursor->type == pmh_AUTO_LINK_URL
+                        || elem_cursor->type == pmh_AUTO_LINK_EMAIL
+                        || elem_cursor->type == pmh_REFERENCE)
                     && elem_cursor->address != NULL)
                 {
                     QString address(elem_cursor->address);
-                    if (elem_cursor->type == AUTO_LINK_EMAIL && !address.startsWith("mailto:"))
+                    if (elem_cursor->type == pmh_AUTO_LINK_EMAIL && !address.startsWith("mailto:"))
                         address = "mailto:" + address;
                     QTextCharFormat linkFormat(r.format);
                     linkFormat.setAnchor(true);
@@ -417,7 +417,7 @@ void HGMarkdownHighlighter::threadFinished()
     }
 
     if (cached_elements != NULL)
-        free_elements(cached_elements);
+        pmh_free_elements(cached_elements);
     cached_elements = workerThread->result;
     workerThread->result = NULL;
 

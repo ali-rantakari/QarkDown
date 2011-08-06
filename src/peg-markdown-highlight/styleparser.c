@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 struct _GREG;
-#define YYRULECOUNT 18
+#define YYRULECOUNT 19
 
 /* PEG Markdown Highlight
  * Copyright 2011 Ali Rantakari -- http://hasseg.org
@@ -240,44 +240,44 @@ char **get_element_type_names()
     static char **elem_type_names = NULL;
     if (elem_type_names == NULL)
     {
-        elem_type_names = (char **)malloc(sizeof(char*) * NUM_LANG_TYPES);
+        elem_type_names = (char **)malloc(sizeof(char*) * pmh_NUM_LANG_TYPES);
         int i;
-        for (i = 0; i < NUM_LANG_TYPES; i++)
+        for (i = 0; i < pmh_NUM_LANG_TYPES; i++)
             elem_type_names[i] = NULL;
-        elem_type_names[LINK] = "LINK";
-        elem_type_names[AUTO_LINK_URL] = "AUTO_LINK_URL";
-        elem_type_names[AUTO_LINK_EMAIL] = "AUTO_LINK_EMAIL";
-        elem_type_names[IMAGE] = "IMAGE";
-        elem_type_names[CODE] = "CODE";
-        elem_type_names[HTML] = "HTML";
-        elem_type_names[HTML_ENTITY] = "HTML_ENTITY";
-        elem_type_names[EMPH] = "EMPH";
-        elem_type_names[STRONG] = "STRONG";
-        elem_type_names[LIST_BULLET] = "LIST_BULLET";
-        elem_type_names[LIST_ENUMERATOR] = "LIST_ENUMERATOR";
-        elem_type_names[COMMENT] = "COMMENT";
-        elem_type_names[H1] = "H1";
-        elem_type_names[H2] = "H2";
-        elem_type_names[H3] = "H3";
-        elem_type_names[H4] = "H4";
-        elem_type_names[H5] = "H5";
-        elem_type_names[H6] = "H6";
-        elem_type_names[BLOCKQUOTE] = "BLOCKQUOTE";
-        elem_type_names[VERBATIM] = "VERBATIM";
-        elem_type_names[HTMLBLOCK] = "HTMLBLOCK";
-        elem_type_names[HRULE] = "HRULE";
-        elem_type_names[REFERENCE] = "REFERENCE";
-        elem_type_names[NOTE] = "NOTE";
+        elem_type_names[pmh_LINK] = "LINK";
+        elem_type_names[pmh_AUTO_LINK_URL] = "AUTO_LINK_URL";
+        elem_type_names[pmh_AUTO_LINK_EMAIL] = "AUTO_LINK_EMAIL";
+        elem_type_names[pmh_IMAGE] = "IMAGE";
+        elem_type_names[pmh_CODE] = "CODE";
+        elem_type_names[pmh_HTML] = "HTML";
+        elem_type_names[pmh_HTML_ENTITY] = "HTML_ENTITY";
+        elem_type_names[pmh_EMPH] = "EMPH";
+        elem_type_names[pmh_STRONG] = "STRONG";
+        elem_type_names[pmh_LIST_BULLET] = "LIST_BULLET";
+        elem_type_names[pmh_LIST_ENUMERATOR] = "LIST_ENUMERATOR";
+        elem_type_names[pmh_COMMENT] = "COMMENT";
+        elem_type_names[pmh_H1] = "H1";
+        elem_type_names[pmh_H2] = "H2";
+        elem_type_names[pmh_H3] = "H3";
+        elem_type_names[pmh_H4] = "H4";
+        elem_type_names[pmh_H5] = "H5";
+        elem_type_names[pmh_H6] = "H6";
+        elem_type_names[pmh_BLOCKQUOTE] = "BLOCKQUOTE";
+        elem_type_names[pmh_VERBATIM] = "VERBATIM";
+        elem_type_names[pmh_HTMLBLOCK] = "HTMLBLOCK";
+        elem_type_names[pmh_HRULE] = "HRULE";
+        elem_type_names[pmh_REFERENCE] = "REFERENCE";
+        elem_type_names[pmh_NOTE] = "NOTE";
     }
     return elem_type_names;
 }
 
-element_type element_type_from_name(char *name)
+pmh_element_type element_type_from_name(char *name)
 {
     char **elem_type_names = get_element_type_names();
     
     int i;
-    for (i = 0; i < NUM_LANG_TYPES; i++)
+    for (i = 0; i < pmh_NUM_LANG_TYPES; i++)
     {
         char *i_name = elem_type_names[i];
         if (i_name == NULL)
@@ -286,10 +286,10 @@ element_type element_type_from_name(char *name)
             return i;
     }
     
-    return NO_TYPE;
+    return pmh_NO_TYPE;
 }
 
-char *element_name_from_type(element_type type)
+char *element_name_from_type(pmh_element_type type)
 {
     char **elem_type_names = get_element_type_names();
     char* ret = elem_type_names[type];
@@ -383,7 +383,7 @@ void free_multi_value(multi_value *val)
 
 #define EQUALS(a,b) (strcmp(a, b) == 0)
 style_attribute *interpret_attributes(style_parser_data *p_data,
-                                      element_type lang_element_type,
+                                      pmh_element_type lang_element_type,
                                       sem_value *raw_attributes)
 {
     style_attribute *attrs = NULL;
@@ -473,18 +473,18 @@ void interpret_and_add_style(style_parser_data *p_data,
     bool isEditorType = false;
     bool isCurrentLineType = false;
     bool isSelectionType = false;
-    element_type type = element_type_from_name(element_type_name);
-    if (type == NO_TYPE)
+    pmh_element_type type = element_type_from_name(element_type_name);
+    if (type == pmh_NO_TYPE)
     {
         if (EQUALS(element_type_name, "editor"))
-            isEditorType = true, type = NO_TYPE;
+            isEditorType = true, type = pmh_NO_TYPE;
         else if (EQUALS(element_type_name, "editor-current-line"))
-            isCurrentLineType = true, type = NO_TYPE;
+            isCurrentLineType = true, type = pmh_NO_TYPE;
         else if (EQUALS(element_type_name, "editor-selection"))
-            isSelectionType = true, type = NO_TYPE;
+            isSelectionType = true, type = pmh_NO_TYPE;
         else {
             report_error(p_data,
-                "Style rule '%s' is not a language element type name or "
+                "Style rule '%s' is not a language pmh_element type name or "
                 "one of the following: 'editor', 'editor-current-line', "
                 "'editor-selection'",
                 element_type_name);
@@ -756,6 +756,7 @@ YY_LOCAL(void) yySet(GREG *G, char *text, int count, yythunk *thunk, YY_XTYPE YY
 
 #define YYACCEPT        yyAccept(G, yythunkpos0)
 
+YY_RULE(int) yy_AnythingTillEol(GREG *G); /* 19 */
 YY_RULE(int) yy_Spacechar(GREG *G); /* 18 */
 YY_RULE(int) yy_BeginLineComment(GREG *G); /* 17 */
 YY_RULE(int) yy_AttrValueChar(GREG *G); /* 16 */
@@ -764,7 +765,7 @@ YY_RULE(int) yy_Eof(GREG *G); /* 14 */
 YY_RULE(int) yy_StyleAttr(GREG *G); /* 13 */
 YY_RULE(int) yy_AssignOp(GREG *G); /* 12 */
 YY_RULE(int) yy_StyleLabelChar(GREG *G); /* 11 */
-YY_RULE(int) yy_Indent(GREG *G); /* 10 */
+YY_RULE(int) yy_IndentMaybe(GREG *G); /* 10 */
 YY_RULE(int) yy_StyleAttrLine(GREG *G); /* 9 */
 YY_RULE(int) yy_Newline(GREG *G); /* 8 */
 YY_RULE(int) yy_Sp(GREG *G); /* 7 */
@@ -829,252 +830,269 @@ YY_ACTION(void) yy_1_StartList(GREG *G, char *yytext, int yyleng, yythunk *thunk
    yy = NULL; ;
 }
 
+YY_RULE(int) yy_AnythingTillEol(GREG *G)
+{  int yypos0= G->pos, yythunkpos0= G->thunkpos;
+  yyprintf((stderr, "%s\n", "AnythingTillEol"));
+  l2:;	
+  {  int yypos3= G->pos, yythunkpos3= G->thunkpos;
+  {  int yypos4= G->pos, yythunkpos4= G->thunkpos;  if (!yy_Newline(G)) { goto l4; }  goto l3;
+  l4:;	  G->pos= yypos4; G->thunkpos= yythunkpos4;
+  }
+  {  int yypos5= G->pos, yythunkpos5= G->thunkpos;  if (!yy_Eof(G)) { goto l5; }  goto l3;
+  l5:;	  G->pos= yypos5; G->thunkpos= yythunkpos5;
+  }  if (!yymatchDot(G)) goto l3;  goto l2;
+  l3:;	  G->pos= yypos3; G->thunkpos= yythunkpos3;
+  }
+  {  int yypos6= G->pos, yythunkpos6= G->thunkpos;  if (!yy_Newline(G)) { goto l7; }  goto l6;
+  l7:;	  G->pos= yypos6; G->thunkpos= yythunkpos6;  if (!yy_Eof(G)) { goto l1; }
+  }
+  l6:;	
+  yyprintf((stderr, "  ok   %s @ %s\n", "AnythingTillEol", G->buf+G->pos));
+  return 1;
+  l1:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  yyprintf((stderr, "  fail %s @ %s\n", "AnythingTillEol", G->buf+G->pos));
+  return 0;
+}
 YY_RULE(int) yy_Spacechar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Spacechar"));
-  {  int yypos2= G->pos, yythunkpos2= G->thunkpos;  if (!yymatchChar(G, ' ')) goto l3;  goto l2;
-  l3:;	  G->pos= yypos2; G->thunkpos= yythunkpos2;  if (!yymatchChar(G, '\t')) goto l1;
+  {  int yypos9= G->pos, yythunkpos9= G->thunkpos;  if (!yymatchChar(G, ' ')) goto l10;  goto l9;
+  l10:;	  G->pos= yypos9; G->thunkpos= yythunkpos9;  if (!yymatchChar(G, '\t')) goto l8;
   }
-  l2:;	
+  l9:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Spacechar", G->buf+G->pos));
   return 1;
-  l1:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l8:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Spacechar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_BeginLineComment(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "BeginLineComment"));  if (!yymatchChar(G, '#')) goto l4;
+  yyprintf((stderr, "%s\n", "BeginLineComment"));  if (!yymatchChar(G, '#')) goto l11;
   yyprintf((stderr, "  ok   %s @ %s\n", "BeginLineComment", G->buf+G->pos));
   return 1;
-  l4:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l11:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "BeginLineComment", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AttrValueChar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "AttrValueChar"));
-  {  int yypos6= G->pos, yythunkpos6= G->thunkpos;  if (!yy_Newline(G)) { goto l6; }  goto l5;
-  l6:;	  G->pos= yypos6; G->thunkpos= yythunkpos6;
+  {  int yypos13= G->pos, yythunkpos13= G->thunkpos;  if (!yy_Newline(G)) { goto l13; }  goto l12;
+  l13:;	  G->pos= yypos13; G->thunkpos= yythunkpos13;
   }
-  {  int yypos7= G->pos, yythunkpos7= G->thunkpos;  if (!yy_Eof(G)) { goto l7; }  goto l5;
-  l7:;	  G->pos= yypos7; G->thunkpos= yythunkpos7;
+  {  int yypos14= G->pos, yythunkpos14= G->thunkpos;  if (!yy_Eof(G)) { goto l14; }  goto l12;
+  l14:;	  G->pos= yypos14; G->thunkpos= yythunkpos14;
   }
-  {  int yypos8= G->pos, yythunkpos8= G->thunkpos;  if (!yy_BeginLineComment(G)) { goto l8; }  goto l5;
-  l8:;	  G->pos= yypos8; G->thunkpos= yythunkpos8;
-  }  if (!yymatchDot(G)) goto l5;
+  {  int yypos15= G->pos, yythunkpos15= G->thunkpos;  if (!yy_BeginLineComment(G)) { goto l15; }  goto l12;
+  l15:;	  G->pos= yypos15; G->thunkpos= yythunkpos15;
+  }  if (!yymatchDot(G)) goto l12;
   yyprintf((stderr, "  ok   %s @ %s\n", "AttrValueChar", G->buf+G->pos));
   return 1;
-  l5:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l12:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AttrValueChar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AttrNameChar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "AttrNameChar"));  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\040\377\003\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l9;
+  yyprintf((stderr, "%s\n", "AttrNameChar"));  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\040\377\003\376\377\377\007\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l16;
   yyprintf((stderr, "  ok   %s @ %s\n", "AttrNameChar", G->buf+G->pos));
   return 1;
-  l9:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l16:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AttrNameChar", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Eof(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Eof"));
-  {  int yypos11= G->pos, yythunkpos11= G->thunkpos;  if (!yymatchDot(G)) goto l11;  goto l10;
-  l11:;	  G->pos= yypos11; G->thunkpos= yythunkpos11;
+  {  int yypos18= G->pos, yythunkpos18= G->thunkpos;  if (!yymatchDot(G)) goto l18;  goto l17;
+  l18:;	  G->pos= yypos18; G->thunkpos= yythunkpos18;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Eof", G->buf+G->pos));
   return 1;
-  l10:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l17:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Eof", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StyleAttr(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleAttr"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l12;  if (!yy_AttrNameChar(G)) { goto l12; }
-  l13:;	
-  {  int yypos14= G->pos, yythunkpos14= G->thunkpos;  if (!yy_AttrNameChar(G)) { goto l14; }  goto l13;
-  l14:;	  G->pos= yypos14; G->thunkpos= yythunkpos14;
-  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l12;  yyDo(G, yy_1_StyleAttr, G->begin, G->end);  if (!yy_Sp(G)) { goto l12; }  if (!yy_AssignOp(G)) { goto l12; }  if (!yy_Sp(G)) { goto l12; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l12;  if (!yy_AttrValueChar(G)) { goto l12; }
-  l15:;	
-  {  int yypos16= G->pos, yythunkpos16= G->thunkpos;  if (!yy_AttrValueChar(G)) { goto l16; }  goto l15;
-  l16:;	  G->pos= yypos16; G->thunkpos= yythunkpos16;
-  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l12;  yyDo(G, yy_2_StyleAttr, G->begin, G->end);
+  yyprintf((stderr, "%s\n", "StyleAttr"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l19;  if (!yy_AttrNameChar(G)) { goto l19; }
+  l20:;	
+  {  int yypos21= G->pos, yythunkpos21= G->thunkpos;  if (!yy_AttrNameChar(G)) { goto l21; }  goto l20;
+  l21:;	  G->pos= yypos21; G->thunkpos= yythunkpos21;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l19;  yyDo(G, yy_1_StyleAttr, G->begin, G->end);  if (!yy_Sp(G)) { goto l19; }  if (!yy_AssignOp(G)) { goto l19; }  if (!yy_Sp(G)) { goto l19; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l19;  if (!yy_AttrValueChar(G)) { goto l19; }
+  l22:;	
+  {  int yypos23= G->pos, yythunkpos23= G->thunkpos;  if (!yy_AttrValueChar(G)) { goto l23; }  goto l22;
+  l23:;	  G->pos= yypos23; G->thunkpos= yythunkpos23;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l19;  yyDo(G, yy_2_StyleAttr, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleAttr", G->buf+G->pos));
   return 1;
-  l12:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l19:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleAttr", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_AssignOp(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "AssignOp"));
-  {  int yypos18= G->pos, yythunkpos18= G->thunkpos;  if (!yymatchChar(G, ':')) goto l19;  goto l18;
-  l19:;	  G->pos= yypos18; G->thunkpos= yythunkpos18;  if (!yymatchChar(G, '=')) goto l17;
+  {  int yypos25= G->pos, yythunkpos25= G->thunkpos;  if (!yymatchChar(G, ':')) goto l26;  goto l25;
+  l26:;	  G->pos= yypos25; G->thunkpos= yythunkpos25;  if (!yymatchChar(G, '=')) goto l24;
   }
-  l18:;	
+  l25:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "AssignOp", G->buf+G->pos));
   return 1;
-  l17:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l24:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "AssignOp", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StyleLabelChar(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleLabelChar"));  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\040\377\003\376\377\377\207\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l20;
+  yyprintf((stderr, "%s\n", "StyleLabelChar"));  if (!yymatchClass(G, (unsigned char *)"\000\000\000\000\000\040\377\003\376\377\377\207\376\377\377\007\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000")) goto l27;
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleLabelChar", G->buf+G->pos));
   return 1;
-  l20:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l27:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleLabelChar", G->buf+G->pos));
   return 0;
 }
-YY_RULE(int) yy_Indent(GREG *G)
+YY_RULE(int) yy_IndentMaybe(GREG *G)
 {
-  yyprintf((stderr, "%s\n", "Indent"));
-  l22:;	
-  {  int yypos23= G->pos, yythunkpos23= G->thunkpos;
-  {  int yypos24= G->pos, yythunkpos24= G->thunkpos;  if (!yymatchChar(G, '\t')) goto l25;  goto l24;
-  l25:;	  G->pos= yypos24; G->thunkpos= yythunkpos24;  if (!yymatchChar(G, ' ')) goto l23;
+  yyprintf((stderr, "%s\n", "IndentMaybe"));
+  l29:;	
+  {  int yypos30= G->pos, yythunkpos30= G->thunkpos;
+  {  int yypos31= G->pos, yythunkpos31= G->thunkpos;  if (!yymatchChar(G, '\t')) goto l32;  goto l31;
+  l32:;	  G->pos= yypos31; G->thunkpos= yythunkpos31;  if (!yymatchChar(G, ' ')) goto l30;
   }
-  l24:;	  goto l22;
-  l23:;	  G->pos= yypos23; G->thunkpos= yythunkpos23;
+  l31:;	  goto l29;
+  l30:;	  G->pos= yypos30; G->thunkpos= yythunkpos30;
   }
-  yyprintf((stderr, "  ok   %s @ %s\n", "Indent", G->buf+G->pos));
+  yyprintf((stderr, "  ok   %s @ %s\n", "IndentMaybe", G->buf+G->pos));
   return 1;
 }
 YY_RULE(int) yy_StyleAttrLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
-  yyprintf((stderr, "%s\n", "StyleAttrLine"));  if (!yy_Indent(G)) { goto l26; }  if (!yy_StyleAttr(G)) { goto l26; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l26; }
-  {  int yypos27= G->pos, yythunkpos27= G->thunkpos;  if (!yy_LineComment(G)) { goto l28; }  goto l27;
-  l28:;	  G->pos= yypos27; G->thunkpos= yythunkpos27;  if (!yy_Newline(G)) { goto l29; }  goto l27;
-  l29:;	  G->pos= yypos27; G->thunkpos= yythunkpos27;  if (!yy_Eof(G)) { goto l26; }
+  yyprintf((stderr, "%s\n", "StyleAttrLine"));  if (!yy_IndentMaybe(G)) { goto l33; }  if (!yy_StyleAttr(G)) { goto l33; }  yyDo(G, yySet, -1, 0);  if (!yy_Sp(G)) { goto l33; }
+  {  int yypos34= G->pos, yythunkpos34= G->thunkpos;  if (!yy_LineComment(G)) { goto l35; }  goto l34;
+  l35:;	  G->pos= yypos34; G->thunkpos= yythunkpos34;  if (!yy_Newline(G)) { goto l36; }  goto l34;
+  l36:;	  G->pos= yypos34; G->thunkpos= yythunkpos34;  if (!yy_Eof(G)) { goto l33; }
   }
-  l27:;	  yyDo(G, yy_1_StyleAttrLine, G->begin, G->end);
+  l34:;	  yyDo(G, yy_1_StyleAttrLine, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleAttrLine", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
-  l26:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l33:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleAttrLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Newline(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "Newline"));
-  {  int yypos31= G->pos, yythunkpos31= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l32;  goto l31;
-  l32:;	  G->pos= yypos31; G->thunkpos= yythunkpos31;  if (!yymatchChar(G, '\r')) goto l30;
-  {  int yypos33= G->pos, yythunkpos33= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l33;  goto l34;
-  l33:;	  G->pos= yypos33; G->thunkpos= yythunkpos33;
+  {  int yypos38= G->pos, yythunkpos38= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l39;  goto l38;
+  l39:;	  G->pos= yypos38; G->thunkpos= yythunkpos38;  if (!yymatchChar(G, '\r')) goto l37;
+  {  int yypos40= G->pos, yythunkpos40= G->thunkpos;  if (!yymatchChar(G, '\n')) goto l40;  goto l41;
+  l40:;	  G->pos= yypos40; G->thunkpos= yythunkpos40;
   }
-  l34:;	
+  l41:;	
   }
-  l31:;	
+  l38:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "Newline", G->buf+G->pos));
   return 1;
-  l30:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l37:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "Newline", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Sp(GREG *G)
 {
   yyprintf((stderr, "%s\n", "Sp"));
-  l36:;	
-  {  int yypos37= G->pos, yythunkpos37= G->thunkpos;  if (!yy_Spacechar(G)) { goto l37; }  goto l36;
-  l37:;	  G->pos= yypos37; G->thunkpos= yythunkpos37;
+  l43:;	
+  {  int yypos44= G->pos, yythunkpos44= G->thunkpos;  if (!yy_Spacechar(G)) { goto l44; }  goto l43;
+  l44:;	  G->pos= yypos44; G->thunkpos= yythunkpos44;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Sp", G->buf+G->pos));
   return 1;
 }
 YY_RULE(int) yy_StyleLabel(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleLabel"));  if (!yy_Indent(G)) { goto l38; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l38;  if (!yy_StyleLabelChar(G)) { goto l38; }
-  l39:;	
-  {  int yypos40= G->pos, yythunkpos40= G->thunkpos;  if (!yy_StyleLabelChar(G)) { goto l40; }  goto l39;
-  l40:;	  G->pos= yypos40; G->thunkpos= yythunkpos40;
-  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l38;  yyDo(G, yy_1_StyleLabel, G->begin, G->end);  if (!yy_Sp(G)) { goto l38; }
-  {  int yypos41= G->pos, yythunkpos41= G->thunkpos;  if (!yy_AssignOp(G)) { goto l41; }  goto l42;
-  l41:;	  G->pos= yypos41; G->thunkpos= yythunkpos41;
+  yyprintf((stderr, "%s\n", "StyleLabel"));  if (!yy_IndentMaybe(G)) { goto l45; }  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l45;  if (!yy_StyleLabelChar(G)) { goto l45; }
+  l46:;	
+  {  int yypos47= G->pos, yythunkpos47= G->thunkpos;  if (!yy_StyleLabelChar(G)) { goto l47; }  goto l46;
+  l47:;	  G->pos= yypos47; G->thunkpos= yythunkpos47;
+  }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l45;  yyDo(G, yy_1_StyleLabel, G->begin, G->end);  if (!yy_Sp(G)) { goto l45; }
+  {  int yypos48= G->pos, yythunkpos48= G->thunkpos;  if (!yy_AssignOp(G)) { goto l48; }  goto l49;
+  l48:;	  G->pos= yypos48; G->thunkpos= yythunkpos48;
   }
-  l42:;	
+  l49:;	
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleLabel", G->buf+G->pos));
   return 1;
-  l38:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l45:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleLabel", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StartList(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
   yyprintf((stderr, "%s\n", "StartList"));
-  {  int yypos44= G->pos, yythunkpos44= G->thunkpos;  if (!yymatchDot(G)) goto l43;  G->pos= yypos44; G->thunkpos= yythunkpos44;
+  {  int yypos51= G->pos, yythunkpos51= G->thunkpos;  if (!yymatchDot(G)) goto l50;  G->pos= yypos51; G->thunkpos= yythunkpos51;
   }  yyDo(G, yy_1_StartList, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StartList", G->buf+G->pos));
   return 1;
-  l43:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l50:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StartList", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_StyleDef(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 3, 0);
-  yyprintf((stderr, "%s\n", "StyleDef"));  if (!yy_StartList(G)) { goto l45; }  yyDo(G, yySet, -3, 0);  if (!yy_StyleLabel(G)) { goto l45; }  yyDo(G, yySet, -2, 0);  if (!yy_Sp(G)) { goto l45; }
-  {  int yypos46= G->pos, yythunkpos46= G->thunkpos;  if (!yy_LineComment(G)) { goto l47; }  goto l46;
-  l47:;	  G->pos= yypos46; G->thunkpos= yythunkpos46;  if (!yy_Newline(G)) { goto l45; }
+  yyprintf((stderr, "%s\n", "StyleDef"));  if (!yy_StartList(G)) { goto l52; }  yyDo(G, yySet, -3, 0);  if (!yy_StyleLabel(G)) { goto l52; }  yyDo(G, yySet, -2, 0);  if (!yy_Sp(G)) { goto l52; }
+  {  int yypos53= G->pos, yythunkpos53= G->thunkpos;  if (!yy_LineComment(G)) { goto l54; }  goto l53;
+  l54:;	  G->pos= yypos53; G->thunkpos= yythunkpos53;  if (!yy_Newline(G)) { goto l52; }
   }
-  l46:;	  if (!yy_StyleAttrLine(G)) { goto l45; }  yyDo(G, yySet, -1, 0);  yyDo(G, yy_1_StyleDef, G->begin, G->end);
-  l48:;	
-  {  int yypos49= G->pos, yythunkpos49= G->thunkpos;  if (!yy_StyleAttrLine(G)) { goto l49; }  yyDo(G, yySet, -1, 0);  yyDo(G, yy_1_StyleDef, G->begin, G->end);  goto l48;
-  l49:;	  G->pos= yypos49; G->thunkpos= yythunkpos49;
+  l53:;	
+  {  int yypos57= G->pos, yythunkpos57= G->thunkpos;  if (!yy_StyleAttrLine(G)) { goto l58; }  yyDo(G, yySet, -1, 0);  yyDo(G, yy_1_StyleDef, G->begin, G->end);  goto l57;
+  l58:;	  G->pos= yypos57; G->thunkpos= yythunkpos57;  if (!yy_IndentMaybe(G)) { goto l52; }  if (!yy_LineComment(G)) { goto l52; }
+  }
+  l57:;	
+  l55:;	
+  {  int yypos56= G->pos, yythunkpos56= G->thunkpos;
+  {  int yypos59= G->pos, yythunkpos59= G->thunkpos;  if (!yy_StyleAttrLine(G)) { goto l60; }  yyDo(G, yySet, -1, 0);  yyDo(G, yy_1_StyleDef, G->begin, G->end);  goto l59;
+  l60:;	  G->pos= yypos59; G->thunkpos= yythunkpos59;  if (!yy_IndentMaybe(G)) { goto l56; }  if (!yy_LineComment(G)) { goto l56; }
+  }
+  l59:;	  goto l55;
+  l56:;	  G->pos= yypos56; G->thunkpos= yythunkpos56;
   }  yyDo(G, yy_2_StyleDef, G->begin, G->end);
   yyprintf((stderr, "  ok   %s @ %s\n", "StyleDef", G->buf+G->pos));  yyDo(G, yyPop, 3, 0);
   return 1;
-  l45:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l52:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleDef", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_LineComment(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "LineComment"));  if (!yy_BeginLineComment(G)) { goto l50; }
-  l51:;	
-  {  int yypos52= G->pos, yythunkpos52= G->thunkpos;
-  {  int yypos53= G->pos, yythunkpos53= G->thunkpos;  if (!yy_Newline(G)) { goto l53; }  goto l52;
-  l53:;	  G->pos= yypos53; G->thunkpos= yythunkpos53;
-  }
-  {  int yypos54= G->pos, yythunkpos54= G->thunkpos;  if (!yy_Eof(G)) { goto l54; }  goto l52;
-  l54:;	  G->pos= yypos54; G->thunkpos= yythunkpos54;
-  }  if (!yymatchDot(G)) goto l52;  goto l51;
-  l52:;	  G->pos= yypos52; G->thunkpos= yythunkpos52;
-  }
-  {  int yypos55= G->pos, yythunkpos55= G->thunkpos;  if (!yy_Newline(G)) { goto l56; }  goto l55;
-  l56:;	  G->pos= yypos55; G->thunkpos= yythunkpos55;  if (!yy_Eof(G)) { goto l50; }
-  }
-  l55:;	
+  yyprintf((stderr, "%s\n", "LineComment"));  if (!yy_BeginLineComment(G)) { goto l61; }  if (!yy_AnythingTillEol(G)) { goto l61; }
   yyprintf((stderr, "  ok   %s @ %s\n", "LineComment", G->buf+G->pos));
   return 1;
-  l50:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l61:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "LineComment", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_BlankLine(GREG *G)
 {  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "BlankLine"));  if (!yy_Sp(G)) { goto l57; }  if (!yy_Newline(G)) { goto l57; }
+  yyprintf((stderr, "%s\n", "BlankLine"));  if (!yy_Sp(G)) { goto l62; }  if (!yy_Newline(G)) { goto l62; }
   yyprintf((stderr, "  ok   %s @ %s\n", "BlankLine", G->buf+G->pos));
   return 1;
-  l57:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
+  l62:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "BlankLine", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_Doc(GREG *G)
 {
   yyprintf((stderr, "%s\n", "Doc"));
-  l59:;	
-  {  int yypos60= G->pos, yythunkpos60= G->thunkpos;
-  l61:;	
-  {  int yypos62= G->pos, yythunkpos62= G->thunkpos;
-  {  int yypos63= G->pos, yythunkpos63= G->thunkpos;  if (!yy_BlankLine(G)) { goto l64; }  goto l63;
-  l64:;	  G->pos= yypos63; G->thunkpos= yythunkpos63;  if (!yy_LineComment(G)) { goto l62; }
+  l64:;	
+  {  int yypos65= G->pos, yythunkpos65= G->thunkpos;
+  l66:;	
+  {  int yypos67= G->pos, yythunkpos67= G->thunkpos;
+  {  int yypos68= G->pos, yythunkpos68= G->thunkpos;  if (!yy_BlankLine(G)) { goto l69; }  goto l68;
+  l69:;	  G->pos= yypos68; G->thunkpos= yythunkpos68;  if (!yy_LineComment(G)) { goto l67; }
   }
-  l63:;	  goto l61;
-  l62:;	  G->pos= yypos62; G->thunkpos= yythunkpos62;
-  }  if (!yy_StyleDef(G)) { goto l60; }  goto l59;
-  l60:;	  G->pos= yypos60; G->thunkpos= yythunkpos60;
+  l68:;	  goto l66;
+  l67:;	  G->pos= yypos67; G->thunkpos= yythunkpos67;
+  }  if (!yy_StyleDef(G)) { goto l65; }  goto l64;
+  l65:;	  G->pos= yypos65; G->thunkpos= yythunkpos65;
   }
   yyprintf((stderr, "  ok   %s @ %s\n", "Doc", G->buf+G->pos));
   return 1;
@@ -1160,9 +1178,9 @@ style_collection *new_style_collection()
                            malloc(sizeof(style_collection));
     
     sc->element_styles = (style_attribute**)
-                         malloc(sizeof(style_attribute*) * NUM_LANG_TYPES);
+                         malloc(sizeof(style_attribute*) * pmh_NUM_LANG_TYPES);
     int i;
-    for (i = 0; i < NUM_LANG_TYPES; i++)
+    for (i = 0; i < pmh_NUM_LANG_TYPES; i++)
         sc->element_styles[i] = NULL;
     
     sc->editor_styles = NULL;
@@ -1178,7 +1196,7 @@ void free_style_collection(style_collection *coll)
     free_style_attributes(coll->editor_current_line_styles);
     free_style_attributes(coll->editor_selection_styles);
     int i;
-    for (i = 0; i < NUM_LANG_TYPES; i++)
+    for (i = 0; i < pmh_NUM_LANG_TYPES; i++)
         free_style_attributes(coll->element_styles[i]);
     free(coll->element_styles);
     free(coll);

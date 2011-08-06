@@ -5,6 +5,8 @@
 
 /*
 TODO:
+- Fix text alpha issue on Windows (???)
+
 - Tabbed interface; multiple files open
 - Document the highlighter interface
 - Use QTextOption::ShowTabsAndSpaces
