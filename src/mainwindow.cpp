@@ -88,6 +88,8 @@ void MainWindow::openFile(const QString &path)
 
 void MainWindow::saveFile()
 {
+    bool savingNewFile = (openFilePath.isNull());
+
     QString saveFilePath(openFilePath);
     if (saveFilePath.isNull())
         saveFilePath = QFileDialog::getSaveFileName(this,
@@ -99,6 +101,16 @@ void MainWindow::saveFile()
     QTextStream fileStream(&file);
     fileStream << editor->toPlainText();
     file.close();
+
+    if (savingNewFile)
+    {
+        bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
+                                                QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
+        if (rememberLastFile)
+            settings->setValue(SETTING_LAST_FILE, QVariant(saveFilePath));
+        addToRecentFiles(saveFilePath);
+        updateRecentFilesMenu();
+    }
 
     openFilePath = saveFilePath;
     revertToSavedMenuAction->setEnabled(true);
