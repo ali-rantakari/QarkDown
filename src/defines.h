@@ -17,10 +17,14 @@
 #define SETTING_WINDOW_GEOMETRY "LastWindowGeometry"
 #define SETTING_WINDOW_STATE "LastWindowState"
 
+#define SETTING_RECENT_FILES "RecentFiles"
+#define SETTING_NUM_RECENT_FILES "NumberOfRecentFiles"
+
 #define DEF_FONT_FAMILY         "Courier"
 #define DEF_FONT_SIZE           12
 #define DEF_TAB_WIDTH           4
 #define DEF_HIGHLIGHT_INTERVAL  0.5
+#define DEF_NUM_RECENT_FILES    10
 #define DEF_INDENT_WITH_TABS    false
 #define DEF_REMEMBER_LAST_FILE  false
 #define DEF_REMEMBER_WINDOW     true

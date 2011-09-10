@@ -19,6 +19,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     settings = new QSettings("org.hasseg", "QarkDown");
     preferencesDialog = new PreferencesDialog(settings);
 
+    recentFilesMenuActions = new QList<QAction *>();
+
     setupFileMenu();
     setupEditor();
     performStartupTasks();
@@ -52,6 +54,7 @@ void MainWindow::newFile()
     openFilePath = QString();
     revertToSavedMenuAction->setEnabled(false);
     setDirty(false);
+    updateRecentFilesMenu();
 }
 
 void MainWindow::openFile(const QString &path)
@@ -79,6 +82,8 @@ void MainWindow::openFile(const QString &path)
                                             QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
     if (rememberLastFile)
         settings->setValue(SETTING_LAST_FILE, QVariant(openFilePath));
+    addToRecentFiles(openFilePath);
+    updateRecentFilesMenu();
 }
 
 void MainWindow::saveFile()
@@ -106,6 +111,23 @@ void MainWindow::revertToSaved()
     if (openFilePath.isNull())
         return;
     openFile(openFilePath);
+}
+
+void MainWindow::addToRecentFiles(QString filePath)
+{
+    QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
+
+    int index = recentFiles.indexOf(filePath);
+    if (-1 < index)
+        recentFiles.removeAt(index);
+    recentFiles.insert(0, filePath);
+
+    int maxNumRecentFiles = settings->value(SETTING_NUM_RECENT_FILES, DEF_NUM_RECENT_FILES).toInt();
+    while (maxNumRecentFiles < recentFiles.count())
+        recentFiles.removeLast();
+
+    settings->setValue(SETTING_RECENT_FILES, recentFiles);
+    settings->sync();
 }
 
 void MainWindow::persistFontInfo()
@@ -270,6 +292,41 @@ void MainWindow::setupEditor()
     applyEditorPreferences();
 }
 
+void MainWindow::openRecentFile()
+{
+    QAction *action = qobject_cast<QAction *>(sender());
+    if (!action)
+        return;
+    openFile(action->data().toString());
+}
+
+void MainWindow::updateRecentFilesMenu()
+{
+    for (int i = 0; i < recentFilesMenuActions->count(); i++)
+    {
+        QAction *action = recentFilesMenuActions->at(i);
+        disconnect(action, SIGNAL(triggered()), this, SLOT(openRecentFile()));
+        delete action;
+    }
+    recentFilesMenuActions->clear();
+
+    recentFilesMenu->clear();
+    QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
+    foreach (QString recentFilePath, recentFiles)
+    {
+        qDebug() << "Recent file:" << recentFilePath;
+        if (!openFilePath.isEmpty() && openFilePath == recentFilePath)
+            continue;
+        QAction *action = new QAction(this);
+        action->setText(QFileInfo(recentFilePath).fileName());
+        action->setToolTip(recentFilePath);
+        action->setData(recentFilePath);
+        connect(action, SIGNAL(triggered()), this, SLOT(openRecentFile()));
+        recentFilesMenuActions->append(action);
+        recentFilesMenu->addAction(action);
+    }
+}
+
 void MainWindow::setupFileMenu()
 {
     QMenu *fileMenu = new QMenu(tr("&File"), this);
@@ -278,6 +335,8 @@ void MainWindow::setupFileMenu()
                         QKeySequence::New);
     fileMenu->addAction(tr("&Open..."), this, SLOT(openFile()),
                         QKeySequence::Open);
+    recentFilesMenu = new QMenu(tr("Open &Recent..."), this);
+    fileMenu->addMenu(recentFilesMenu);
     fileMenu->addAction(tr("&Save"), this, SLOT(saveFile()),
                         QKeySequence::Save);
     revertToSavedMenuAction = fileMenu->addAction(tr("&Revert to Saved"), this,
@@ -311,6 +370,8 @@ void MainWindow::setupFileMenu()
     QMenu *helpMenu = new QMenu(tr("&Help"), this);
     menuBar()->addMenu(helpMenu);
     helpMenu->addAction(tr("About QarkDown"), this, SLOT(about()));
+
+    updateRecentFilesMenu();
 }
 
 void MainWindow::performStartupTasks()

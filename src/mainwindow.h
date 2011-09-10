@@ -40,6 +40,8 @@ public slots:
 
     void preferencesUpdated();
 
+    void openRecentFile();
+
     void anchorClicked(const QUrl &link);
     void commitDataHandler(QSessionManager &manager);
     void aboutToQuitHandler();
@@ -50,7 +52,9 @@ public slots:
 private:
     void setupEditor();
     void setupFileMenu();
+    void updateRecentFilesMenu();
     void performStartupTasks();
+    void addToRecentFiles(QString filePath);
     void persistFontInfo();
     void applyPersistedFontInfo();
     void applyHighlighterPreferences();
@@ -63,6 +67,9 @@ private:
     HGMarkdownHighlighter *highlighter;
     QString openFilePath;
     QString searchString;
+
+    QMenu *recentFilesMenu;
+    QList<QAction *> *recentFilesMenuActions;
 
     QAction *findNextMenuAction;
     QAction *findPreviousMenuAction;
