@@ -32,18 +32,23 @@ OTHER_FILES += \
 
 win32 {
     RC_FILE += cfg/win.rc
+    RESOURCES += compilers-windows.qrc
 }
 
 macx {
     RC_FILE += gfx/icon.icns
     QMAKE_INFO_PLIST = cfg/Info.plist
+    RESOURCES += compilers-osx.qrc
 }
 
 linux {
     RESOURCES += cfg/linux.qrc
+    RESOURCES += compilers-linux.qrc
 }
 
 RESOURCES += \
     cfg/linux.qrc \
     styles.qrc \
-    compilers.qrc
+    compilers-windows.qrc \
+    compilers-osx.qrc \
+    compilers-linux.qrc

@@ -1,0 +1,5 @@
+<RCC>
+    <qresource>
+        <file>compilers/peg-markdown/peg-markdown-linux</file>
+    </qresource>
+</RCC>
