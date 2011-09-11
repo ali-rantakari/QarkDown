@@ -223,7 +223,7 @@ void PreferencesDialog::updateCompilersComboBoxFromSettings()
     {
         QDir thisBuiltinCompilerDir = QDir(":/compilers/" + builtInCompilerName);
         QString builtinCompilerFullPath =
-                thisBuiltinCompilerDir.absolutePath() + QDir::separator()
+                thisBuiltinCompilerDir.absolutePath() + "/"
                 + thisBuiltinCompilerDir.entryList(QDir::NoDotAndDotDot | QDir::Files).first();
         ADD_COMBO_ITEM(builtInCompilerName, builtinCompilerFullPath);
         if (builtinCompilerFullPath == selectedCompilerPath)
