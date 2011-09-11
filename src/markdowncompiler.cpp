@@ -73,10 +73,15 @@ QString MarkdownCompiler::getFilesystemPathForResourcePath(QString resourcePath)
     return targetFilePath;
 }
 
+QString MarkdownCompiler::errorString()
+{
+    return _errorString;
+}
 
 QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPath)
 {
     qDebug() << "Compiling with compiler:" << compilerPath;
+    _errorString = QString();
 
     QString actualCompilerPath(compilerPath);
     bool isResourcePath = compilerPath.startsWith(":/");
@@ -86,10 +91,17 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
     }
 
     QProcess syncCompilerProcess;
-    syncCompilerProcess.start(actualCompilerPath, QProcess::ReadWrite);
+
+    // We need to supply an empty QStringList as the arguments (even if we
+    // don't wish to supply arguments) so that QProcess understands that the
+    // first argument is the executable path, and escapes spaces in the path
+    // correctly:
+    syncCompilerProcess.start(actualCompilerPath, QStringList(), QProcess::ReadWrite);
+
     if (!syncCompilerProcess.waitForStarted()) {
         // TODO: handle error
         qDebug() << "Cannot start process:" << actualCompilerPath;
+        _errorString = syncCompilerProcess.errorString();
         return QString();
     }
 
@@ -99,16 +111,19 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
     if (!syncCompilerProcess.waitForFinished()) {
         // TODO: handle error
         qDebug() << "Error while waiting process to finish:" << actualCompilerPath;
+        _errorString = syncCompilerProcess.errorString();
         return QString();
     }
 
     if (syncCompilerProcess.exitStatus() != QProcess::NormalExit) {
         // TODO: handle error
         qDebug() << "Process returned non-normal exit status:" << actualCompilerPath;
+        _errorString = syncCompilerProcess.errorString();
         return QString();
     }
 
     QByteArray output = syncCompilerProcess.readAll();
+    qDebug() << "output:" << output;
 
     return QString(output);
 }

@@ -397,12 +397,20 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
     statusBar()->showMessage("Compiling to " + targetPath + "...");
     bool success = compiler->compileToHTMLFile(compilerPath, editor->toPlainText(),
                                                targetPath);
-    if (success) {
+    recompileAction->setEnabled(true);
+    if (success)
+    {
         lastCompileTargetPath = targetPath;
-        recompileAction->setEnabled(true);
+        statusBar()->showMessage("Compiled successfully to: " + targetPath, 3000);
     }
-    statusBar()->showMessage(success ? ("Compiled successfully to: " + targetPath)
-                                     : ("Compiling failed to: " + targetPath), 3000);
+    else
+    {
+        QString message = "Compiling failed with compiler:\n" + compilerPath;
+        if (!compiler->errorString().isNull())
+            message += "\n\n" + compiler->errorString();
+        QMessageBox::warning(this, "Compiling Failed", message);
+        statusBar()->showMessage("Compiling failed to: " + targetPath, 3000);
+    }
     return success;
 }
 

@@ -66,7 +66,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>2</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
@@ -352,7 +352,7 @@
            </font>
           </property>
           <property name="text">
-           <string>User styles can be added by putting them in a specific folder. The button below will open it.</string>
+           <string>User styles can be added by putting them into a specific folder. The button below will open it.</string>
           </property>
           <property name="wordWrap">
            <bool>true</bool>
@@ -490,14 +490,53 @@
          <string>Compiler:</string>
         </property>
         <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
         </property>
        </widget>
       </item>
       <item row="1" column="1">
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
-         <widget class="QComboBox" name="comboBox"/>
+         <widget class="QComboBox" name="compilersComboBox"/>
+        </item>
+        <item>
+         <widget class="QLabel" name="infoLabel4">
+          <property name="font">
+           <font>
+            <pointsize>11</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>User compilers can be added by putting them into a specific folder. The button below will open it.</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QPushButton" name="openCompilersFolderButton">
+            <property name="text">
+             <string>Open Compilers Folder</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
         </item>
        </layout>
       </item>

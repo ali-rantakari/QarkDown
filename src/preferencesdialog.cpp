@@ -17,8 +17,10 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     ui->setupUi(this);
     ui->tabWidget->setCurrentIndex(0);
 
-    stylesModel = new QStandardItemModel();
-    ui->stylesComboBox->setModel(stylesModel);
+    stylesComboBoxModel = new QStandardItemModel();
+    ui->stylesComboBox->setModel(stylesComboBoxModel);
+    compilersComboBoxModel = new QStandardItemModel();
+    ui->compilersComboBox->setModel(compilersComboBoxModel);
 
     ui->openStylesFolderButton->setToolTip(userStylesDir().absolutePath());
 
@@ -49,7 +51,8 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
 PreferencesDialog::~PreferencesDialog()
 {
     delete ui;
-    delete stylesModel;
+    delete stylesComboBoxModel;
+    delete compilersComboBoxModel;
     delete compiler;
 }
 
@@ -60,6 +63,8 @@ void PreferencesDialog::setupConnections()
     connect(ui->fontButton, SIGNAL(clicked()), this, SLOT(fontButtonClicked()));
     connect(ui->openStylesFolderButton, SIGNAL(clicked()),
             this, SLOT(openStylesFolderButtonClicked()));
+    connect(ui->openCompilersFolderButton, SIGNAL(clicked()),
+            this, SLOT(openCompilersFolderButtonClicked()));
     connect(ui->stylesComboBox, SIGNAL(currentIndexChanged(int)),
             this, SLOT(stylesComboBoxCurrentIndexChanged(int)));
 }
@@ -78,9 +83,9 @@ void PreferencesDialog::setFontToLabel(QFont font)
 
 QDir PreferencesDialog::userStylesDir()
 {
-    return QDir(((QarkdownApplication *)qApp)->applicationStoragePath() + "/styles/");
+    return QDir(((QarkdownApplication *)qApp)->applicationStoragePath()
+                + "/styles/");
 }
-
 QStringList PreferencesDialog::userStyleFiles()
 {
     QStringList nameFilters;
@@ -88,36 +93,51 @@ QStringList PreferencesDialog::userStyleFiles()
     return userStylesDir().entryList(nameFilters);
 }
 
-
-
-void PreferencesDialog::updateStylesComboBoxFromSettings()
+QDir PreferencesDialog::userCompilersDir()
 {
-# define STYLABEL(varname, name) \
+    return QDir(((QarkdownApplication *)qApp)->applicationStoragePath()
+                + "/compilers/");
+}
+QStringList PreferencesDialog::userCompilerFiles()
+{
+    QStringList ret;
+    QString compilersDirPath = userCompilersDir().absolutePath();
+    foreach (QString fileName, userCompilersDir().entryList(QDir::Files | QDir::NoDotAndDotDot))
+    {
+        QString thisFullPath = compilersDirPath + QDir::separator() + fileName;
+        if (QFileInfo(thisFullPath).isExecutable())
+            ret << fileName;
+    }
+    return ret;
+}
+
+
+# define ADD_COMBO_LABEL(varname, name) \
     QStandardItem *varname = new QStandardItem(name);\
     varname->setSelectable(false);\
     varname->setEnabled(false);\
     rootItem->appendRow(varname)
-# define STYITEM(name, data) \
+# define ADD_COMBO_ITEM(name, data) \
     QStandardItem *item = new QStandardItem(name);\
     item->setData(QVariant(data), Qt::UserRole);\
     rootItem->appendRow(item)
 
-    QString selectedStylePath = settings->value(SETTING_STYLE,
-                                                QVariant(DEF_STYLE)).toString();
-
-    stylesModel->clear();
-    QStandardItem *rootItem = stylesModel->invisibleRootItem();
+void PreferencesDialog::updateStylesComboBoxFromSettings()
+{
+    QString selectedStylePath = settings->value(SETTING_STYLE, DEF_STYLE).toString();
+    stylesComboBoxModel->clear();
+    QStandardItem *rootItem = stylesComboBoxModel->invisibleRootItem();
 
     int indexToSelect = 1;
     int i = 0;
 
-    STYLABEL(builtinStylesLabel, "Built-in Styles:");
+    ADD_COMBO_LABEL(builtinStylesLabel, "Built-in Styles:");
     i++;
 
     foreach (QString builtInStyleName, QDir(":/styles/").entryList())
     {
         QString builtinStyleFullPath = QDir(":/styles/" + builtInStyleName).absolutePath();
-        STYITEM(builtInStyleName, builtinStyleFullPath);
+        ADD_COMBO_ITEM(builtInStyleName, builtinStyleFullPath);
         if (builtinStyleFullPath == selectedStylePath)
             indexToSelect = i;
         i++;
@@ -127,13 +147,13 @@ void PreferencesDialog::updateStylesComboBoxFromSettings()
     QStringList userStyles = userStyleFiles();
     if (userStyles.length() > 0)
     {
-        STYLABEL(userStylesLabel, "User Styles:");
+        ADD_COMBO_LABEL(userStylesLabel, "User Styles:");
         i++;
 
         foreach (QString userStyleFile, userStyles)
         {
             QString userStyleFullPath = QDir(userStylesDirPath + "/" + userStyleFile).absolutePath();
-            STYITEM(QFileInfo(userStyleFile).baseName(), userStyleFullPath);
+            ADD_COMBO_ITEM(QFileInfo(userStyleFile).baseName(), userStyleFullPath);
             if (userStyleFullPath == selectedStylePath)
                 indexToSelect = i;
             i++;
@@ -181,6 +201,52 @@ void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
     ui->styleInfoTextBrowser->setHtml(styleDescription);
 }
 
+void PreferencesDialog::updateCompilersComboBoxFromSettings()
+{
+    QString selectedCompilerPath = settings->value(SETTING_COMPILER, DEF_COMPILER).toString();
+    compilersComboBoxModel->clear();
+    QStandardItem *rootItem = compilersComboBoxModel->invisibleRootItem();
+
+    int indexToSelect = 1;
+    int i = 0;
+
+    ADD_COMBO_LABEL(builtinCompilersLabel, "Built-in Compilers:");
+    i++;
+
+    foreach (QString builtInCompilerName, QDir(":/compilers/").entryList())
+    {
+        QDir thisBuiltinCompilerDir = QDir(":/compilers/" + builtInCompilerName);
+        QString builtinCompilerFullPath =
+                thisBuiltinCompilerDir.absolutePath() + QDir::separator()
+                + thisBuiltinCompilerDir.entryList(QDir::NoDotAndDotDot | QDir::Files).first();
+        ADD_COMBO_ITEM(builtInCompilerName, builtinCompilerFullPath);
+        if (builtinCompilerFullPath == selectedCompilerPath)
+            indexToSelect = i;
+        i++;
+    }
+
+    QString userCompilersDirPath = userCompilersDir().absolutePath();
+    QStringList userCompilers = userCompilerFiles();
+    if (userCompilers.length() > 0)
+    {
+        ADD_COMBO_LABEL(userCompilersLabel, "User Compilers:");
+        i++;
+
+        foreach (QString userCompilerFileName, userCompilers)
+        {
+            QString userCompilerFullPath = QDir(userCompilersDirPath + QDir::separator() + userCompilerFileName).absolutePath();
+            ADD_COMBO_ITEM(QFileInfo(userCompilerFileName).baseName(),
+                           userCompilerFullPath);
+            if (userCompilerFullPath == selectedCompilerPath)
+                indexToSelect = i;
+            i++;
+        }
+    }
+    ui->compilersComboBox->setCurrentIndex(indexToSelect);
+}
+
+
+
 // Some helper macros
 #define PREF_TO_UI_INT(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toInt())
 #define PREF_TO_UI_DOUBLE(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toDouble())
@@ -204,6 +270,9 @@ void PreferencesDialog::updateUIFromSettings()
     updateStylesComboBoxFromSettings();
     updateStyleInfoTextFromComboBoxSelection();
 
+    // compilers
+    updateCompilersComboBoxFromSettings();
+
     // others
     PREF_TO_UI_INT(SETTING_TAB_WIDTH, DEF_TAB_WIDTH, ui->tabWidthSpinBox);
     PREF_TO_UI_BOOL_INVERT_CHECKBOX(SETTING_INDENT_WITH_TABS, DEF_INDENT_WITH_TABS, ui->tabsWithSpacesCheckBox);
@@ -225,6 +294,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox->isChecked());
     settings->setValue(SETTING_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox->isChecked());
     settings->setValue(SETTING_STYLE, ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString());
+    settings->setValue(SETTING_COMPILER, ui->compilersComboBox->itemData(ui->compilersComboBox->currentIndex()).toString());
     settings->sync();
 }
 
@@ -244,23 +314,31 @@ void PreferencesDialog::fontButtonClicked()
     setFontToLabel(newFont);
 }
 
-void PreferencesDialog::openStylesFolderButtonClicked()
+void PreferencesDialog::openFolderEnsuringItExists(QString path)
 {
-    QString stylesDirPath = userStylesDir().absolutePath();
-
     // Let's make sure the path exists
-    if (!QFile::exists(stylesDirPath)) {
+    if (!QFile::exists(path)) {
         QDir dir;
-        dir.mkpath(stylesDirPath);
+        dir.mkpath(path);
     }
 
-    bool couldOpen = QDesktopServices::openUrl(QUrl("file:///" + stylesDirPath));
+    bool couldOpen = QDesktopServices::openUrl(QUrl("file:///" + path));
     if (!couldOpen)
         QMessageBox::information(this, "Could not open folder",
                                  "For some reason " + QCoreApplication::applicationName()
                                  + " could not open the folder. You'll have to do it "
                                  + "manually. The path is:\n\n"
-                                 + stylesDirPath);
+                                 + path);
+}
+
+void PreferencesDialog::openStylesFolderButtonClicked()
+{
+    openFolderEnsuringItExists(userStylesDir().absolutePath());
+}
+
+void PreferencesDialog::openCompilersFolderButtonClicked()
+{
+    openFolderEnsuringItExists(userCompilersDir().absolutePath());
 }
 
 void PreferencesDialog::stylesComboBoxCurrentIndexChanged(int index)

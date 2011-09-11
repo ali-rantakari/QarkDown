@@ -13,9 +13,11 @@ public:
 
     QString compileSynchronously(QString input, QString compilerPath);
     bool compileToHTMLFile(QString compilerPath, QString input, QString targetPath);
+    QString errorString();
 
 private:
     QProcess *compilerProcess;
+    QString _errorString;
     QString getFilesystemPathForResourcePath(QString resourcePath);
 
 signals:

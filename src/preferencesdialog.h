@@ -27,6 +27,7 @@ public slots:
 private slots:
     void fontButtonClicked();
     void openStylesFolderButtonClicked();
+    void openCompilersFolderButtonClicked();
     void stylesComboBoxCurrentIndexChanged(int index);
 
 signals:
@@ -40,14 +41,19 @@ private:
     void updateUIFromSettings();
     void updateStylesComboBoxFromSettings();
     void updateStyleInfoTextFromComboBoxSelection();
+    void updateCompilersComboBoxFromSettings();
     void updateSettingsFromUI();
     void setFontToLabel(QFont font);
+    void openFolderEnsuringItExists(QString path);
     MarkdownCompiler *compiler;
     QSettings *settings;
     Ui::PreferencesDialog *ui;
     QDir userStylesDir();
     QStringList userStyleFiles();
-    QStandardItemModel *stylesModel;
+    QDir userCompilersDir();
+    QStringList userCompilerFiles();
+    QStandardItemModel *stylesComboBoxModel;
+    QStandardItemModel *compilersComboBoxModel;
 };
 
 #endif // PREFERENCESDIALOG_H
