@@ -1,5 +1,6 @@
 <RCC>
     <qresource>
+        <file>compilers/multimarkdown/multimarkdown-windows.exe</file>
         <file>compilers/peg-markdown/peg-markdown-windows.exe</file>
         <file>compilers/peg-markdown/peg-markdown-windows.exe.dependencies/libglib-2.0-0.dll</file>
         <file>compilers/peg-markdown/peg-markdown-windows.exe.dependencies/intl.dll</file>
