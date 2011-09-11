@@ -1,5 +1,6 @@
 <RCC>
     <qresource>
         <file>compilers/peg-markdown/peg-markdown-osx</file>
+        <file>compilers/discount/discount-osx</file>
     </qresource>
 </RCC>
