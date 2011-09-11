@@ -1,4 +1,5 @@
 #include "markdowncompiler.h"
+#include "qarkdownapplication.h"
 
 #include <QDebug>
 #include <QDir>
@@ -15,26 +16,39 @@ MarkdownCompiler::~MarkdownCompiler()
         delete compilerProcess;
 }
 
-bool copyResourceToFile(QString resourcePath, QString targetFilePath)
+QString MarkdownCompiler::getHTMLTemplate()
 {
-    QFile source(resourcePath);
-    QByteArray contents;
-    if (!source.open(QIODevice::ReadOnly)) {
-        qDebug() << "Cannot open file for reading:" << source.fileName();
-        return false;
-    }
-    contents = source.readAll();
-    source.close();
+    QString templateFilePath = HTML_TEMPLATE_FILE_PATH;
+    if (!QFile::exists(templateFilePath))
+        templateFilePath = ":/template.html";
 
-    QFile target(targetFilePath);
-    if (!target.open(QIODevice::WriteOnly)) {
-        qDebug() << "Cannot open file for writing:" << target.fileName();
-        return false;
+    QFile templateFile(templateFilePath);
+    if (!templateFile.open(QIODevice::ReadOnly)) {
+        qDebug() << "Cannot open file for reading:" << templateFile.fileName();
+        return QString();
     }
-    target.write(contents);
-    target.close();
+    QTextStream stream(&templateFile);
+    QString contents = stream.readAll();
+    templateFile.close();
+    return contents;
+}
 
-    return true;
+QString MarkdownCompiler::wrapHTMLContentInTemplate(QString htmlContent)
+{
+    QString templateStr = getHTMLTemplate();
+    QRegExp contentCommentRE("\\<\\!--\\s*[Cc]ontent\\s*-->");
+    QStringList parts = templateStr.split(contentCommentRE, QString::SkipEmptyParts);
+    if (parts.count() == 2)
+    {
+        return parts[0] + htmlContent + parts[1];
+    }
+    else
+    {
+        _errorString = (parts.count() < 2)
+                       ? "HTML template does not contain a content comment."
+                       : "HTML template contains more than one content comment.";
+        return QString();
+    }
 }
 
 QString MarkdownCompiler::getFilesystemPathForResourcePath(QString resourcePath)
@@ -45,7 +59,8 @@ QString MarkdownCompiler::getFilesystemPathForResourcePath(QString resourcePath)
     QString targetFilePath = targetFileDir + QDir::separator() + fileName;
 
     if (!QFile::exists(targetFilePath)) {
-        if (!copyResourceToFile(resourcePath, targetFilePath))
+        if (!((QarkdownApplication*)qApp)->copyResourceToFile(resourcePath,
+                                                              targetFilePath))
             return QString();
     }
 
@@ -63,8 +78,9 @@ QString MarkdownCompiler::getFilesystemPathForResourcePath(QString resourcePath)
             qDebug() << "Compiler dependency:" << depFileName;
             QString depTargetPath = targetFileDir + QDir::separator() + depFileName;
             if (!QFile::exists(depTargetPath)) {
-                if (!copyResourceToFile(depsDirPath + QDir::separator() + depFileName,
-                                        depTargetPath))
+                if (!((QarkdownApplication*)qApp)->copyResourceToFile(
+                            depsDirPath + QDir::separator() + depFileName,
+                            depTargetPath))
                     return QString();
             }
         }
@@ -131,18 +147,8 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
 bool MarkdownCompiler::compileToHTMLFile(QString compilerPath, QString input,
                                          QString targetPath)
 {
-    QString htmlHeader =
-            "<!DOCTYPE html>\n"
-            "<html lang='en'>\n"
-            "<head>\n"
-            "    <meta charset='utf-8'/>\n"
-            "    <title></title>\n"
-            "</head>\n"
-            "<body>\n";
-    QString htmlFooter = "\n</body>\n</html>";
-
-    QString compiled = this->compileSynchronously(input, compilerPath);
-    if (compiled.isNull())
+    QString compilationOutput = this->compileSynchronously(input, compilerPath);
+    if (compilationOutput.isNull())
         return false;
 
     QFile file(targetPath);
@@ -150,13 +156,14 @@ bool MarkdownCompiler::compileToHTMLFile(QString compilerPath, QString input,
         qDebug() << "compileToHTMLFile: Cannot open file for writing: '"+targetPath+"'";
         return false;
     }
+
+    QString finalHTML = wrapHTMLContentInTemplate(compilationOutput);
+
     QTextStream fileStream(&file);
-    fileStream << htmlHeader;
-    fileStream << compiled;
-    fileStream << htmlFooter;
+    fileStream << finalHTML;
     file.close();
 
-    return true;
+    return (!finalHTML.isNull());
 }
 
 

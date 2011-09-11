@@ -39,6 +39,27 @@ QString QarkdownApplication::applicationStoragePath()
     return path;
 }
 
+bool QarkdownApplication::copyResourceToFile(QString resourcePath, QString targetFilePath)
+{
+    QFile source(resourcePath);
+    if (!source.open(QIODevice::ReadOnly)) {
+        qDebug() << "Cannot open file for reading:" << source.fileName();
+        return false;
+    }
+    QByteArray contents = source.readAll();
+    source.close();
+
+    QFile target(targetFilePath);
+    if (!target.open(QIODevice::WriteOnly)) {
+        qDebug() << "Cannot open file for writing:" << target.fileName();
+        return false;
+    }
+    target.write(contents);
+    target.close();
+
+    return true;
+}
+
 bool QarkdownApplication::event(QEvent *event)
 {
     if (event->type() == QEvent::FileOpen && mainWindow) {

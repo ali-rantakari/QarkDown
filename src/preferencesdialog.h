@@ -28,6 +28,7 @@ private slots:
     void fontButtonClicked();
     void openStylesFolderButtonClicked();
     void openCompilersFolderButtonClicked();
+    void editHTMLTemplateButtonClicked();
     void stylesComboBoxCurrentIndexChanged(int index);
 
 signals:
@@ -45,13 +46,15 @@ private:
     void updateSettingsFromUI();
     void setFontToLabel(QFont font);
     void openFolderEnsuringItExists(QString path);
-    MarkdownCompiler *compiler;
-    QSettings *settings;
-    Ui::PreferencesDialog *ui;
+    void openPath(QString path, bool isFolder = false);
     QDir userStylesDir();
     QStringList userStyleFiles();
     QDir userCompilersDir();
     QStringList userCompilerFiles();
+
+    Ui::PreferencesDialog *ui;
+    QSettings *settings;
+    MarkdownCompiler *compiler;
     QStandardItemModel *stylesComboBoxModel;
     QStandardItemModel *compilersComboBoxModel;
 };

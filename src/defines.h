@@ -47,4 +47,8 @@
 #define DEF_COMPILER            ""
 #endif
 
+#define HTML_TEMPLATE_FILE_PATH \
+    QDir(((QarkdownApplication *)qApp)->applicationStoragePath()\
+         + "/template.html").absolutePath()
+
 #endif // DEFAULTPREFERENCES_H

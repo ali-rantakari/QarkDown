@@ -23,6 +23,8 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     ui->compilersComboBox->setModel(compilersComboBoxModel);
 
     ui->openStylesFolderButton->setToolTip(userStylesDir().absolutePath());
+    ui->openCompilersFolderButton->setToolTip(userCompilersDir().absolutePath());
+    ui->editHTMLTemplateButton->setToolTip(HTML_TEMPLATE_FILE_PATH);
 
     compiler = new MarkdownCompiler();
 
@@ -32,6 +34,8 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     ui->infoLabel1->setFont(font);
     ui->infoLabel2->setFont(font);
     ui->infoLabel3->setFont(font);
+    ui->infoLabel4->setFont(font);
+    ui->infoLabel5->setFont(font);
     ui->linkInfoLabel->setFont(font);
     ui->styleInfoTextBrowser->setFont(font);
 #endif
@@ -65,6 +69,8 @@ void PreferencesDialog::setupConnections()
             this, SLOT(openStylesFolderButtonClicked()));
     connect(ui->openCompilersFolderButton, SIGNAL(clicked()),
             this, SLOT(openCompilersFolderButtonClicked()));
+    connect(ui->editHTMLTemplateButton, SIGNAL(clicked()),
+            this, SLOT(editHTMLTemplateButtonClicked()));
     connect(ui->stylesComboBox, SIGNAL(currentIndexChanged(int)),
             this, SLOT(stylesComboBoxCurrentIndexChanged(int)));
 }
@@ -314,6 +320,19 @@ void PreferencesDialog::fontButtonClicked()
     setFontToLabel(newFont);
 }
 
+
+void PreferencesDialog::openPath(QString path, bool isFolder)
+{
+    bool couldOpen = QDesktopServices::openUrl(QUrl("file:///" + path));
+    QString type = isFolder ? "folder" : "file";
+    if (!couldOpen)
+        QMessageBox::information(this, "Could not open " + type,
+                                 "For some reason " + QCoreApplication::applicationName()
+                                 + " could not open the "+type+". You'll have to do it "
+                                 + "manually. The path is:\n\n"
+                                 + path);
+}
+
 void PreferencesDialog::openFolderEnsuringItExists(QString path)
 {
     // Let's make sure the path exists
@@ -321,14 +340,7 @@ void PreferencesDialog::openFolderEnsuringItExists(QString path)
         QDir dir;
         dir.mkpath(path);
     }
-
-    bool couldOpen = QDesktopServices::openUrl(QUrl("file:///" + path));
-    if (!couldOpen)
-        QMessageBox::information(this, "Could not open folder",
-                                 "For some reason " + QCoreApplication::applicationName()
-                                 + " could not open the folder. You'll have to do it "
-                                 + "manually. The path is:\n\n"
-                                 + path);
+    openPath(path, true);
 }
 
 void PreferencesDialog::openStylesFolderButtonClicked()
@@ -339,6 +351,16 @@ void PreferencesDialog::openStylesFolderButtonClicked()
 void PreferencesDialog::openCompilersFolderButtonClicked()
 {
     openFolderEnsuringItExists(userCompilersDir().absolutePath());
+}
+
+void PreferencesDialog::editHTMLTemplateButtonClicked()
+{
+    QString path = HTML_TEMPLATE_FILE_PATH;
+    if (!QFile::exists(path))
+        ((QarkdownApplication*)qApp)->copyResourceToFile(":/template.html", path);
+    QDir dir(path);
+    dir.cdUp();
+    openPath(dir.absolutePath(), false);
 }
 
 void PreferencesDialog::stylesComboBoxCurrentIndexChanged(int index)

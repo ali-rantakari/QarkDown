@@ -14,6 +14,8 @@ public:
     QString compileSynchronously(QString input, QString compilerPath);
     bool compileToHTMLFile(QString compilerPath, QString input, QString targetPath);
     QString errorString();
+    QString getHTMLTemplate();
+    QString wrapHTMLContentInTemplate(QString htmlContent);
 
 private:
     QProcess *compilerProcess;

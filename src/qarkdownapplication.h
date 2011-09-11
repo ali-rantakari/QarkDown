@@ -12,6 +12,7 @@ public:
     MainWindow *mainWindow;
 
     QString applicationStoragePath();
+    bool copyResourceToFile(QString resourcePath, QString targetFilePath);
 
 protected:
     bool event(QEvent *event);

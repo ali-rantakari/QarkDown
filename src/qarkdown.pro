@@ -28,7 +28,8 @@ FORMS += \
 OTHER_FILES += \
     cfg/win.rc \
     cfg/Info.plist \
-    cfg/linux.qrc
+    cfg/linux.qrc \
+    template.html
 
 win32 {
     RC_FILE += cfg/win.rc
@@ -46,4 +47,6 @@ linux {
     RESOURCES += compilers-linux.qrc
 }
 
-RESOURCES += styles.qrc
+RESOURCES += \
+    styles.qrc \
+    misc.qrc
