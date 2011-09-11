@@ -46,9 +46,4 @@ linux {
     RESOURCES += compilers-linux.qrc
 }
 
-RESOURCES += \
-    cfg/linux.qrc \
-    styles.qrc \
-    compilers-windows.qrc \
-    compilers-osx.qrc \
-    compilers-linux.qrc
+RESOURCES += styles.qrc
