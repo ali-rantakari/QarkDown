@@ -13,11 +13,11 @@ foreground: 6c71c4 # violet
 font-style: bold
 
 H2
-foreground: 6c71c4 # violet
+foreground: 268bd2 # blue
 font-style: bold
 
 H3
-foreground: 6c71c4 # violet
+foreground: 268bd2 # blue
 
 H4
 foreground: 268bd2 # blue
