@@ -80,8 +80,10 @@ void MainWindow::openFile(const QString &path)
     setDirty(false);
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
                                             QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
-    if (rememberLastFile)
+    if (rememberLastFile) {
         settings->setValue(SETTING_LAST_FILE, QVariant(openFilePath));
+        settings->sync();
+    }
     addToRecentFiles(openFilePath);
     updateRecentFilesMenu();
 }
@@ -106,8 +108,10 @@ void MainWindow::saveFile()
     {
         bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
                                                 QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
-        if (rememberLastFile)
+        if (rememberLastFile) {
             settings->setValue(SETTING_LAST_FILE, QVariant(saveFilePath));
+            settings->sync();
+        }
         addToRecentFiles(saveFilePath);
         updateRecentFilesMenu();
     }
@@ -145,6 +149,7 @@ void MainWindow::addToRecentFiles(QString filePath)
 void MainWindow::persistFontInfo()
 {
     settings->setValue(SETTING_FONT, QVariant(editor->font().toString()));
+    settings->sync();
 }
 void MainWindow::applyPersistedFontInfo()
 {
@@ -271,6 +276,7 @@ void MainWindow::applyEditorPreferences()
 
 void MainWindow::showPreferences()
 {
+    preferencesDialog->setModal(true);
     preferencesDialog->show();
 }
 

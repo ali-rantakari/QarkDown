@@ -27,6 +27,9 @@ public slots:
 signals:
     void updated();
 
+protected:
+    void showEvent(QShowEvent *event);
+
 private:
     void setupConnections();
     void updateUIFromSettings();

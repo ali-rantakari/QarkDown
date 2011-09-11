@@ -181,6 +181,12 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->sync();
 }
 
+void PreferencesDialog::showEvent(QShowEvent *event)
+{
+    updateUIFromSettings();
+    QDialog::showEvent(event);
+}
+
 void PreferencesDialog::fontButtonClicked()
 {
     bool ok;

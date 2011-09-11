@@ -102,7 +102,7 @@
            </size>
           </property>
           <property name="text">
-           <string>Current Font asdlkjsadlkj dlskdsldkj</string>
+           <string notr="true">Current Font asdlkjsadlkj dlskdsldkj</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
