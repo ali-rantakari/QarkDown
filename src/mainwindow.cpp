@@ -244,7 +244,15 @@ void MainWindow::applyHighlighterPreferences()
     QString styleFilePath = settings->value(SETTING_STYLE,
                                             QVariant(DEF_STYLE)).toString();
     if (!QFile::exists(styleFilePath))
+    {
+        QMessageBox::warning(this, "Error loading style",
+                             "Cannot load style file:\n'"+styleFilePath+"'"
+                             "\n\n"
+                             "Falling back to default style.");
         styleFilePath = DEF_STYLE;
+        settings->setValue(SETTING_STYLE, DEF_STYLE);
+        settings->sync();
+    }
     highlighter->getStylesFromStylesheet(styleFilePath, editor);
     editor->setCurrentLineHighlightColor(highlighter->currentLineHighlightColor);
     qDebug() << "applied style from:" << styleFilePath;
