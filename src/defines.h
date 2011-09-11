@@ -20,6 +20,8 @@
 #define SETTING_RECENT_FILES "RecentFiles"
 #define SETTING_NUM_RECENT_FILES "NumberOfRecentFiles"
 
+#define SETTING_COMPILER "Compiler"
+
 #define DEF_FONT_FAMILY         "Courier"
 #define DEF_FONT_SIZE           12
 #define DEF_TAB_WIDTH           4
@@ -32,5 +34,15 @@
 #define DEF_HIGHLIGHT_CURRENT_LINE true
 #define DEF_LINE_HIGHLIGHT_COLOR QColor(Qt::yellow).lighter(180)
 #define DEF_STYLE               ":/styles/Default"
+
+#ifdef Q_WS_MACX
+#define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-osx"
+#elif Q_WS_WIN
+#define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-windows.exe"
+#elif Q_WS_LINUX
+#define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-linux"
+#else
+#define DEF_COMPILER            ""
+#endif
 
 #endif // DEFAULTPREFERENCES_H

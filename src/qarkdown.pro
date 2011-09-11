@@ -8,7 +8,8 @@ HEADERS = \
     peg-markdown-highlight/highlighter.h \
     editor/qarkdowntextedit.h \
     editor/linenumberingplaintextedit.h \
-    peg-markdown-highlight/styleparser.h
+    peg-markdown-highlight/styleparser.h \
+    markdowncompiler.h
 SOURCES = \
     main.cpp \
     qarkdownapplication.cpp \
@@ -18,7 +19,8 @@ SOURCES = \
     peg-markdown-highlight/highlighter.cpp \
     editor/qarkdowntextedit.cpp \
     editor/linenumberingplaintextedit.cpp \
-    peg-markdown-highlight/styleparser.c
+    peg-markdown-highlight/styleparser.c \
+    markdowncompiler.cpp
 
 FORMS += \
     preferencesdialog.ui
@@ -43,4 +45,5 @@ linux {
 
 RESOURCES += \
     cfg/linux.qrc \
-    styles.qrc
+    styles.qrc \
+    compilers.qrc

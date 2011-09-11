@@ -1,7 +1,6 @@
-# Styles using 'Solarized' color scheme
-# by Ethan Schoonover: http://ethanschoonover.com/solarized
+# **Dark background** version of styles using _'Solarized'_ color scheme
+# by _Ethan Schoonover_: <http://ethanschoonover.com/solarized>
 # 
-# (dark background version)
 
 editor
 foreground: 839496 # base0

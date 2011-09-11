@@ -21,6 +21,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     recentFilesMenuActions = new QList<QAction *>();
 
+    compiler = new MarkdownCompiler();
+
     setupFileMenu();
     setupEditor();
     performStartupTasks();
@@ -31,6 +33,8 @@ MainWindow::~MainWindow()
 {
     delete settings;
     delete preferencesDialog;
+    delete compiler;
+    delete recentFilesMenuActions;
 }
 
 void MainWindow::show()
@@ -96,6 +100,9 @@ void MainWindow::saveFile()
     if (saveFilePath.isNull())
         saveFilePath = QFileDialog::getSaveFileName(this,
             tr("Save File"), "", MARKDOWN_FILES_FILTER);
+
+    if (saveFilePath.isEmpty())
+        return;
 
     QFile file(saveFilePath);
     if (!file.open(QFile::WriteOnly | QFile::Text))
@@ -326,6 +333,54 @@ void MainWindow::openRecentFile()
     openFile(action->data().toString());
 }
 
+QString getTempHTMLFilePathForMarkdownFilePath(QString markdownFilePath)
+{
+    QString tempDirPath = QDir::tempPath();
+    QString tempFileExtension = ".html";
+
+    QCryptographicHash hash(QCryptographicHash::Sha1);
+    hash.addData(markdownFilePath.toUtf8());
+    QString tempFileNameBase = "qarkdown-" + hash.result().toHex();
+    QString tempFilePath = tempDirPath + QDir::separator()
+                           + tempFileNameBase + tempFileExtension;
+    if (QFile::exists(tempFilePath))
+        QFile::remove(tempFilePath);
+    return tempFilePath;
+}
+
+void MainWindow::compileToHTML()
+{
+    if (openFilePath.isNull())
+        return;
+    QString tempFilePath = getTempHTMLFilePathForMarkdownFilePath(openFilePath);
+    if (compileToHTMLFile(tempFilePath))
+        QDesktopServices::openUrl(QUrl("file:///" + tempFilePath));
+}
+void MainWindow::compileToHTMLAs()
+{
+    QString saveFilePath = QFileDialog::getSaveFileName(this,
+        tr("Save HTML Output"), "");
+
+    if (saveFilePath.isNull())
+        return;
+
+    if (compileToHTMLFile(saveFilePath))
+        QDesktopServices::openUrl(QUrl("file:///" + saveFilePath));
+}
+
+bool MainWindow::compileToHTMLFile(QString targetPath)
+{
+    QString compilerPath = settings->value(SETTING_COMPILER,
+                                           QVariant(DEF_COMPILER)).toString();
+    if (!QFile::exists(compilerPath)) {
+        QMessageBox::warning(this, "Cannot compile",
+                             "The Markdown to HTML compiler cannot be found at:\n"
+                             "'" + compilerPath + "'");
+        return false;
+    }
+    return compiler->compileToHTMLFile(compilerPath, editor->toPlainText(), targetPath);
+}
+
 void MainWindow::updateRecentFilesMenu()
 {
     for (int i = 0; i < recentFilesMenuActions->count(); i++)
@@ -361,7 +416,7 @@ void MainWindow::setupFileMenu()
                         QKeySequence::New);
     fileMenu->addAction(tr("&Open..."), this, SLOT(openFile()),
                         QKeySequence::Open);
-    recentFilesMenu = new QMenu(tr("Open &Recent..."), this);
+    recentFilesMenu = new QMenu(tr("Open Recent..."), this);
     fileMenu->addMenu(recentFilesMenu);
     fileMenu->addAction(tr("&Save"), this, SLOT(saveFile()),
                         QKeySequence::Save);
@@ -392,6 +447,13 @@ void MainWindow::setupFileMenu()
                          QKeySequence("Ctrl+-"));
     toolsMenu->addAction(tr("&Preferences..."), this, SLOT(showPreferences()),
                          QKeySequence::Preferences);
+
+    QMenu *compilingMenu = new QMenu(tr("&Compiling"), this);
+    menuBar()->addMenu(compilingMenu);
+    compilingMenu->addAction(tr("Compile to HTML"), this, SLOT(compileToHTML()),
+                             QKeySequence("Ctrl+Return"));
+    compilingMenu->addAction(tr("Compile to HTML as..."),
+                             this, SLOT(compileToHTMLAs()));
 
     QMenu *helpMenu = new QMenu(tr("&Help"), this);
     menuBar()->addMenu(helpMenu);

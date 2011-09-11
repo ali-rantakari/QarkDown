@@ -6,6 +6,8 @@
 #include <QDir>
 #include <QStandardItemModel>
 
+#include "markdowncompiler.h"
+
 namespace Ui {
     class PreferencesDialog;
 }
@@ -40,6 +42,7 @@ private:
     void updateStyleInfoTextFromComboBoxSelection();
     void updateSettingsFromUI();
     void setFontToLabel(QFont font);
+    MarkdownCompiler *compiler;
     QSettings *settings;
     Ui::PreferencesDialog *ui;
     QDir userStylesDir();

@@ -9,6 +9,7 @@
 #include "peg-markdown-highlight/highlighter.h"
 #include "preferencesdialog.h"
 #include "editor/qarkdowntextedit.h"
+#include "markdowncompiler.h"
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
@@ -41,6 +42,8 @@ public slots:
     void preferencesUpdated();
 
     void openRecentFile();
+    void compileToHTML();
+    void compileToHTMLAs();
 
     void anchorClicked(const QUrl &link);
     void commitDataHandler(QSessionManager &manager);
@@ -60,6 +63,9 @@ private:
     void applyHighlighterPreferences();
     void applyEditorPreferences();
     void setDirty(bool value);
+    bool compileToHTMLFile(QString targetPath);
+
+    MarkdownCompiler *compiler;
 
     PreferencesDialog *preferencesDialog;
     QSettings *settings;

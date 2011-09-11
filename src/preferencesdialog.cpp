@@ -22,6 +22,8 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
 
     ui->openStylesFolderButton->setToolTip(userStylesDir().absolutePath());
 
+    compiler = new MarkdownCompiler();
+
 #ifdef Q_WS_WIN
     QFont font = ui->infoLabel1->font();
     font.setPointSize(8);
@@ -48,6 +50,7 @@ PreferencesDialog::~PreferencesDialog()
 {
     delete ui;
     delete stylesModel;
+    delete compiler;
 }
 
 void PreferencesDialog::setupConnections()
@@ -159,13 +162,19 @@ void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
     foreach (QString line, lines)
     {
         if (line.startsWith("#"))
-            styleDescription += line.right(line.length() - 1).trimmed() + "<br/>";
+            styleDescription += line.right(line.length() - 1).trimmed() + "\n";
         else
             break;
     }
 
     if (styleDescription.isEmpty())
         styleDescription = "<i>The selected stylesheet has no description.</i>";
+    else
+    {
+        QString compiledDescription = compiler->compileSynchronously(styleDescription, DEF_COMPILER);
+        if (!compiledDescription.isNull())
+            styleDescription = compiledDescription;
+    }
 
     ui->styleInfoTextBrowser->setHtml(styleDescription);
 }
@@ -252,6 +261,7 @@ void PreferencesDialog::openStylesFolderButtonClicked()
 
 void PreferencesDialog::stylesComboBoxCurrentIndexChanged(int index)
 {
+    Q_UNUSED(index);
     updateStyleInfoTextFromComboBoxSelection();
 }
 
