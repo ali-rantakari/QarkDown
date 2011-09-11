@@ -37,9 +37,9 @@
 
 #ifdef Q_WS_MACX
 #define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-osx"
-#elif Q_WS_WIN
+#elif defined(Q_WS_WIN)
 #define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-windows.exe"
-#elif Q_WS_LINUX
+#elif defined(Q_WS_LINUX)
 #define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-linux"
 #else
 #define DEF_COMPILER            ""
