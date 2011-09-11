@@ -27,6 +27,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     setupEditor();
     performStartupTasks();
     setCentralWidget(editor);
+
+    statusBar()->show();
 }
 
 MainWindow::~MainWindow()
@@ -392,11 +394,15 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
                              "'" + compilerPath + "'");
         return false;
     }
-    bool success = compiler->compileToHTMLFile(compilerPath, editor->toPlainText(), targetPath);
+    statusBar()->showMessage("Compiling to " + targetPath + "...");
+    bool success = compiler->compileToHTMLFile(compilerPath, editor->toPlainText(),
+                                               targetPath);
     if (success) {
         lastCompileTargetPath = targetPath;
         recompileAction->setEnabled(true);
     }
+    statusBar()->showMessage(success ? ("Compiled successfully to: " + targetPath)
+                                     : ("Compiling failed to: " + targetPath), 3000);
     return success;
 }
 
@@ -420,6 +426,7 @@ void MainWindow::updateRecentFilesMenu()
         QAction *action = new QAction(this);
         action->setText(QFileInfo(recentFilePath).fileName());
         action->setToolTip(recentFilePath);
+        action->setStatusTip(recentFilePath);
         action->setData(recentFilePath);
         connect(action, SIGNAL(triggered()), this, SLOT(openRecentFile()));
         recentFilesMenuActions->append(action);
