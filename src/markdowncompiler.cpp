@@ -139,7 +139,6 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
     }
 
     QByteArray output = syncCompilerProcess.readAll();
-    qDebug() << "output:" << output;
 
     return QString(output);
 }
