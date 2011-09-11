@@ -174,6 +174,8 @@ void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
         QString compiledDescription = compiler->compileSynchronously(styleDescription, DEF_COMPILER);
         if (!compiledDescription.isNull())
             styleDescription = compiledDescription;
+        else
+            styleDescription = styleDescription.replace("\n", "<br/>");
     }
 
     ui->styleInfoTextBrowser->setHtml(styleDescription);
