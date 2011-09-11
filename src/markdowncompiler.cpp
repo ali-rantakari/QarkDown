@@ -15,41 +15,68 @@ MarkdownCompiler::~MarkdownCompiler()
         delete compilerProcess;
 }
 
+bool copyResourceToFile(QString resourcePath, QString targetFilePath)
+{
+    QFile source(resourcePath);
+    QByteArray contents;
+    if (!source.open(QIODevice::ReadOnly)) {
+        qDebug() << "Cannot open file for reading:" << source.fileName();
+        return false;
+    }
+    contents = source.readAll();
+    source.close();
+
+    QFile target(targetFilePath);
+    if (!target.open(QIODevice::WriteOnly)) {
+        qDebug() << "Cannot open file for writing:" << target.fileName();
+        return false;
+    }
+    target.write(contents);
+    target.close();
+
+    return true;
+}
 
 QString MarkdownCompiler::getFilesystemPathForResourcePath(QString resourcePath)
 {
     QString fileName = QFileInfo(resourcePath).fileName();
     fileName = "qarkdown-" + QCoreApplication::applicationVersion() + "-compiler-" + fileName;
-    QString path = QDir::tempPath() + QDir::separator() + fileName;
-    QFile target(path);
+    QString targetFileDir = QDir::tempPath();
+    QString targetFilePath = targetFileDir + QDir::separator() + fileName;
 
-    if (!QFile::exists(path))
+    if (!QFile::exists(targetFilePath)) {
+        if (!copyResourceToFile(resourcePath, targetFilePath))
+            return QString();
+    }
+
+    if (!QFileInfo(targetFilePath).isExecutable()) {
+        if (!QFile(targetFilePath).setPermissions(QFile::ExeUser))
+            return QString();
+    }
+
+    if (QFile::exists(resourcePath + ".dependencies"))
     {
-        QFile source(resourcePath);
-        QByteArray contents;
-        if (!source.open(QIODevice::ReadOnly))
-            return QString();
-        contents = source.readAll();
-        source.close();
-
-        if (!target.open(QIODevice::WriteOnly))
-            return QString();
-        target.write(contents);
-        target.close();
+        QString depsDirPath = resourcePath + ".dependencies";
+        QStringList depFiles = QDir(depsDirPath).entryList();
+        foreach(QString depFileName, depFiles)
+        {
+            qDebug() << "Compiler dependency:" << depFileName;
+            QString depTargetPath = targetFileDir + QDir::separator() + depFileName;
+            if (!QFile::exists(depTargetPath)) {
+                if (!copyResourceToFile(depsDirPath + QDir::separator() + depFileName,
+                                        depTargetPath))
+                    return QString();
+            }
+        }
     }
 
-    if (!QFileInfo(path).isExecutable()) {
-        if (!target.setPermissions(QFile::ExeUser))
-            return QString();
-    }
-
-    return path;
+    return targetFilePath;
 }
 
 
 QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPath)
 {
-    qDebug() << "Compiling with compiler: '"+compilerPath+"'";
+    qDebug() << "Compiling with compiler:" << compilerPath;
 
     QString actualCompilerPath(compilerPath);
     bool isResourcePath = compilerPath.startsWith(":/");
@@ -62,7 +89,7 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
     syncCompilerProcess.start(actualCompilerPath, QProcess::ReadWrite);
     if (!syncCompilerProcess.waitForStarted()) {
         // TODO: handle error
-        qDebug() << "Cannot start process: '"+actualCompilerPath+"'";
+        qDebug() << "Cannot start process:" << actualCompilerPath;
         return QString();
     }
 
@@ -71,13 +98,13 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
 
     if (!syncCompilerProcess.waitForFinished()) {
         // TODO: handle error
-        qDebug() << "Error while waiting process to finish: '"+actualCompilerPath+"'";
+        qDebug() << "Error while waiting process to finish:" << actualCompilerPath;
         return QString();
     }
 
     if (syncCompilerProcess.exitStatus() != QProcess::NormalExit) {
         // TODO: handle error
-        qDebug() << "Process returned non-normal exit status: '"+actualCompilerPath+"'";
+        qDebug() << "Process returned non-normal exit status:" << actualCompilerPath;
         return QString();
     }
 
