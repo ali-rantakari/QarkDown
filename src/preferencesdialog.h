@@ -21,8 +21,11 @@ public:
 public slots:
     void accepted();
     void rejected();
+
+private slots:
     void fontButtonClicked();
     void openStylesFolderButtonClicked();
+    void stylesComboBoxCurrentIndexChanged(int index);
 
 signals:
     void updated();
@@ -33,7 +36,8 @@ protected:
 private:
     void setupConnections();
     void updateUIFromSettings();
-    void updateStylesCheckBoxFromSettings();
+    void updateStylesComboBoxFromSettings();
+    void updateStyleInfoTextFromComboBoxSelection();
     void updateSettingsFromUI();
     void setFontToLabel(QFont font);
     QSettings *settings;

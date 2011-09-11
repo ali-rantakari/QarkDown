@@ -29,6 +29,7 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     ui->infoLabel2->setFont(font);
     ui->infoLabel3->setFont(font);
     ui->linkInfoLabel->setFont(font);
+    ui->styleInfoTextBrowser->setFont(font);
 #endif
 
 #ifdef Q_WS_MACX
@@ -56,6 +57,8 @@ void PreferencesDialog::setupConnections()
     connect(ui->fontButton, SIGNAL(clicked()), this, SLOT(fontButtonClicked()));
     connect(ui->openStylesFolderButton, SIGNAL(clicked()),
             this, SLOT(openStylesFolderButtonClicked()));
+    connect(ui->stylesComboBox, SIGNAL(currentIndexChanged(int)),
+            this, SLOT(stylesComboBoxCurrentIndexChanged(int)));
 }
 
 void PreferencesDialog::setFontToLabel(QFont font)
@@ -84,7 +87,7 @@ QStringList PreferencesDialog::userStyleFiles()
 
 
 
-void PreferencesDialog::updateStylesCheckBoxFromSettings()
+void PreferencesDialog::updateStylesComboBoxFromSettings()
 {
 # define STYLABEL(varname, name) \
     QStandardItem *varname = new QStandardItem(name);\
@@ -136,6 +139,36 @@ void PreferencesDialog::updateStylesCheckBoxFromSettings()
     ui->stylesComboBox->setCurrentIndex(indexToSelect);
 }
 
+void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
+{
+    QString selectedStylePath = ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString();
+    if (!QFile::exists(selectedStylePath)) {
+        ui->styleInfoTextBrowser->setText("<i>Cannot find style file: " + selectedStylePath + "</i>");
+        return;
+    }
+
+    QString stylesheetContents;
+    QFile file(selectedStylePath);
+    if (file.open(QIODevice::ReadOnly)) {
+        QTextStream stream(&file);
+        stylesheetContents = stream.readAll();
+    }
+
+    QString styleDescription;
+    QStringList lines = stylesheetContents.split("\n");
+    foreach (QString line, lines)
+    {
+        if (line.startsWith("#"))
+            styleDescription += line.right(line.length() - 1).trimmed() + "<br/>";
+        else
+            break;
+    }
+
+    if (styleDescription.isEmpty())
+        styleDescription = "<i>The selected stylesheet has no description.</i>";
+
+    ui->styleInfoTextBrowser->setHtml(styleDescription);
+}
 
 // Some helper macros
 #define PREF_TO_UI_INT(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toInt())
@@ -157,7 +190,8 @@ void PreferencesDialog::updateUIFromSettings()
     setFontToLabel(font);
 
     // styles
-    updateStylesCheckBoxFromSettings();
+    updateStylesComboBoxFromSettings();
+    updateStyleInfoTextFromComboBoxSelection();
 
     // others
     PREF_TO_UI_INT(SETTING_TAB_WIDTH, DEF_TAB_WIDTH, ui->tabWidthSpinBox);
@@ -214,6 +248,11 @@ void PreferencesDialog::openStylesFolderButtonClicked()
                                  + " could not open the folder. You'll have to do it "
                                  + "manually. The path is:\n\n"
                                  + stylesDirPath);
+}
+
+void PreferencesDialog::stylesComboBoxCurrentIndexChanged(int index)
+{
+    updateStyleInfoTextFromComboBoxSelection();
 }
 
 void PreferencesDialog::accepted()
