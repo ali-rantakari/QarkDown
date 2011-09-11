@@ -1,7 +1,7 @@
 # Styles using 'Solarized' color scheme
 # by Ethan Schoonover: http://ethanschoonover.com/solarized
 # 
-# (dark background version)
+# (dark background version, with more subtle emphasis styles)
 
 editor
 foreground: 839496 # base0
@@ -59,18 +59,18 @@ CODE
 foreground: 859900 # green
 
 EMPH
-foreground: cb4b16 # orange
+foreground: 93a1a1 # base1
 font-style: italic
 
 STRONG
-foreground: dc322f # red
+foreground: 93a1a1 # base1
 font-style: bold
 
 HTML_ENTITY
 foreground: 6c71c4 # violet
 
 COMMENT
-foreground: 93a1a1 # base1
+foreground: 586e75 # base01
 
 VERBATIM
 foreground: 859900 # green
