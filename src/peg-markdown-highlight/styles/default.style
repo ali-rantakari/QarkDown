@@ -1,23 +1,28 @@
+# This is the default style.
+# 
 # Styles using 'Solarized' color scheme
 # by Ethan Schoonover: http://ethanschoonover.com/solarized
 # 
-# (dark background version)
+# (dark background version, with more subtle emphasis styles)
 
 editor
-foreground: 93a1a1 # base1
+foreground: 839496 # base0
 background: 002b36 # base03
-caret: ffffff
+caret: eee8d5 # base2
+
+editor-current-line
+background: 073642 # base02
 
 H1
 foreground: 6c71c4 # violet
 font-style: bold
 
 H2
-foreground: 6c71c4 # violet
+foreground: 268bd2 # blue
 font-style: bold
 
 H3
-foreground: 6c71c4 # violet
+foreground: 268bd2 # blue
 
 H4
 foreground: 268bd2 # blue
@@ -56,18 +61,18 @@ CODE
 foreground: 859900 # green
 
 EMPH
-foreground: cb4b16 # orange
+foreground: 93a1a1 # base1
 font-style: italic
 
 STRONG
-foreground: dc322f # red
+foreground: 93a1a1 # base1
 font-style: bold
 
 HTML_ENTITY
 foreground: 6c71c4 # violet
 
 COMMENT
-foreground: 93a1a1 # base1
+foreground: 586e75 # base01
 
 VERBATIM
 foreground: 859900 # green
