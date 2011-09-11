@@ -21,6 +21,7 @@
 #define SETTING_NUM_RECENT_FILES "NumberOfRecentFiles"
 
 #define SETTING_COMPILER "Compiler"
+#define SETTING_OPEN_TARGET_AFTER_COMPILING "OpenTargetAfterCompiling"
 
 #define DEF_FONT_FAMILY         "Courier"
 #define DEF_FONT_SIZE           12
@@ -34,6 +35,7 @@
 #define DEF_HIGHLIGHT_CURRENT_LINE true
 #define DEF_LINE_HIGHLIGHT_COLOR QColor(Qt::yellow).lighter(180)
 #define DEF_STYLE               ":/styles/Default"
+#define DEF_OPEN_TARGET_AFTER_COMPILING true
 
 #ifdef Q_WS_MACX
 #define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-osx"

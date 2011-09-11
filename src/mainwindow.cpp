@@ -57,6 +57,8 @@ void MainWindow::newFile()
     editor->clear();
     openFilePath = QString();
     revertToSavedMenuAction->setEnabled(false);
+    lastCompileTargetPath = QString();
+    recompileAction->setEnabled(false);
     setDirty(false);
     updateRecentFilesMenu();
 }
@@ -77,10 +79,13 @@ void MainWindow::openFile(const QString &path)
         return;
 
     editor->setPlainText(file.readAll());
+    file.close();
+
     openFilePath = fileName;
     revertToSavedMenuAction->setEnabled(true);
+    lastCompileTargetPath = QString();
+    recompileAction->setEnabled(false);
 
-    file.close();
     setDirty(false);
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
                                             QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
@@ -348,11 +353,12 @@ QString getTempHTMLFilePathForMarkdownFilePath(QString markdownFilePath)
     return tempFilePath;
 }
 
-void MainWindow::compileToHTML()
+void MainWindow::compileToTempHTML()
 {
     if (openFilePath.isNull())
         return;
     QString tempFilePath = getTempHTMLFilePathForMarkdownFilePath(openFilePath);
+
     if (compileToHTMLFile(tempFilePath))
         QDesktopServices::openUrl(QUrl("file:///" + tempFilePath));
 }
@@ -364,8 +370,16 @@ void MainWindow::compileToHTMLAs()
     if (saveFilePath.isNull())
         return;
 
-    if (compileToHTMLFile(saveFilePath))
+    bool openAfterCompiling = settings->value(SETTING_OPEN_TARGET_AFTER_COMPILING,
+                                              DEF_OPEN_TARGET_AFTER_COMPILING).toBool();
+    if (compileToHTMLFile(saveFilePath) && openAfterCompiling)
         QDesktopServices::openUrl(QUrl("file:///" + saveFilePath));
+}
+void MainWindow::recompileToHTML()
+{
+    if (lastCompileTargetPath.isNull())
+        return;
+    compileToHTMLFile(lastCompileTargetPath);
 }
 
 bool MainWindow::compileToHTMLFile(QString targetPath)
@@ -378,7 +392,12 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
                              "'" + compilerPath + "'");
         return false;
     }
-    return compiler->compileToHTMLFile(compilerPath, editor->toPlainText(), targetPath);
+    bool success = compiler->compileToHTMLFile(compilerPath, editor->toPlainText(), targetPath);
+    if (success) {
+        lastCompileTargetPath = targetPath;
+        recompileAction->setEnabled(true);
+    }
+    return success;
 }
 
 void MainWindow::updateRecentFilesMenu()
@@ -450,10 +469,14 @@ void MainWindow::setupFileMenu()
 
     QMenu *compilingMenu = new QMenu(tr("&Compiling"), this);
     menuBar()->addMenu(compilingMenu);
-    compilingMenu->addAction(tr("Compile to HTML"), this, SLOT(compileToHTML()),
-                             QKeySequence("Ctrl+Return"));
-    compilingMenu->addAction(tr("Compile to HTML as..."),
+    compilingMenu->addAction(tr("Compile to temporary HTML file"),
+                             this, SLOT(compileToTempHTML()));
+    compilingMenu->addAction(tr("Compile to HTML file..."),
                              this, SLOT(compileToHTMLAs()));
+    recompileAction = compilingMenu->addAction(tr("Recompile"),
+                                               this, SLOT(recompileToHTML()),
+                                               QKeySequence("Ctrl+Return"));
+    recompileAction->setEnabled(false);
 
     QMenu *helpMenu = new QMenu(tr("&Help"), this);
     menuBar()->addMenu(helpMenu);

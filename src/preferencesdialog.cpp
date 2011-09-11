@@ -211,6 +211,7 @@ void PreferencesDialog::updateUIFromSettings()
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_REMEMBER_LAST_FILE, DEF_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox);
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_CLICKABLE_LINKS, DEF_CLICKABLE_LINKS, ui->linksClickableCheckBox);
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_HIGHLIGHT_CURRENT_LINE, DEF_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox);
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_OPEN_TARGET_AFTER_COMPILING, DEF_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox);
 }
 
 void PreferencesDialog::updateSettingsFromUI()
@@ -222,6 +223,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_REMEMBER_LAST_FILE, ui->rememberLastFileCheckBox->isChecked());
     settings->setValue(SETTING_CLICKABLE_LINKS, ui->linksClickableCheckBox->isChecked());
     settings->setValue(SETTING_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox->isChecked());
+    settings->setValue(SETTING_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox->isChecked());
     settings->setValue(SETTING_STYLE, ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString());
     settings->sync();
 }

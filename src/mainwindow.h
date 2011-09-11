@@ -42,8 +42,9 @@ public slots:
     void preferencesUpdated();
 
     void openRecentFile();
-    void compileToHTML();
+    void compileToTempHTML();
     void compileToHTMLAs();
+    void recompileToHTML();
 
     void anchorClicked(const QUrl &link);
     void commitDataHandler(QSessionManager &manager);
@@ -66,6 +67,7 @@ private:
     bool compileToHTMLFile(QString targetPath);
 
     MarkdownCompiler *compiler;
+    QString lastCompileTargetPath;
 
     PreferencesDialog *preferencesDialog;
     QSettings *settings;
@@ -80,6 +82,7 @@ private:
     QAction *findNextMenuAction;
     QAction *findPreviousMenuAction;
     QAction *revertToSavedMenuAction;
+    QAction *recompileAction;
 };
 
 #endif
