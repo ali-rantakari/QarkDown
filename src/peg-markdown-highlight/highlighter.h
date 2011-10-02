@@ -6,7 +6,7 @@
 #include <QPlainTextEdit>
 
 extern "C" {
-#include "markdown_parser.h"
+#include "pmh_parser.h"
 }
 
 QT_BEGIN_NAMESPACE
@@ -49,7 +49,7 @@ public:
     bool makeLinksClickable();
     void setMakeLinksClickable(bool value);
 
-    void handleStyleParsingError(char *error_message);
+    void handleStyleParsingError(char *error_message, int line_number);
 
 signals:
     void styleParsingErrors(QStringList *errors);

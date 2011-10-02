@@ -2,7 +2,7 @@
  * Copyright 2011 Ali Rantakari -- http://hasseg.org
  * Licensed under the GPL2+ and MIT licenses (see LICENSE for more info).
  * 
- * markdown_parser.h
+ * pmh_parser.h
  */
 
 /** \file
@@ -15,21 +15,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
-#include "markdown_definitions.h"
-
-#ifndef pmh_DEBUG_OUTPUT
-#define pmh_DEBUG_OUTPUT 0
-#endif
-
-#if pmh_DEBUG_OUTPUT
-#define pmh_IF(x)           if (x)
-#define pmh_PRINTF(x, ...)  fprintf(stderr, x, ##__VA_ARGS__)
-#define pmh_PUTCHAR(x)      putchar(x)
-#else
-#define pmh_IF(x)
-#define pmh_PRINTF(x, ...)
-#define pmh_PUTCHAR(x)
-#endif
+#include "pmh_definitions.h"
 
 
 /**
@@ -43,12 +29,13 @@
 *                         of pmh_extensions values).
 * \param[out] out_result  A pmh_element array, indexed by type, containing
 *                         the results of the parsing (linked lists of elements).
-*                         You must pass this to pmh_free_elements() when it's not
-*                         needed anymore.
+*                         You must pass this to pmh_free_elements() when it's
+*                         not needed anymore.
 * 
 * \sa pmh_element_type
 */
-void pmh_markdown_to_elements(char *text, int extensions, pmh_element **out_result[]);
+void pmh_markdown_to_elements(char *text, int extensions,
+                              pmh_element **out_result[]);
 
 /**
 * \brief Sort elements in list by start offset.
@@ -79,9 +66,9 @@ void pmh_free_elements(pmh_element **elems);
 /**
 * \brief Get name of type
 * 
-* Returns the name of the given type as a null-terminated string.
-* 
 * \param[in]  type  The type value to get the name for.
+* 
+* \return The name of the given type as a null-terminated string.
 * 
 * \sa pmh_element_type
 */

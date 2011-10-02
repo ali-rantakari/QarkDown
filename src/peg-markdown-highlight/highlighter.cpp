@@ -2,7 +2,7 @@
 #include "highlighter.h"
 
 extern "C" {
-#include "styleparser.h"
+#include "pmh_styleparser.h"
 }
 
 
@@ -148,7 +148,7 @@ void HGMarkdownHighlighter::setDefaultStyles()
     this->setStyles(*styles);
 }
 
-QColor colorFromARGBStyle(attr_argb_color *color)
+QColor colorFromARGBStyle(pmh_attr_argb_color *color)
 {
     QColor qcolor;
     qcolor.setAlpha(color->alpha);
@@ -158,21 +158,21 @@ QColor colorFromARGBStyle(attr_argb_color *color)
     return qcolor;
 }
 
-QBrush brushFromARGBStyle(attr_argb_color *color)
+QBrush brushFromARGBStyle(pmh_attr_argb_color *color)
 {
     return QBrush(colorFromARGBStyle(color));
 }
 
-QTextCharFormat getCharFormatFromStyleAttributes(style_attribute *list)
+QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list)
 {
     QTextCharFormat format;
     while (list != NULL)
     {
-        if (list->type == attr_type_foreground_color)
+        if (list->type == pmh_attr_type_foreground_color)
             format.setForeground(brushFromARGBStyle(list->value->argb_color));
-        else if (list->type == attr_type_background_color)
+        else if (list->type == pmh_attr_type_background_color)
             format.setBackground(brushFromARGBStyle(list->value->argb_color));
-        else if (list->type == attr_type_font_style)
+        else if (list->type == pmh_attr_type_font_style)
         {
             if (list->value->font_styles->bold)
                 format.setFontWeight(QFont::Bold);
@@ -201,14 +201,17 @@ QPalette getDefaultPlainTextEditPalette()
 }
 
 
-void styleParserErrorCallback(char *error_message, void *context)
+void styleParserErrorCallback(char *error_message, int line_number, void *context)
 {
-    ((HGMarkdownHighlighter*)context)->handleStyleParsingError(error_message);
+    ((HGMarkdownHighlighter*)context)->handleStyleParsingError(error_message,
+                                                               line_number);
 }
 
-void HGMarkdownHighlighter::handleStyleParsingError(char *error_message)
+void HGMarkdownHighlighter::handleStyleParsingError(char *error_message,
+                                                    int line_number)
 {
-    styleParsingErrorList->append(QString(error_message));
+    styleParsingErrorList->append(QString("(Line %1): ").arg(line_number)
+                                  + QString(error_message));
 }
 
 void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainTextEdit *editor)
@@ -225,15 +228,16 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
     QVector<HighlightingStyle> *styles = new QVector<HighlightingStyle>();
 
     styleParsingErrorList->clear();
-    style_collection *raw_styles = parse_styles((char *)stylesheet_cstring,
-                                                &styleParserErrorCallback, this);
+    pmh_style_collection *raw_styles = pmh_parse_styles((char *)stylesheet_cstring,
+                                                        &styleParserErrorCallback,
+                                                        this);
     if (styleParsingErrorList->count() > 0)
         emit styleParsingErrors(styleParsingErrorList);
 
     // Set language element styles
     for (int i = 0; i < pmh_NUM_LANG_TYPES; i++)
     {
-        style_attribute *cur = raw_styles->element_styles[i];
+        pmh_style_attribute *cur = raw_styles->element_styles[i];
         if (cur == NULL)
             continue;
         pmh_element_type lang_element_type = cur->lang_element_type;
@@ -251,12 +255,12 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
         // Editor area styles
         if (raw_styles->editor_styles != NULL)
         {
-            style_attribute *cur = raw_styles->editor_styles;
+            pmh_style_attribute *cur = raw_styles->editor_styles;
             while (cur != NULL)
             {
-                if (cur->type == attr_type_background_color)
+                if (cur->type == pmh_attr_type_background_color)
                     palette.setColor(QPalette::Base, colorFromARGBStyle(cur->value->argb_color));
-                else if (cur->type == attr_type_foreground_color)
+                else if (cur->type == pmh_attr_type_foreground_color)
                     palette.setColor(QPalette::Text, colorFromARGBStyle(cur->value->argb_color));
                 cur = cur->next;
             }
@@ -265,12 +269,12 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
         // Selection styles
         if (raw_styles->editor_selection_styles != NULL)
         {
-            style_attribute *cur = raw_styles->editor_selection_styles;
+            pmh_style_attribute *cur = raw_styles->editor_selection_styles;
             while (cur != NULL)
             {
-                if (cur->type == attr_type_background_color)
+                if (cur->type == pmh_attr_type_background_color)
                     palette.setColor(QPalette::Highlight, colorFromARGBStyle(cur->value->argb_color));
-                else if (cur->type == attr_type_foreground_color)
+                else if (cur->type == pmh_attr_type_foreground_color)
                     palette.setColor(QPalette::HighlightedText, colorFromARGBStyle(cur->value->argb_color));
                 cur = cur->next;
             }
@@ -280,10 +284,10 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
         // ivar so that someone else can read it from there)
         if (raw_styles->editor_current_line_styles != NULL)
         {
-            style_attribute *cur = raw_styles->editor_current_line_styles;
+            pmh_style_attribute *cur = raw_styles->editor_current_line_styles;
             while (cur != NULL)
             {
-                if (cur->type == attr_type_background_color)
+                if (cur->type == pmh_attr_type_background_color)
                     currentLineHighlightColor = colorFromARGBStyle(cur->value->argb_color);
                 cur = cur->next;
             }
@@ -294,7 +298,7 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
         editor->setPalette(palette);
     }
 
-    free_style_collection(raw_styles);
+    pmh_free_style_collection(raw_styles);
 }
 
 void HGMarkdownHighlighter::clearFormatting()

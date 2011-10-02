@@ -3,23 +3,23 @@ HEADERS = \
     qarkdownapplication.h \
     mainwindow.h \
     preferencesdialog.h \
-    peg-markdown-highlight/markdown_parser.h \
-    peg-markdown-highlight/markdown_definitions.h \
+    peg-markdown-highlight/pmh_parser.h \
+    peg-markdown-highlight/pmh_definitions.h \
     peg-markdown-highlight/highlighter.h \
     editor/qarkdowntextedit.h \
     editor/linenumberingplaintextedit.h \
-    peg-markdown-highlight/styleparser.h \
+    peg-markdown-highlight/pmh_styleparser.h \
     markdowncompiler.h
 SOURCES = \
     main.cpp \
     qarkdownapplication.cpp \
     mainwindow.cpp \
     preferencesdialog.cpp \
-    peg-markdown-highlight/markdown_parser.c\
+    peg-markdown-highlight/pmh_parser.c\
     peg-markdown-highlight/highlighter.cpp \
     editor/qarkdowntextedit.cpp \
     editor/linenumberingplaintextedit.cpp \
-    peg-markdown-highlight/styleparser.c \
+    peg-markdown-highlight/pmh_styleparser.c \
     markdowncompiler.cpp
 
 FORMS += \
