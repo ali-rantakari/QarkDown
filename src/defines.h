@@ -38,7 +38,7 @@
 #define DEF_OPEN_TARGET_AFTER_COMPILING true
 
 #ifdef Q_WS_MACX
-#define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-osx"
+#define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-osx"
 #elif defined(Q_WS_WIN)
 #define DEF_COMPILER            ":/compilers/peg-markdown/peg-markdown-windows.exe"
 #elif defined(Q_WS_LINUX)
