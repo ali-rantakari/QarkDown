@@ -54,6 +54,7 @@ public slots:
     void reportStyleParsingErrors(QStringList *list);
 
 private:
+    QString getMarkdownFilesFilter();
     void setupEditor();
     void setupFileMenu();
     void updateRecentFilesMenu();

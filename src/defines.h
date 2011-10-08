@@ -1,8 +1,7 @@
 #ifndef DEFAULTPREFERENCES_H
 #define DEFAULTPREFERENCES_H
 
-#define MARKDOWN_FILES_FILTER "Markdown Files (*.mdtext *.md *.markdown *.txt *.text)"
-
+#define SETTING_EXTENSIONS "FileExtensions"
 #define SETTING_FONT "Font"
 #define SETTING_TAB_WIDTH "TabWidth"
 #define SETTING_HIGHLIGHT_INTERVAL "HighlightInterval"
@@ -23,6 +22,7 @@
 #define SETTING_COMPILER "Compiler"
 #define SETTING_OPEN_TARGET_AFTER_COMPILING "OpenTargetAfterCompiling"
 
+#define DEF_EXTENSIONS          "mdtext md markdown txt text"
 #define DEF_FONT_FAMILY         "Courier"
 #define DEF_FONT_SIZE           12
 #define DEF_TAB_WIDTH           4

@@ -65,13 +65,33 @@ void MainWindow::newFile()
     updateRecentFilesMenu();
 }
 
+QString MainWindow::getMarkdownFilesFilter()
+{
+    QStringList extensions = settings->value(SETTING_EXTENSIONS, DEF_EXTENSIONS)
+                             .toString().split(' ', QString::SkipEmptyParts);
+    if (extensions.count() == 0)
+        return "All Files (*.*)";
+
+    QString filesFilter = "Markdown Files (";
+    foreach (QString ext, extensions)
+    {
+        QString cleanExt = ext.trimmed();
+        if (cleanExt.startsWith("."))
+            cleanExt = cleanExt.remove(0,1);
+        filesFilter += "*." + cleanExt + " ";
+    }
+    filesFilter.chop(1); // remove last space
+    filesFilter += ")";
+    return filesFilter;
+}
+
 void MainWindow::openFile(const QString &path)
 {
     QString fileName = path;
 
     if (fileName.isNull())
         fileName = QFileDialog::getOpenFileName(this,
-            tr("Open File"), "", MARKDOWN_FILES_FILTER);
+            tr("Open File"), "", getMarkdownFilesFilter());
 
     if (fileName.isEmpty())
         return;
@@ -110,7 +130,7 @@ void MainWindow::saveFile()
     QString saveFilePath(openFilePath);
     if (saveFilePath.isNull())
         saveFilePath = QFileDialog::getSaveFileName(this,
-            tr("Save File"), "", MARKDOWN_FILES_FILTER);
+            tr("Save File"), "", getMarkdownFilesFilter());
 
     if (saveFilePath.isEmpty())
         return;

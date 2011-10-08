@@ -37,6 +37,7 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     ui->infoLabel4->setFont(font);
     ui->infoLabel5->setFont(font);
     ui->linkInfoLabel->setFont(font);
+    ui->fileExtensionsInfoLabel->setFont(font);
     ui->styleInfoTextBrowser->setFont(font);
 #endif
 
@@ -254,6 +255,7 @@ void PreferencesDialog::updateCompilersComboBoxFromSettings()
 
 
 // Some helper macros
+#define PREF_TO_UI_STRING(pref, def, elem) elem->setText(settings->value(pref, QVariant(def)).toString())
 #define PREF_TO_UI_INT(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toInt())
 #define PREF_TO_UI_DOUBLE(pref, def, elem) elem->setValue(settings->value(pref, QVariant(def)).toDouble())
 #define PREF_TO_UI_BOOL_CHECKBOX(pref, def, elem) elem->setChecked(settings->value(pref, QVariant(def)).toBool())
@@ -287,6 +289,7 @@ void PreferencesDialog::updateUIFromSettings()
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_CLICKABLE_LINKS, DEF_CLICKABLE_LINKS, ui->linksClickableCheckBox);
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_HIGHLIGHT_CURRENT_LINE, DEF_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox);
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_OPEN_TARGET_AFTER_COMPILING, DEF_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox);
+    PREF_TO_UI_STRING(SETTING_EXTENSIONS, DEF_EXTENSIONS, ui->extensionsLineEdit);
 }
 
 void PreferencesDialog::updateSettingsFromUI()
@@ -301,6 +304,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox->isChecked());
     settings->setValue(SETTING_STYLE, ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString());
     settings->setValue(SETTING_COMPILER, ui->compilersComboBox->itemData(ui->compilersComboBox->currentIndex()).toString());
+    settings->setValue(SETTING_EXTENSIONS, ui->extensionsLineEdit->text());
     settings->sync();
 }
 
