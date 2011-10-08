@@ -78,7 +78,11 @@ void MainWindow::openFile(const QString &path)
 
     QFile file(fileName);
     if (!file.open(QFile::ReadOnly | QFile::Text))
+    {
+        statusBar()->showMessage("Cannot open: " + fileName
+                                 + " (reason: " + file.errorString() + ")");
         return;
+    }
 
     editor->setPlainText(file.readAll());
     file.close();
