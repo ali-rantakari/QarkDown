@@ -2,6 +2,6 @@ syntax: glob
 
 .DS_Store
 *-build-*
-*.user
+*.pro.user*
 *.orig
 
