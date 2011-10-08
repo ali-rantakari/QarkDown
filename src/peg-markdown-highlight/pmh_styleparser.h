@@ -61,7 +61,9 @@ typedef union
     pmh_attr_font_styles *font_styles;  /**< Font styles */
     int font_size_pt;                   /**< Font size */
     char *font_family;                  /**< Font family */
-    char *string;                       /**< Arbitrary custom string value */
+    char *string;                       /**< Arbitrary custom string value
+                                             (use this if the attribute's type
+                                             is pmh_attr_type_other) */
 } pmh_attr_value;
 
 /** \brief Style attribute. */
@@ -70,7 +72,10 @@ typedef struct pmh_style_attribute
     pmh_element_type lang_element_type; /**< The Markdown language element this
                                              style applies to */
     pmh_attr_type type;                 /**< The type of the attribute */
-    char *name;                         /**< The name of the attribute */
+    char *name;                         /**< The name of the attribute (if type
+                                             is pmh_attr_type_other, you can
+                                             use this value to determine what
+                                             the attribute is) */
     pmh_attr_value *value;              /**< The value of the attribute */
     struct pmh_style_attribute *next;   /**< Next attribute in linked list */
 } pmh_style_attribute;
@@ -127,4 +132,8 @@ pmh_style_collection *pmh_parse_styles(char *input,
 */
 void pmh_free_style_collection(pmh_style_collection *collection);
 
+
+char *pmh_attr_name_from_type(pmh_attr_type type);
+
+pmh_attr_type pmh_attr_type_from_name(char *name);
 
