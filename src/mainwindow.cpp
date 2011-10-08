@@ -293,7 +293,6 @@ void MainWindow::applyHighlighterPreferences()
     }
     highlighter->getStylesFromStylesheet(styleFilePath, editor);
     editor->setCurrentLineHighlightColor(highlighter->currentLineHighlightColor);
-    qDebug() << "applied style from:" << styleFilePath;
 }
 
 void MainWindow::applyEditorPreferences()
@@ -452,7 +451,6 @@ void MainWindow::updateRecentFilesMenu()
     QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
     foreach (QString recentFilePath, recentFiles)
     {
-        qDebug() << "Recent file:" << recentFilePath;
         if (!openFilePath.isEmpty() && openFilePath == recentFilePath)
             continue;
         QAction *action = new QAction(this);
@@ -555,7 +553,6 @@ void MainWindow::reportStyleParsingErrors(QStringList *list)
 
 void MainWindow::anchorClicked(const QUrl &link)
 {
-    qDebug() << "anchor clicked:" << link;
     QDesktopServices::openUrl(link);
 }
 
