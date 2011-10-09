@@ -1,4 +1,5 @@
 <RCC>
     <qresource>
+        <file>compilers/multimarkdown/multimarkdown-linux</file>
     </qresource>
 </RCC>

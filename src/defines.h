@@ -41,7 +41,7 @@
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-osx"
 #elif defined(Q_WS_WIN)
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-windows.exe"
-#elif defined(Q_WS_LINUX)
+#elif defined(Q_OS_LINUX)
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-linux"
 #else
 #define DEF_COMPILER            ""

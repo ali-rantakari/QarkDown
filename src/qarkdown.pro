@@ -44,7 +44,7 @@ macx {
     RESOURCES += compilers-osx.qrc
 }
 
-linux {
+linux-g++ {
     RESOURCES += cfg/linux.qrc
     RESOURCES += compilers-linux.qrc
 }
