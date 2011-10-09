@@ -2,6 +2,7 @@
 
 #include "mainwindow.h"
 #include "defines.h"
+#include "logger.h"
 
 /*
 TODO:
@@ -558,14 +559,14 @@ void MainWindow::anchorClicked(const QUrl &link)
 
 void MainWindow::commitDataHandler(QSessionManager &manager)
 {
-    qDebug() << "commitDataHandler. dirty =" << editor->document()->isModified();
+    Logger::debug("commitDataHandler. dirty = " + editor->document()->isModified());
 
     if (!editor->document()->isModified())
         return;
 
     if (manager.allowsInteraction())
     {
-        qDebug() << "allows interaction.";
+        Logger::debug("allows interaction.");
 
         int ret = QMessageBox::warning(
                     this,
@@ -588,7 +589,7 @@ void MainWindow::commitDataHandler(QSessionManager &manager)
     }
     else // no permission for interaction
     {
-        qDebug() << "interaction not allowed -- saving.";
+        Logger::debug("interaction not allowed -- saving.");
         saveFile();
     }
 }

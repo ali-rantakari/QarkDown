@@ -1,9 +1,10 @@
 #include "markdowncompiler.h"
 #include "qarkdownapplication.h"
+#include "logger.h"
 
-#include <QDebug>
 #include <QDir>
 #include <QCoreApplication>
+#include <QTextStream>
 
 MarkdownCompiler::MarkdownCompiler(QObject *parent) :
     QObject(parent)
@@ -24,7 +25,7 @@ QString MarkdownCompiler::getHTMLTemplate()
 
     QFile templateFile(templateFilePath);
     if (!templateFile.open(QIODevice::ReadOnly)) {
-        qDebug() << "Cannot open file for reading:" << templateFile.fileName();
+        Logger::warning("Cannot open file for reading: " + templateFile.fileName());
         return QString();
     }
     QTextStream stream(&templateFile);
@@ -75,7 +76,7 @@ QString MarkdownCompiler::getFilesystemPathForResourcePath(QString resourcePath)
         QStringList depFiles = QDir(depsDirPath).entryList();
         foreach(QString depFileName, depFiles)
         {
-            qDebug() << "Compiler dependency:" << depFileName;
+            Logger::info("Compiler dependency: " + depFileName);
             QString depTargetPath = targetFileDir + QDir::separator() + depFileName;
             if (!QFile::exists(depTargetPath)) {
                 if (!((QarkdownApplication*)qApp)->copyResourceToFile(
@@ -96,14 +97,14 @@ QString MarkdownCompiler::errorString()
 
 QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPath)
 {
-    qDebug() << "Compiling with compiler:" << compilerPath;
+    Logger::info("Compiling with compiler: " + compilerPath);
     _errorString = QString();
 
     QString actualCompilerPath(compilerPath);
     bool isResourcePath = compilerPath.startsWith(":/");
     if (isResourcePath) {
         actualCompilerPath = getFilesystemPathForResourcePath(compilerPath);
-        qDebug() << "Adjusted path to: '"+actualCompilerPath+"'";
+        Logger::info("Adjusted path to: '"+actualCompilerPath+"'");
     }
 
     QProcess syncCompilerProcess;
@@ -116,7 +117,7 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
 
     if (!syncCompilerProcess.waitForStarted()) {
         // TODO: handle error
-        qDebug() << "Cannot start process:" << actualCompilerPath;
+        Logger::warning("Cannot start process: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
         return QString();
     }
@@ -126,14 +127,14 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
 
     if (!syncCompilerProcess.waitForFinished()) {
         // TODO: handle error
-        qDebug() << "Error while waiting process to finish:" << actualCompilerPath;
+        Logger::warning("Error while waiting process to finish: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
         return QString();
     }
 
     if (syncCompilerProcess.exitStatus() != QProcess::NormalExit) {
         // TODO: handle error
-        qDebug() << "Process returned non-normal exit status:" << actualCompilerPath;
+        Logger::warning("Process returned non-normal exit status: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
         return QString();
     }
@@ -152,7 +153,7 @@ bool MarkdownCompiler::compileToHTMLFile(QString compilerPath, QString input,
 
     QFile file(targetPath);
     if (!file.open(QFile::WriteOnly | QFile::Text)) {
-        qDebug() << "compileToHTMLFile: Cannot open file for writing: '"+targetPath+"'";
+        Logger::warning("compileToHTMLFile: Cannot open file for writing: '"+targetPath+"'");
         return false;
     }
 

@@ -3,11 +3,11 @@
 #include "defines.h"
 #include "qarkdownapplication.h"
 
-#include <QDebug>
 #include <QFontDialog>
 #include <QColorDialog>
 #include <QDesktopServices>
 #include <QMessageBox>
+#include <QTextStream>
 
 PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     QDialog(parent),

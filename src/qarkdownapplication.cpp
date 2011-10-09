@@ -1,6 +1,6 @@
 #include "qarkdownapplication.h"
+#include "logger.h"
 #include <QFileOpenEvent>
-#include <QDebug>
 #include <QDesktopServices>
 
 struct applicationVersion
@@ -43,7 +43,7 @@ bool QarkdownApplication::copyResourceToFile(QString resourcePath, QString targe
 {
     QFile source(resourcePath);
     if (!source.open(QIODevice::ReadOnly)) {
-        qDebug() << "Cannot open file for reading:" << source.fileName();
+        Logger::warning("Cannot open file for reading: " + source.fileName());
         return false;
     }
     QByteArray contents = source.readAll();
@@ -51,7 +51,7 @@ bool QarkdownApplication::copyResourceToFile(QString resourcePath, QString targe
 
     QFile target(targetFilePath);
     if (!target.open(QIODevice::WriteOnly)) {
-        qDebug() << "Cannot open file for writing:" << target.fileName();
+        Logger::warning("Cannot open file for writing: " + target.fileName());
         return false;
     }
     target.write(contents);

@@ -2,7 +2,6 @@
 
 #include "mainwindow.h"
 #include "qarkdownapplication.h"
-#include <QDebug>
 
 int main(int argc, char *argv[])
 {

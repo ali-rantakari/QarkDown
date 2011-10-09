@@ -1,5 +1,6 @@
 #include <QtGui>
 #include "highlighter.h"
+#include "logger.h"
 
 extern "C" {
 #include "pmh_styleparser.h"
@@ -314,7 +315,7 @@ void HGMarkdownHighlighter::clearFormatting()
 void HGMarkdownHighlighter::highlight()
 {
     if (cached_elements == NULL) {
-        qDebug() << "cached_elements is NULL";
+        Logger::warning("cached_elements is NULL");
         return;
     }
 
@@ -435,7 +436,7 @@ void HGMarkdownHighlighter::handleContentsChange(int position, int charsRemoved,
     if (charsRemoved == 0 && charsAdded == 0)
         return;
 
-    //qDebug() << "contents changed. chars removed/added:" << charsRemoved << charsAdded;
+    //Logger::debug("contents changed. chars removed/added:" + charsRemoved + " " + charsAdded);
 
     timer->stop();
     timer->start();

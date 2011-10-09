@@ -1,6 +1,5 @@
 #include "qarkdowntextedit.h"
 
-#include <QDebug>
 #include <QKeyEvent>
 #include <QTextBlock>
 #include <QTextLayout>
