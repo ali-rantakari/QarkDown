@@ -23,6 +23,7 @@ public:
     static void critical(QString message);
 
     static void setLevelEnabled(Logger::LogLevel level, bool isEnabled);
+    static void setAllLevelsEnabled(bool isEnabled);
     static bool levelIsEnabled(Logger::LogLevel level);
 
 private:

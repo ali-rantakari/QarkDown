@@ -19,6 +19,14 @@ void Logger::setLevelEnabled(Logger::LogLevel level, bool isEnabled)
     levelsEnabled[level] = isEnabled;
 }
 
+void Logger::setAllLevelsEnabled(bool isEnabled)
+{
+    levelsEnabled[Logger::InfoLevel] = isEnabled;
+    levelsEnabled[Logger::DebugLevel] = isEnabled;
+    levelsEnabled[Logger::WarningLevel] = isEnabled;
+    levelsEnabled[Logger::CriticalLevel] = isEnabled;
+}
+
 bool Logger::levelIsEnabled(Logger::LogLevel level)
 {
     if (!levelsEnabled.contains(level))
