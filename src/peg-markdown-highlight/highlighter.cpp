@@ -324,16 +324,33 @@ void HGMarkdownHighlighter::highlight()
 
     this->clearFormatting();
 
+    qDebug() << "characterCount" << document->characterCount();
+    qDebug() << "toPlainText length" << document->toPlainText().length();
+
+    // QTextDocument::characterCount returns a value one higher than the
+    // actual character count.
+    // See: https://bugreports.qt.nokia.com//browse/QTBUG-4841
+    // document->toPlainText().length() would give us the correct value
+    // but it's probably too slow.
+    unsigned long max_offset = document->characterCount() - 1;
+
     for (int i = 0; i < highlightingStyles->size(); i++)
     {
         HighlightingStyle style = highlightingStyles->at(i);
         pmh_element *elem_cursor = cached_elements[style.type];
         while (elem_cursor != NULL)
         {
-            if (elem_cursor->end <= elem_cursor->pos) {
+            unsigned long pos = elem_cursor->pos;
+            unsigned long end = elem_cursor->end;
+
+            if (end <= pos || max_offset < pos)
+            {
                 elem_cursor = elem_cursor->next;
                 continue;
             }
+
+            if (max_offset < end)
+                end = max_offset;
 
             // "The QTextLayout object can only be modified from the
             // documentChanged implementation of a QAbstractTextDocumentLayout
@@ -341,8 +358,8 @@ void HGMarkdownHighlighter::highlight()
             // behavior." -- we are breaking this rule here. There might be
             // a better (more correct) way to do this.
 
-            int startBlockNum = document->findBlock(elem_cursor->pos).blockNumber();
-            int endBlockNum = document->findBlock(elem_cursor->end).blockNumber();
+            int startBlockNum = document->findBlock(pos).blockNumber();
+            int endBlockNum = document->findBlock(end).blockNumber();
             for (int j = startBlockNum; j <= endBlockNum; j++)
             {
                 QTextBlock block = document->findBlockByNumber(j);
@@ -371,13 +388,13 @@ void HGMarkdownHighlighter::highlight()
                 }
 
                 if (j == startBlockNum) {
-                    r.start = elem_cursor->pos - blockpos;
+                    r.start = pos - blockpos;
                     r.length = (startBlockNum == endBlockNum)
-                                ? elem_cursor->end - elem_cursor->pos
+                                ? end - pos
                                 : block.length() - r.start;
                 } else if (j == endBlockNum) {
                     r.start = 0;
-                    r.length = elem_cursor->end - blockpos;
+                    r.length = end - blockpos;
                 } else {
                     r.start = 0;
                     r.length = block.length();
