@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Remember to create a fresh release build, using Qt 4.8, in Qt Creator first!"
+echo "Remember to create a fresh release build in Qt Creator first!"
 read
 
 DEFAULT_QTVERSION="4.8.0"
