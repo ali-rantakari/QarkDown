@@ -1,7 +1,7 @@
 QarkDown
 ========
 
-This is a GUI editor for [Markdown] files with syntax highlighting and the ability to execute Markdown compilers.
+This is a GUI editor for [Markdown] files with [syntax highlighting][pmh] and the ability to execute Markdown compilers.
 
 The following compilers are bundled with QarkDown:
 
@@ -21,7 +21,7 @@ Copyright (c) 2011 Ali Rantakari
 [Multimarkdown]: http://fletcherpenney.net/multimarkdown/
 [Discount]: http://www.pell.portland.or.us/~orc/Code/discount/
 [peg-markdown]: https://github.com/jgm/peg-markdown
-
+[pmh]: http://hasseg.org/peg-markdown-highlight
 
 
 Installation on Windows
