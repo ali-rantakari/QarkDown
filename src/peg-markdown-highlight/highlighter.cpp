@@ -324,9 +324,6 @@ void HGMarkdownHighlighter::highlight()
 
     this->clearFormatting();
 
-    qDebug() << "characterCount" << document->characterCount();
-    qDebug() << "toPlainText length" << document->toPlainText().length();
-
     // QTextDocument::characterCount returns a value one higher than the
     // actual character count.
     // See: https://bugreports.qt.nokia.com//browse/QTBUG-4841
