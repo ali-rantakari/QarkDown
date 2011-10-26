@@ -42,21 +42,24 @@ QString QarkdownApplication::applicationStoragePath()
 bool QarkdownApplication::copyResourceToFile(QString resourcePath, QString targetFilePath)
 {
     QFile source(resourcePath);
-    if (!source.open(QIODevice::ReadOnly)) {
-        Logger::warning("Cannot open file for reading: " + source.fileName());
+
+    if (QFile::exists(targetFilePath))
+    {
+        if (!QFile::remove(targetFilePath))
+        {
+            Logger::warning("Cannot copy resource "+resourcePath
+                            +" to file: "+targetFilePath
+                            +" -- cannot delete existing file at target path");
+            return false;
+        }
+    }
+
+    if (!source.copy(targetFilePath))
+    {
+        Logger::warning("Cannot copy resource "+resourcePath
+                        +" to file: "+targetFilePath);
         return false;
     }
-    QByteArray contents = source.readAll();
-    source.close();
-
-    QFile target(targetFilePath);
-    if (!target.open(QIODevice::WriteOnly)) {
-        Logger::warning("Cannot open file for writing: " + target.fileName());
-        return false;
-    }
-    target.write(contents);
-    target.close();
-
     return true;
 }
 
