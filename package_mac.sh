@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Remember to create a fresh release build in Qt Creator first!"
+echo "Remember to create a _fresh_ release build in Qt Creator first!"
 read
 
 DEFAULT_QTVERSION="4.8.0"
@@ -21,5 +21,19 @@ if [ "$APPBUNDLE" == "" ];then
 	exit 1
 fi
 
-echo "Running macdeployqt..."
+echo ">>>>>>> Running macdeployqt"
 "${HOME}/QtSDK/Desktop/Qt/${QTVERSION}/gcc/bin/macdeployqt" "$APPBUNDLE"
+
+ZIPFILE="qarkdown-osx.zip"
+if [ -e "$ZIPFILE" ];then
+	echo ">>>>>>> Deleting existing zip file: $ZIPFILE"
+	rm -f "$ZIPFILE"
+fi
+ROOTDIR=$(pwd)
+BUNDLEBASENAME=$(basename "$APPBUNDLE")
+BUNDLEDIRNAME=$(dirname "$APPBUNDLE")
+
+echo ">>>>>>> Zipping app to: $ZIPFILE"
+cd "$BUNDLEDIRNAME"
+zip -r "${ROOTDIR}/${ZIPFILE}" "$BUNDLEBASENAME"
+cd "$ROOTDIR"
