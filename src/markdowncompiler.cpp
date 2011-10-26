@@ -114,9 +114,14 @@ QString MarkdownCompiler::getSavedArgsForCompiler(QString compilerPath)
         return argsMap.value(compilerPath).toString();
 }
 
-QStringList MarkdownCompiler::getArgsListForCompiler(QString compilerPath)
+QStringList MarkdownCompiler::getArgsListForCompiler(QString compilerPath, bool useDefaultArguments)
 {
-    QString args = getSavedArgsForCompiler(compilerPath);
+    QString args;
+    if (useDefaultArguments)
+        args = getDefaultArgsForCompiler(compilerPath);
+    else
+        args = getSavedArgsForCompiler(compilerPath);
+
     if (args.trimmed().length() == 0)
         return QStringList();
     QRegExp whitespaceRE("\\s+");
@@ -132,7 +137,7 @@ QString MarkdownCompiler::getUserReadableCompilerName(QString compilerPath)
 }
 
 
-QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QString compilerPath)
+QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QString compilerPath, bool useDefaultArguments)
 {
     Logger::info("Compiling with compiler: " + compilerPath);
     _errorString = QString();
@@ -145,7 +150,7 @@ QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QS
     }
 
     QProcess syncCompilerProcess;
-    QStringList compilerArgsList = getArgsListForCompiler(compilerPath);
+    QStringList compilerArgsList = getArgsListForCompiler(compilerPath, useDefaultArguments);
     Logger::debug("Compiler args: "+compilerArgsList.join(", "));
 
     // We need to supply an empty QStringList as the arguments (even if we

@@ -202,7 +202,7 @@ void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
         styleDescription = "<i>The selected stylesheet has no description.</i>";
     else
     {
-        QPair<QString, QString> compilationOutput = compiler->compileSynchronously(styleDescription, DEF_COMPILER);
+        QPair<QString, QString> compilationOutput = compiler->compileSynchronously(styleDescription, DEF_COMPILER, true);
         QString compiledDescription = compilationOutput.first;
         if (!compiledDescription.isNull())
             styleDescription = compiledDescription;
