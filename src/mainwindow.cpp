@@ -105,7 +105,9 @@ void MainWindow::openFile(const QString &path)
         return;
     }
 
-    editor->setPlainText(file.readAll());
+    QTextStream in(&file);
+    in.setCodec("UTF-8");
+    editor->setPlainText(in.readAll());
     file.close();
 
     openFilePath = fileName;
