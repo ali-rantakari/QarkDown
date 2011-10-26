@@ -139,9 +139,11 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
         return QString();
     }
 
-    QByteArray output = syncCompilerProcess.readAll();
+    QTextStream in(&syncCompilerProcess);
+    in.setCodec("UTF-8");
+    QString output = in.readAll();
 
-    return QString(output);
+    return output;
 }
 
 bool MarkdownCompiler::compileToHTMLFile(QString compilerPath, QString input,
