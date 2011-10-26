@@ -1060,7 +1060,7 @@ YY_LOCAL(int) yyText(GREG *G, int begin, int end)
     yyleng= 0;
   else
     {
-      while (G->textlen < (yyleng - 1))
+      while (G->textlen < (yyleng + 1))
         {
           G->textlen *= 2;
           G->text= (char *)YY_REALLOC(G->text, G->textlen, G->data);
@@ -1370,6 +1370,13 @@ YY_ACTION(void) yy_1_HtmlComment(GREG *G, char *yytext, int yyleng, yythunk *thu
    ADD(elem_s(pmh_COMMENT)); ;
 #undef s
 }
+YY_ACTION(void) yy_1_RawHtml(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
+{
+#define s G->val[-1]
+  yyprintf((stderr, "do yy_1_RawHtml\n"));
+   ADD(elem_s(pmh_HTML)); ;
+#undef s
+}
 YY_ACTION(void) yy_1_Code(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
 #define s G->val[-1]
@@ -1644,6 +1651,20 @@ YY_ACTION(void) yy_1_Entity(GREG *G, char *yytext, int yyleng, yythunk *thunk, Y
 #define s G->val[-1]
   yyprintf((stderr, "do yy_1_Entity\n"));
    ADD(elem_s(pmh_HTML_ENTITY)); ;
+#undef s
+}
+YY_ACTION(void) yy_1_StyleBlock(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
+{
+#define s G->val[-1]
+  yyprintf((stderr, "do yy_1_StyleBlock\n"));
+   ADD(elem_s(pmh_HTMLBLOCK)); ;
+#undef s
+}
+YY_ACTION(void) yy_1_HtmlBlock(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
+{
+#define s G->val[-1]
+  yyprintf((stderr, "do yy_1_HtmlBlock\n"));
+   ADD(elem_s(pmh_HTMLBLOCK)); ;
 #undef s
 }
 YY_ACTION(void) yy_1_HtmlBlockH6(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
@@ -3084,14 +3105,14 @@ YY_RULE(int) yy_Entity(GREG *G)
   return 0;
 }
 YY_RULE(int) yy_RawHtml(GREG *G)
-{  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "RawHtml"));
+{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
+  yyprintf((stderr, "%s\n", "RawHtml"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l407;  if (!yy_LocMarker(G)) { goto l407; }  yyDo(G, yySet, -1, 0);
   {  int yypos408= G->pos, yythunkpos408= G->thunkpos;  if (!yy_HtmlComment(G)) { goto l409; }  goto l408;
   l409:;	  G->pos= yypos408; G->thunkpos= yythunkpos408;  if (!yy_HtmlBlockScript(G)) { goto l410; }  goto l408;
   l410:;	  G->pos= yypos408; G->thunkpos= yythunkpos408;  if (!yy_HtmlTag(G)) { goto l407; }
   }
-  l408:;	
-  yyprintf((stderr, "  ok   %s @ %s\n", "RawHtml", G->buf+G->pos));
+  l408:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l407;  yyDo(G, yy_1_RawHtml, G->begin, G->end);
+  yyprintf((stderr, "  ok   %s @ %s\n", "RawHtml", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
   l407:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "RawHtml", G->buf+G->pos));
@@ -6134,31 +6155,31 @@ YY_RULE(int) yy_Para(GREG *G)
   return 0;
 }
 YY_RULE(int) yy_StyleBlock(GREG *G)
-{  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "StyleBlock"));  if (!yy_InStyleTags(G)) { goto l1406; }
+{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
+  yyprintf((stderr, "%s\n", "StyleBlock"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1406;  if (!yy_LocMarker(G)) { goto l1406; }  yyDo(G, yySet, -1, 0);  if (!yy_InStyleTags(G)) { goto l1406; }  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1406;
   l1407:;	
   {  int yypos1408= G->pos, yythunkpos1408= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1408; }  goto l1407;
   l1408:;	  G->pos= yypos1408; G->thunkpos= yythunkpos1408;
-  }
-  yyprintf((stderr, "  ok   %s @ %s\n", "StyleBlock", G->buf+G->pos));
+  }  yyDo(G, yy_1_StyleBlock, G->begin, G->end);
+  yyprintf((stderr, "  ok   %s @ %s\n", "StyleBlock", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
   l1406:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "StyleBlock", G->buf+G->pos));
   return 0;
 }
 YY_RULE(int) yy_HtmlBlock(GREG *G)
-{  int yypos0= G->pos, yythunkpos0= G->thunkpos;
-  yyprintf((stderr, "%s\n", "HtmlBlock"));
+{  int yypos0= G->pos, yythunkpos0= G->thunkpos;  yyDo(G, yyPush, 1, 0);
+  yyprintf((stderr, "%s\n", "HtmlBlock"));  yyText(G, G->begin, G->end);  if (!(YY_BEGIN)) goto l1409;  if (!yy_LocMarker(G)) { goto l1409; }  yyDo(G, yySet, -1, 0);
   {  int yypos1410= G->pos, yythunkpos1410= G->thunkpos;  if (!yy_HtmlBlockInTags(G)) { goto l1411; }  goto l1410;
   l1411:;	  G->pos= yypos1410; G->thunkpos= yythunkpos1410;  if (!yy_HtmlComment(G)) { goto l1412; }  goto l1410;
   l1412:;	  G->pos= yypos1410; G->thunkpos= yythunkpos1410;  if (!yy_HtmlBlockSelfClosing(G)) { goto l1409; }
   }
-  l1410:;	  if (!yy_BlankLine(G)) { goto l1409; }
+  l1410:;	  yyText(G, G->begin, G->end);  if (!(YY_END)) goto l1409;  if (!yy_BlankLine(G)) { goto l1409; }
   l1413:;	
   {  int yypos1414= G->pos, yythunkpos1414= G->thunkpos;  if (!yy_BlankLine(G)) { goto l1414; }  goto l1413;
   l1414:;	  G->pos= yypos1414; G->thunkpos= yythunkpos1414;
-  }
-  yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlock", G->buf+G->pos));
+  }  yyDo(G, yy_1_HtmlBlock, G->begin, G->end);
+  yyprintf((stderr, "  ok   %s @ %s\n", "HtmlBlock", G->buf+G->pos));  yyDo(G, yyPop, 1, 0);
   return 1;
   l1409:;	  G->pos= yypos0; G->thunkpos= yythunkpos0;
   yyprintf((stderr, "  fail %s @ %s\n", "HtmlBlock", G->buf+G->pos));
@@ -6429,12 +6450,12 @@ YY_PARSE(void) YY_NAME(parse_free)(GREG *G)
 
 static void _parse(parser_data *p_data, yyrule start_rule)
 {
-    GREG *g = yyparse_new(p_data);
+    GREG *g = YY_NAME(parse_new)(p_data);
     if (start_rule == NULL)
-        yyparse(g);
+        YY_NAME(parse)(g);
     else
-        yyparse_from(g, start_rule);
-    yyparse_free(g);
+        YY_NAME(parse_from)(g, start_rule);
+    YY_NAME(parse_free)(g);
     
     pmh_PRINTF("\n\n");
 }
