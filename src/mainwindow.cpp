@@ -18,11 +18,11 @@ TODO:
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     settings = new QSettings("org.hasseg", "QarkDown");
-    preferencesDialog = new PreferencesDialog(settings);
+    compiler = new MarkdownCompiler(settings);
+    preferencesDialog = new PreferencesDialog(settings, compiler);
 
     recentFilesMenuActions = new QList<QAction *>();
 
-    compiler = new MarkdownCompiler();
 
     setupFileMenu();
     setupEditor();
@@ -431,7 +431,8 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
     }
     else
     {
-        QString message = "Compiling failed with compiler:\n" + compilerPath;
+        QString cleanCompilerPath = compiler->getUserReadableCompilerName(compilerPath);
+        QString message = "Compiling failed with compiler:\n" + cleanCompilerPath;
         if (!compiler->errorString().isNull())
             message += "\n\n" + compiler->errorString();
         QMessageBox::warning(this, "Compiling Failed", message);

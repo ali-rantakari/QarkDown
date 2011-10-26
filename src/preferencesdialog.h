@@ -17,7 +17,7 @@ class PreferencesDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit PreferencesDialog(QSettings *appSettings, QWidget *parent = 0);
+    explicit PreferencesDialog(QSettings *appSettings, MarkdownCompiler *aCompiler, QWidget *parent = 0);
     ~PreferencesDialog();
 
 public slots:
@@ -30,6 +30,7 @@ private slots:
     void openCompilersFolderButtonClicked();
     void editHTMLTemplateButtonClicked();
     void stylesComboBoxCurrentIndexChanged(int index);
+    void compilersComboBoxCurrentIndexChanged(int index);
 
 signals:
     void updated();
@@ -43,6 +44,7 @@ private:
     void updateStylesComboBoxFromSettings();
     void updateStyleInfoTextFromComboBoxSelection();
     void updateCompilersComboBoxFromSettings();
+    void updateCompilerArgsFieldFromComboBoxSelection();
     void updateSettingsFromUI();
     void setFontToLabel(QFont font);
     void openFolderEnsuringItExists(QString path);

@@ -21,6 +21,7 @@
 
 #define SETTING_COMPILER "Compiler"
 #define SETTING_OPEN_TARGET_AFTER_COMPILING "OpenTargetAfterCompiling"
+#define SETTING_COMPILER_ARGS "CompilerArgs"
 
 #define DEF_EXTENSIONS          "mdtext md markdown txt text"
 #define DEF_FONT_FAMILY         "Courier"

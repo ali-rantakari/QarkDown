@@ -1,4 +1,5 @@
 #include "markdowncompiler.h"
+#include "defines.h"
 #include "qarkdownapplication.h"
 #include "logger.h"
 
@@ -6,9 +7,10 @@
 #include <QCoreApplication>
 #include <QTextStream>
 
-MarkdownCompiler::MarkdownCompiler(QObject *parent) :
+MarkdownCompiler::MarkdownCompiler(QSettings *appSettings, QObject *parent) :
     QObject(parent)
 {
+    settings = appSettings;
     compilerProcess = NULL;
 }
 MarkdownCompiler::~MarkdownCompiler()
@@ -95,7 +97,42 @@ QString MarkdownCompiler::errorString()
     return _errorString;
 }
 
-QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPath)
+QString getDefaultArgsForCompiler(QString compilerPath)
+{
+    if (compilerPath.startsWith(":/compilers/multimarkdown/multimarkdown-"))
+        return "-c"; // markdown compatibility mode
+    return "";
+}
+
+QString MarkdownCompiler::getSavedArgsForCompiler(QString compilerPath)
+{
+    QMap<QString, QVariant> argsMap = settings->value(SETTING_COMPILER_ARGS).toMap();
+
+    if (!argsMap.contains(compilerPath))
+        return getDefaultArgsForCompiler(compilerPath);
+    else
+        return argsMap.value(compilerPath).toString();
+}
+
+QStringList MarkdownCompiler::getArgsListForCompiler(QString compilerPath)
+{
+    QString args = getSavedArgsForCompiler(compilerPath);
+    if (args.trimmed().length() == 0)
+        return QStringList();
+    QRegExp whitespaceRE("\\s+");
+    return args.split(whitespaceRE, QString::SkipEmptyParts);
+}
+
+QString MarkdownCompiler::getUserReadableCompilerName(QString compilerPath)
+{
+    QString ret = compilerPath;
+    if (ret.startsWith(":/"))
+        ret = QFileInfo(ret).fileName();
+    return ret;
+}
+
+
+QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QString compilerPath)
 {
     Logger::info("Compiling with compiler: " + compilerPath);
     _errorString = QString();
@@ -108,50 +145,57 @@ QString MarkdownCompiler::compileSynchronously(QString input, QString compilerPa
     }
 
     QProcess syncCompilerProcess;
+    QStringList compilerArgsList = getArgsListForCompiler(compilerPath);
+    Logger::debug("Compiler args: "+compilerArgsList.join(", "));
 
     // We need to supply an empty QStringList as the arguments (even if we
     // don't wish to supply arguments) so that QProcess understands that the
     // first argument is the executable path, and escapes spaces in the path
     // correctly:
-    syncCompilerProcess.start(actualCompilerPath, QStringList(), QProcess::ReadWrite);
+    syncCompilerProcess.start(actualCompilerPath,
+                              compilerArgsList,
+                              QProcess::ReadWrite);
 
     if (!syncCompilerProcess.waitForStarted()) {
-        // TODO: handle error
         Logger::warning("Cannot start process: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
-        return QString();
+        return QPair<QString, QString>(QString(), QString());
     }
 
     syncCompilerProcess.write(input.toUtf8());
     syncCompilerProcess.closeWriteChannel();
 
     if (!syncCompilerProcess.waitForFinished()) {
-        // TODO: handle error
         Logger::warning("Error while waiting process to finish: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
-        return QString();
+        return QPair<QString, QString>(QString(), QString());
     }
 
     if (syncCompilerProcess.exitStatus() != QProcess::NormalExit) {
-        // TODO: handle error
         Logger::warning("Process returned non-normal exit status: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
-        return QString();
+        return QPair<QString, QString>(QString(), QString());
     }
+
+    QString stderrString = QString::fromUtf8(syncCompilerProcess.readAllStandardError().constData());
 
     QTextStream in(&syncCompilerProcess);
     in.setCodec("UTF-8");
-    QString output = in.readAll();
+    QString stdoutString = in.readAll();
 
-    return output;
+    return QPair<QString, QString>(stdoutString, stderrString);
 }
 
 bool MarkdownCompiler::compileToHTMLFile(QString compilerPath, QString input,
                                          QString targetPath)
 {
-    QString compilationOutput = this->compileSynchronously(input, compilerPath);
-    if (compilationOutput.isNull())
+    QPair<QString, QString> compilationOutput = this->compileSynchronously(input, compilerPath);
+    if (compilationOutput.first.isNull())
+    {
+        if (_errorString.isNull() && !compilationOutput.second.isNull())
+            _errorString = compilationOutput.second;
         return false;
+    }
 
     QFile file(targetPath);
     if (!file.open(QFile::WriteOnly | QFile::Text)) {
@@ -159,7 +203,7 @@ bool MarkdownCompiler::compileToHTMLFile(QString compilerPath, QString input,
         return false;
     }
 
-    QString finalHTML = wrapHTMLContentInTemplate(compilationOutput);
+    QString finalHTML = wrapHTMLContentInTemplate(compilationOutput.first);
 
     QTextStream fileStream(&file);
     fileStream << finalHTML;

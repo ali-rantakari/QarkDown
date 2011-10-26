@@ -2,6 +2,8 @@
 #include "ui_preferencesdialog.h"
 #include "defines.h"
 #include "qarkdownapplication.h"
+#include "markdowncompiler.h"
+#include "logger.h"
 
 #include <QFontDialog>
 #include <QColorDialog>
@@ -9,11 +11,14 @@
 #include <QMessageBox>
 #include <QTextStream>
 
-PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
+PreferencesDialog::PreferencesDialog(QSettings *appSettings,
+                                     MarkdownCompiler *aCompiler,
+                                     QWidget *parent) :
     QDialog(parent),
     ui(new Ui::PreferencesDialog)
 {
     settings = appSettings;
+    compiler = aCompiler;
     ui->setupUi(this);
     ui->tabWidget->setCurrentIndex(0);
 
@@ -25,8 +30,6 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings, QWidget *parent) :
     ui->openStylesFolderButton->setToolTip(userStylesDir().absolutePath());
     ui->openCompilersFolderButton->setToolTip(userCompilersDir().absolutePath());
     ui->editHTMLTemplateButton->setToolTip(HTML_TEMPLATE_FILE_PATH);
-
-    compiler = new MarkdownCompiler();
 
 #ifdef Q_WS_WIN
     QFont font = ui->infoLabel1->font();
@@ -58,7 +61,6 @@ PreferencesDialog::~PreferencesDialog()
     delete ui;
     delete stylesComboBoxModel;
     delete compilersComboBoxModel;
-    delete compiler;
 }
 
 void PreferencesDialog::setupConnections()
@@ -74,6 +76,8 @@ void PreferencesDialog::setupConnections()
             this, SLOT(editHTMLTemplateButtonClicked()));
     connect(ui->stylesComboBox, SIGNAL(currentIndexChanged(int)),
             this, SLOT(stylesComboBoxCurrentIndexChanged(int)));
+    connect(ui->compilersComboBox, SIGNAL(currentIndexChanged(int)),
+            this, SLOT(compilersComboBoxCurrentIndexChanged(int)));
 }
 
 void PreferencesDialog::setFontToLabel(QFont font)
@@ -198,7 +202,8 @@ void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
         styleDescription = "<i>The selected stylesheet has no description.</i>";
     else
     {
-        QString compiledDescription = compiler->compileSynchronously(styleDescription, DEF_COMPILER);
+        QPair<QString, QString> compilationOutput = compiler->compileSynchronously(styleDescription, DEF_COMPILER);
+        QString compiledDescription = compilationOutput.first;
         if (!compiledDescription.isNull())
             styleDescription = compiledDescription;
         else
@@ -253,6 +258,13 @@ void PreferencesDialog::updateCompilersComboBoxFromSettings()
 }
 
 
+void PreferencesDialog::updateCompilerArgsFieldFromComboBoxSelection()
+{
+    QString selectedCompilerPath = ui->compilersComboBox->itemData(ui->compilersComboBox->currentIndex()).toString();
+    ui->compilerArgsField->setText(compiler->getSavedArgsForCompiler(selectedCompilerPath));
+}
+
+
 
 // Some helper macros
 #define PREF_TO_UI_STRING(pref, def, elem) elem->setText(settings->value(pref, QVariant(def)).toString())
@@ -280,6 +292,7 @@ void PreferencesDialog::updateUIFromSettings()
 
     // compilers
     updateCompilersComboBoxFromSettings();
+    updateCompilerArgsFieldFromComboBoxSelection();
 
     // others
     PREF_TO_UI_INT(SETTING_TAB_WIDTH, DEF_TAB_WIDTH, ui->tabWidthSpinBox);
@@ -303,8 +316,15 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox->isChecked());
     settings->setValue(SETTING_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox->isChecked());
     settings->setValue(SETTING_STYLE, ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString());
-    settings->setValue(SETTING_COMPILER, ui->compilersComboBox->itemData(ui->compilersComboBox->currentIndex()).toString());
     settings->setValue(SETTING_EXTENSIONS, ui->extensionsLineEdit->text());
+
+    QString selectedCompilerPath = ui->compilersComboBox->itemData(ui->compilersComboBox->currentIndex()).toString();
+    QMap<QString, QVariant> compilerArgsMap = settings->value(SETTING_COMPILER_ARGS).toMap();
+    compilerArgsMap[selectedCompilerPath] = QVariant(ui->compilerArgsField->text());
+
+    settings->setValue(SETTING_COMPILER, selectedCompilerPath);
+    settings->setValue(SETTING_COMPILER_ARGS, compilerArgsMap);
+
     settings->sync();
 }
 
@@ -371,6 +391,12 @@ void PreferencesDialog::stylesComboBoxCurrentIndexChanged(int index)
 {
     Q_UNUSED(index);
     updateStyleInfoTextFromComboBoxSelection();
+}
+
+void PreferencesDialog::compilersComboBoxCurrentIndexChanged(int index)
+{
+    Q_UNUSED(index);
+    updateCompilerArgsFieldFromComboBoxSelection();
 }
 
 void PreferencesDialog::accepted()
