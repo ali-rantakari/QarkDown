@@ -39,7 +39,9 @@ win32 {
 }
 
 macx {
-    RC_FILE += gfx/icon.icns
+    OSX_FILES.files = gfx/icon.icns gfx/document.icns
+    OSX_FILES.path = Contents/Resources
+    QMAKE_BUNDLE_DATA += OSX_FILES
     QMAKE_INFO_PLIST = cfg/Info.plist
     RESOURCES += compilers-osx.qrc
 }
