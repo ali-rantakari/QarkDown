@@ -24,16 +24,29 @@ fi
 echo ">>>>>>> Running macdeployqt"
 "${HOME}/QtSDK/Desktop/Qt/${QTVERSION}/gcc/bin/macdeployqt" "$APPBUNDLE"
 
-ZIPFILE="qarkdown-osx.zip"
-if [ -e "$ZIPFILE" ];then
-	echo ">>>>>>> Deleting existing zip file: $ZIPFILE"
-	rm -f "$ZIPFILE"
-fi
+TEMP_DIR="QarkDown"
+echo ">>>>>>> Making temp installation directory"
+mkdir -p "$TEMP_DIR"
+
 ROOTDIR=$(pwd)
 BUNDLEBASENAME=$(basename "$APPBUNDLE")
 BUNDLEDIRNAME=$(dirname "$APPBUNDLE")
 
+echo ">>>>>>> Copying .app to temp installation directory"
+cp -R "$APPBUNDLE" "$TEMP_DIR/QarkDown.app"
+
+echo ">>>>>>> Copying other files to temp installation directory"
+cp "README.md" "$TEMP_DIR/."
+cp "LICENSE.md" "$TEMP_DIR/."
+
+ZIPFILE="QarkDown-OSX.zip"
+if [ -e "$ZIPFILE" ];then
+	echo ">>>>>>> Deleting existing zip file: $ZIPFILE"
+	rm -f "$ZIPFILE"
+fi
+
 echo ">>>>>>> Zipping app to: $ZIPFILE"
-cd "$BUNDLEDIRNAME"
-zip -r "${ROOTDIR}/${ZIPFILE}" "$BUNDLEBASENAME"
-cd "$ROOTDIR"
+zip -r "${ZIPFILE}" "$TEMP_DIR"
+
+
+
