@@ -14,7 +14,7 @@ The following compilers are bundled with QarkDown:
 - On Linux:
     - [Multimarkdown] by Fletcher T. Penney
 
-Copyright (c) 2011 Ali Rantakari
+Copyright (c) 2011 Ali Rantakari  
 <http://hasseg.org/qarkdown>
 
 [Markdown]: http://daringfireball.net/projects/markdown
@@ -24,42 +24,49 @@ Copyright (c) 2011 Ali Rantakari
 [pmh]: http://hasseg.org/peg-markdown-highlight
 
 
-Installation on Windows
-=======================
 
-Copy all of the files that are in the distribution `.zip` package into the same folder (suggestion: `C:\Program Files\QarkDown\`). You can then create shortcuts to `qarkdown.exe` wherever you want.
+Installing
+==========
 
-## Uninstallation on Windows
+## Windows
 
-- Delete QarkDown's "application resources" folder (the location depends on the version of Windows you're running; you can find it by clicking on the _"Show HTML Template File"_ link in the _"Compiling"_ section of QarkDown's preferences)
-- Delete the folder where you moved QarkDown's files when you installed it.
+Just run the installer.
 
+## OS X
 
-Installation on OS X
-====================
+Just drop `QarkDown.app` into the `Applications` folder (or wherever you like).
 
-QarkDown on OS X is a self-contained `.app` bundle, so you can just drop it into `/Applications` (or wherever).
-
-## Uninstallation on OS X
-
-- Delete QarkDown's "application resources" folder in `~/Library/Application Support/QarkDown`
-- Delete `qarkdown.app`.
-
-
-Installation on Linux
-=====================
+## Linux
 
 As of this writing no ready-made packages exist for Linux package managers, so you'll have to build and install QarkDown manually:
 
 - Install the Qt SDK (from Nokia's site or via your package manager if it's available there)
 - Open the `src/qarkdown.pro` file in Qt Creator
 - Select the "release" configuration and press the build button (both of these are in the toolbar on the left side of the screen, at the bottom)
-- Copy the executable (`qarkdown-build-desktop/qarkdown`) wherever you'd like.
+- Copy the executable (`qarkdown`) wherever you like.
 
-## Uninstallation on Linux
 
-- Delete QarkDown's "application resources" folder (the location might depend on the distro you're running; you can find it by clicking on the _"Show HTML Template File"_ link in the _"Compiling"_ section of QarkDown's preferences)
-- Delete QarkDown's executable from where you moved it at installation time.
+
+Uninstalling
+============
+
+## Windows
+
+**Note:** The uninstaller does not touch QarkDown's "application resources" folder, so if you want to remove it you'll have to do it manually. Its location depends on the version of Windows you're running, so if you don't know where it is, you can find it by clicking on the _"Show HTML Template File"_ link in the _"Compiling"_ section of QarkDown's preferences. Which you should of course do _before_ you run the uninstaller.
+
+To remove the application itself, just run the uninstaller. You can run it from under the start menu, or by executing it directly from the QarkDown installation folder under `Program Files`.
+
+## OS X
+
+To remove the application, just delete `QarkDown.app`.
+
+If you want to remove the application resources, you can find them in `~/Library/Application Support/QarkDown`.
+
+## Linux
+
+**Note:** If you want to remove the application resources folder but don't know where it is, you can find it by clicking on the _"Show HTML Template File"_ link in the _"Compiling"_ section of QarkDown's preferences. Which you should of course do _before_ you remove the application itself.
+
+To remove the application, just delete QarkDown's executable from where you moved it at installation time.
 
 
 
