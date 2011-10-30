@@ -5,4 +5,7 @@ syntax: glob
 *.pro.user*
 *.orig
 *.zip
+*~
+*Setup.exe
+*setup.exe
 
