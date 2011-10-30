@@ -6,12 +6,12 @@
     <string>icon.icns</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
-    <key>CFBundleGetInfoString</key>
-    <string>Created by Qt/QMake</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleExecutable</key>
     <string>qarkdown</string>
+    <key>CFBundleName</key>
+    <string>QarkDown</string>
     <key>CFBundleIdentifier</key>
     <string>org.hasseg.qarkdown</string>
     <key>NOTE</key>
