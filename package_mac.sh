@@ -21,8 +21,12 @@ if [ "$APPBUNDLE" == "" ];then
 	exit 1
 fi
 
-echo ">>>>>>> Running macdeployqt"
-"${HOME}/QtSDK/Desktop/Qt/${QTVERSION}/gcc/bin/macdeployqt" "$APPBUNDLE"
+if [ -e "${APPBUNDLE}/Contents/Frameworks/QtCore.framework" ];then
+	echo ">>>>>>> Looks like macdeployqt has already been run; skipping."
+else
+	echo ">>>>>>> Running macdeployqt"
+	"${HOME}/QtSDK/Desktop/Qt/${QTVERSION}/gcc/bin/macdeployqt" "$APPBUNDLE"
+fi
 
 TEMP_DIR="QarkDown"
 echo ">>>>>>> Making temp installation directory"
@@ -39,7 +43,8 @@ echo ">>>>>>> Copying other files to temp installation directory"
 cp "README.md" "$TEMP_DIR/."
 cp "LICENSE.md" "$TEMP_DIR/."
 
-ZIPFILE="QarkDown-OSX.zip"
+VERSION=$(./get_version.py)
+ZIPFILE="QarkDown-OSX-${VERSION}.zip"
 if [ -e "$ZIPFILE" ];then
 	echo ">>>>>>> Deleting existing zip file: $ZIPFILE"
 	rm -f "$ZIPFILE"
@@ -48,5 +53,6 @@ fi
 echo ">>>>>>> Zipping app to: $ZIPFILE"
 zip -r "${ZIPFILE}" "$TEMP_DIR"
 
-
+echo ">>>>>>> Removing the temp installation directory"
+rm -rf "$TEMP_DIR"
 
