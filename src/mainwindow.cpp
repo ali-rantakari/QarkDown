@@ -7,6 +7,7 @@
 /*
 TODO:
 - Fix text alpha issue on Windows (???)
+- Fix the tab/shift-tab indentation to work in a more "standard" manner
 
 - Tabbed interface; multiple files open
 - Document the highlighter interface
@@ -105,9 +106,9 @@ void MainWindow::openFile(const QString &path)
         return;
     }
 
-    QTextStream in(&file);
-    in.setCodec("UTF-8");
-    editor->setPlainText(in.readAll());
+    QTextStream inStream(&file);
+    inStream.setCodec("UTF-8");
+    editor->setPlainText(inStream.readAll());
     file.close();
 
     openFilePath = fileName;
@@ -141,8 +142,9 @@ void MainWindow::saveFile()
     QFile file(saveFilePath);
     if (!file.open(QFile::WriteOnly | QFile::Text))
         return;
-    QTextStream fileStream(&file);
-    fileStream << editor->toPlainText();
+    QTextStream outStream(&file);
+    outStream.setCodec("UTF-8");
+    outStream << editor->toPlainText();
     file.close();
 
     if (savingNewFile)
