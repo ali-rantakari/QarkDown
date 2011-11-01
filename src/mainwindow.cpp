@@ -298,6 +298,7 @@ void MainWindow::applyHighlighterPreferences()
     }
     highlighter->getStylesFromStylesheet(styleFilePath, editor);
     editor->setCurrentLineHighlightColor(highlighter->currentLineHighlightColor);
+    editor->setLineNumberAreaColor(editor->palette().base().color().darker(140));
 }
 
 void MainWindow::applyEditorPreferences()

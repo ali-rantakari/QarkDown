@@ -15,7 +15,11 @@ public:
     void lineNumberAreaPaintEvent(QPaintEvent *event);
     int lineNumberAreaWidth();
 
+    QColor lineNumberAreaColor();
+    void setLineNumberAreaColor(QColor newColor);
+
 protected:
+    QColor _lineNumberAreaColor;
     LineNumberArea *lineNumberArea;
     void resizeEvent(QResizeEvent *event);
 

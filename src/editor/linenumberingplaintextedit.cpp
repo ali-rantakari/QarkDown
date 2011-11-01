@@ -1,4 +1,5 @@
 #include "linenumberingplaintextedit.h"
+#include "logger.h"
 
 #include <QTextBlock>
 #include <QPainter>
@@ -13,6 +14,8 @@ LineNumberingPlainTextEdit::LineNumberingPlainTextEdit(QWidget *parent) :
     connect(this, SIGNAL(updateRequest(QRect,int)),
             this, SLOT(updateLineNumberArea(QRect,int)));
 
+    _lineNumberAreaColor = QColor(Qt::lightGray).lighter(120);
+
     updateLineNumberAreaWidth(0);
 }
 
@@ -21,6 +24,16 @@ LineNumberingPlainTextEdit::~LineNumberingPlainTextEdit()
     delete lineNumberArea;
 }
 
+
+QColor LineNumberingPlainTextEdit::lineNumberAreaColor()
+{
+    return _lineNumberAreaColor;
+}
+void LineNumberingPlainTextEdit::setLineNumberAreaColor(QColor newColor)
+{
+    _lineNumberAreaColor = newColor;
+    repaint();
+}
 
 
 
@@ -33,6 +46,8 @@ void LineNumberingPlainTextEdit::resizeEvent(QResizeEvent *e)
                                       lineNumberAreaWidth(), cr.height()));
 }
 
+#define kLeftMargin 3
+#define kRightMargin 3
 
 int LineNumberingPlainTextEdit::lineNumberAreaWidth()
 {
@@ -43,9 +58,11 @@ int LineNumberingPlainTextEdit::lineNumberAreaWidth()
         ++digits;
     }
 
-    int space = 3 + fontMetrics().width(QLatin1Char('9')) * digits;
-
-    return space;
+    static int nineCharWidth = -1;
+    if (nineCharWidth == -1)
+        nineCharWidth = fontMetrics().width(QLatin1Char('9'));
+    int digitsWidth = nineCharWidth * digits;
+    return kLeftMargin + digitsWidth + kRightMargin;
 }
 
 void LineNumberingPlainTextEdit::updateLineNumberAreaWidth(int /* newBlockCount */)
@@ -63,10 +80,31 @@ void LineNumberingPlainTextEdit::updateLineNumberArea(const QRect &rect, int dy)
         updateLineNumberAreaWidth(0);
 }
 
+
+#define kMinTextLightness 50
+#define kMaxTextLightness 205
+
 void LineNumberingPlainTextEdit::lineNumberAreaPaintEvent(QPaintEvent *event)
 {
+    QColor backgroundColor = _lineNumberAreaColor;
+    bool lightBackground = (128 <= backgroundColor.lightness());
+    QColor lineNumberTextColor = lightBackground
+                                 ? backgroundColor.darker(180)
+                                 : backgroundColor.lighter(180);
+    QColor borderLineColor = lightBackground
+                             ? backgroundColor.darker(130)
+                             : backgroundColor.lighter(130);
+
+    if (lineNumberTextColor.lightness() < kMinTextLightness)
+        lineNumberTextColor.setHsl(lineNumberTextColor.hslHue(), lineNumberTextColor.hslSaturation(), kMinTextLightness);
+    else if (kMaxTextLightness < lineNumberTextColor.lightness())
+        lineNumberTextColor.setHsl(lineNumberTextColor.hslHue(), lineNumberTextColor.hslSaturation(), kMaxTextLightness);
+
     QPainter painter(lineNumberArea);
-    painter.fillRect(event->rect(), Qt::lightGray);
+    painter.fillRect(event->rect(), backgroundColor);
+
+    painter.setPen(borderLineColor);
+    painter.drawLine(event->rect().topRight(), event->rect().bottomRight());
 
     QTextBlock block = firstVisibleBlock();
     int blockNumber = block.blockNumber();
@@ -78,10 +116,12 @@ void LineNumberingPlainTextEdit::lineNumberAreaPaintEvent(QPaintEvent *event)
         if (block.isVisible() && bottom >= event->rect().top())
         {
             QString lineNumberString = QString::number(blockNumber + 1);
-            painter.setPen(Qt::black);
+            painter.setPen(lineNumberTextColor);
             painter.setFont(this->font());
-            painter.drawText(0, top, lineNumberArea->width(), fontMetrics().height(),
-                             Qt::AlignRight, lineNumberString);
+            painter.drawText(0, top,
+                             lineNumberArea->width() - kRightMargin,
+                             fontMetrics().height(),
+                             Qt::AlignRight|Qt::AlignBottom, lineNumberString);
         }
 
         block = block.next();
