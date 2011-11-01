@@ -236,6 +236,7 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
         emit styleParsingErrors(styleParsingErrorList);
 
     // Set language element styles
+    styles->clear();
     for (int i = 0; i < pmh_NUM_LANG_TYPES; i++)
     {
         pmh_style_attribute *cur = raw_styles->element_styles[i];
