@@ -1,4 +1,5 @@
 #include "qarkdowntextedit.h"
+#include "logger.h"
 
 #include <QKeyEvent>
 #include <QTextBlock>
@@ -357,6 +358,37 @@ void QarkdownTextEdit::unindentAtCursor()
     removalCursor.endEditBlock();
 }
 
+
+void QarkdownTextEdit::applyFormattingToCurrentSelection(FormatStyle formatStyle)
+{
+    QTextCursor selectionCursor = textCursor();
+    if (!selectionCursor.hasSelection())
+        selectionCursor.select(QTextCursor::WordUnderCursor);
+
+    Logger::debug(QString().sprintf("start %i end %i", selectionCursor.selectionStart(), selectionCursor.selectionEnd()));
+
+    int start = selectionCursor.selectionStart();
+    int end = selectionCursor.selectionEnd();
+    selectionCursor.clearSelection();
+
+    QString surroundWith;
+    if (formatStyle == Emphasized)
+        surroundWith = "_";
+    else if (formatStyle == Strong)
+        surroundWith = "**";
+    else if (formatStyle == Code)
+        surroundWith = "`";
+
+    QTextCursor tempCursor(textCursor());
+    tempCursor.beginEditBlock();
+
+    tempCursor.setPosition(start);
+    tempCursor.insertText(surroundWith);
+    tempCursor.setPosition(end + surroundWith.length());
+    tempCursor.insertText(surroundWith);
+
+    tempCursor.endEditBlock();
+}
 
 
 void QarkdownTextEdit::applyHighlightingToCurrentLine()

@@ -39,6 +39,10 @@ public slots:
     void findNextSearchMatch();
     void findPreviousSearchMatch();
 
+    void formatSelectionEmphasized();
+    void formatSelectionStrong();
+    void formatSelectionCode();
+
     void preferencesUpdated();
 
     void openRecentFile();

@@ -444,6 +444,22 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
     return success;
 }
 
+
+void MainWindow::formatSelectionEmphasized()
+{
+    editor->applyFormattingToCurrentSelection(QarkdownTextEdit::Emphasized);
+}
+void MainWindow::formatSelectionStrong()
+{
+    editor->applyFormattingToCurrentSelection(QarkdownTextEdit::Strong);
+}
+void MainWindow::formatSelectionCode()
+{
+    editor->applyFormattingToCurrentSelection(QarkdownTextEdit::Code);
+}
+
+
+
 void MainWindow::updateRecentFilesMenu()
 {
     for (int i = 0; i < recentFilesMenuActions->count(); i++)
@@ -501,6 +517,15 @@ void MainWindow::setupFileMenu()
                                                  QKeySequence::FindPrevious);
     findNextMenuAction->setEnabled(false);
     findPreviousMenuAction->setEnabled(false);
+
+    QMenu *formattingMenu = new QMenu(tr("F&ormatting"), this);
+    menuBar()->addMenu(formattingMenu);
+    formattingMenu->addAction(tr("Emphasized"), this, SLOT(formatSelectionEmphasized()),
+                              QKeySequence("Ctrl+I"));
+    formattingMenu->addAction(tr("Strong"), this, SLOT(formatSelectionStrong()),
+                              QKeySequence("Ctrl+B"));
+    formattingMenu->addAction(tr("Code"), this, SLOT(formatSelectionCode()),
+                              QKeySequence("Ctrl+D"));
 
     QMenu *toolsMenu = new QMenu(tr("&Tools"), this);
     menuBar()->addMenu(toolsMenu);

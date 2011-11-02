@@ -37,6 +37,16 @@ public:
     QColor currentLineHighlightColor();
     void setCurrentLineHighlightColor(QColor value);
 
+    QString wordUnderCursor();
+
+    enum FormatStyle
+    {
+        Emphasized,
+        Strong,
+        Code
+    };
+    void applyFormattingToCurrentSelection(FormatStyle formatStyle);
+
 protected:
     QString _indentString;
     int _spacesIndentWidthHint;
