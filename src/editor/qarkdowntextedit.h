@@ -37,7 +37,7 @@ public:
     QColor currentLineHighlightColor();
     void setCurrentLineHighlightColor(QColor value);
 
-    QString wordUnderCursor();
+    QTextCursor selectWordUnderCursor(QTextCursor cursor);
 
     enum FormatStyle
     {
@@ -45,7 +45,7 @@ public:
         Strong,
         Code
     };
-    void applyFormattingToCurrentSelection(FormatStyle formatStyle);
+    void toggleFormattingForCurrentSelection(FormatStyle formatStyle);
 
 protected:
     QString _indentString;

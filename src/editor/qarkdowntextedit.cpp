@@ -88,6 +88,7 @@ bool QarkdownTextEdit::isBorderChar(QChar character)
             );
 }
 
+
 bool QarkdownTextEdit::cursorIsBeforeLineContentStart(QTextCursor cursor)
 {
     int curPos = cursor.position();
@@ -359,35 +360,111 @@ void QarkdownTextEdit::unindentAtCursor()
 }
 
 
-void QarkdownTextEdit::applyFormattingToCurrentSelection(FormatStyle formatStyle)
+// `.select(QTextCursor::WordUnderCursor)` is not sufficient because it
+// considers underscores _ word chars and asterisks * non-word chars
+QTextCursor QarkdownTextEdit::selectWordUnderCursor(QTextCursor cursor)
 {
+    cursor.select(QTextCursor::WordUnderCursor);
+
+    // Trim out leading & trailing underscores:
+    int startAdjust = 0;
+    while (document()->characterAt(cursor.selectionStart() + startAdjust) == QChar('_'))
+        startAdjust++;
+    int endAdjust = 0;
+    while (document()->characterAt(cursor.selectionEnd() - 1 - endAdjust) == QChar('_'))
+        endAdjust++;
+
+    if (startAdjust != 0 || endAdjust != 0)
+    {
+        int end = cursor.selectionEnd();
+        cursor.setPosition(cursor.selectionStart() + startAdjust);
+        cursor.setPosition(end - endAdjust, QTextCursor::KeepAnchor);
+    }
+
+    return cursor;
+}
+
+void QarkdownTextEdit::toggleFormattingForCurrentSelection(FormatStyle formatStyle)
+{
+    // Find formatted range
+
     QTextCursor selectionCursor = textCursor();
     if (!selectionCursor.hasSelection())
-        selectionCursor.select(QTextCursor::WordUnderCursor);
-
-    Logger::debug(QString().sprintf("start %i end %i", selectionCursor.selectionStart(), selectionCursor.selectionEnd()));
+        selectionCursor = selectWordUnderCursor(selectionCursor);
 
     int start = selectionCursor.selectionStart();
     int end = selectionCursor.selectionEnd();
     selectionCursor.clearSelection();
 
-    QString surroundWith;
+    if (end-start <= 0)
+        return;
+
+    // Determine format string to use
+
+    QString formatStr;
     if (formatStyle == Emphasized)
-        surroundWith = "_";
+        formatStr = "_";
     else if (formatStyle == Strong)
-        surroundWith = "**";
+        formatStr = "**";
     else if (formatStyle == Code)
-        surroundWith = "`";
+        formatStr = "`";
+    int formatStrLength = formatStr.length();
 
     QTextCursor tempCursor(textCursor());
-    tempCursor.beginEditBlock();
 
-    tempCursor.setPosition(start);
-    tempCursor.insertText(surroundWith);
-    tempCursor.setPosition(end + surroundWith.length());
-    tempCursor.insertText(surroundWith);
+    // See if the selection already begins and/or ends with our format string
 
-    tempCursor.endEditBlock();
+    tempCursor.setPosition(start - formatStrLength);
+    tempCursor.setPosition(start, QTextCursor::KeepAnchor);
+    bool startsWithFormatStr = (tempCursor.selectedText() == formatStr);
+
+    tempCursor.setPosition(end);
+    tempCursor.setPosition(end + formatStrLength, QTextCursor::KeepAnchor);
+    bool endsWithFormatStr = (tempCursor.selectedText() == formatStr);
+
+    // If the selection starts XOR ends with the format string, we're not
+    // sure what to do, so let's play it safe and do nothing
+    if (startsWithFormatStr && !endsWithFormatStr)
+        return;
+    if (!startsWithFormatStr && endsWithFormatStr)
+        return;
+
+    // Apply formatting
+
+    if (startsWithFormatStr && endsWithFormatStr)
+    {
+        // remove formatting
+        tempCursor.beginEditBlock();
+
+        tempCursor.setPosition(start - formatStrLength);
+        tempCursor.setPosition(start, QTextCursor::KeepAnchor);
+        tempCursor.removeSelectedText();
+        tempCursor.setPosition(end - formatStrLength);
+        tempCursor.setPosition(end, QTextCursor::KeepAnchor);
+        tempCursor.removeSelectedText();
+
+        tempCursor.endEditBlock();
+    }
+    else
+    {
+        // add formatting
+        tempCursor.beginEditBlock();
+
+        tempCursor.setPosition(start);
+        tempCursor.insertText(formatStr);
+        tempCursor.setPosition(end + formatStrLength);
+        tempCursor.insertText(formatStr);
+
+        tempCursor.endEditBlock();
+
+        if (textCursor().hasSelection())
+        {
+            QTextCursor newCursor = textCursor();
+            newCursor.setPosition(start + formatStrLength);
+            newCursor.setPosition(end + formatStrLength, QTextCursor::KeepAnchor);
+            setTextCursor(newCursor);
+        }
+    }
 }
 
 

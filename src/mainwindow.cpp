@@ -6,10 +6,12 @@
 
 /*
 TODO:
-- Fix text alpha issue on Windows (???)
-- Fix the tab/shift-tab indentation to work in a more "standard" manner
+- Multiple files open; file switcher dock widget
 
-- Tabbed interface; multiple files open
+- Confirmation when quitting with unsaved changes
+- Fix the tab/shift-tab indentation to work in a more "standard" manner
+- Fix text alpha issue on Windows (???)
+
 - Document the highlighter interface
 - Use QTextOption::ShowTabsAndSpaces
 - Update mechanism
@@ -447,15 +449,15 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
 
 void MainWindow::formatSelectionEmphasized()
 {
-    editor->applyFormattingToCurrentSelection(QarkdownTextEdit::Emphasized);
+    editor->toggleFormattingForCurrentSelection(QarkdownTextEdit::Emphasized);
 }
 void MainWindow::formatSelectionStrong()
 {
-    editor->applyFormattingToCurrentSelection(QarkdownTextEdit::Strong);
+    editor->toggleFormattingForCurrentSelection(QarkdownTextEdit::Strong);
 }
 void MainWindow::formatSelectionCode()
 {
-    editor->applyFormattingToCurrentSelection(QarkdownTextEdit::Code);
+    editor->toggleFormattingForCurrentSelection(QarkdownTextEdit::Code);
 }
 
 
