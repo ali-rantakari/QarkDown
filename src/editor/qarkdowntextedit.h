@@ -47,7 +47,15 @@ public:
     };
     void toggleFormattingForCurrentSelection(FormatStyle formatStyle);
 
+    bool formatEmphasisWithUnderscores();
+    void setFormatEmphasisWithUnderscores(bool value);
+    bool formatStrongWithUnderscores();
+    void setFormatStrongWithUnderscores(bool value);
+
 protected:
+    QString _emphFormatString;
+    QString _strongFormatString;
+    QString _codeFormatString;
     QString _indentString;
     int _spacesIndentWidthHint;
     Qt::KeyboardModifiers _anchorClickKeyModifiers;

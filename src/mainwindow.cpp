@@ -325,6 +325,14 @@ void MainWindow::applyEditorPreferences()
     bool highlightCurrentLine = settings->value(SETTING_HIGHLIGHT_CURRENT_LINE,
                                                 QVariant(DEF_HIGHLIGHT_CURRENT_LINE)).toBool();
     editor->setHighlightCurrentLine(highlightCurrentLine);
+
+    // Formatting
+    bool emphWithUnderscores = settings->value(SETTING_FORMAT_EMPH_WITH_UNDERSCORES,
+                                               QVariant(DEF_FORMAT_EMPH_WITH_UNDERSCORES)).toBool();
+    editor->setFormatEmphasisWithUnderscores(emphWithUnderscores);
+    bool strongWithUnderscores = settings->value(SETTING_FORMAT_STRONG_WITH_UNDERSCORES,
+                                                 QVariant(DEF_FORMAT_STRONG_WITH_UNDERSCORES)).toBool();
+    editor->setFormatStrongWithUnderscores(strongWithUnderscores);
 }
 
 void MainWindow::showPreferences()

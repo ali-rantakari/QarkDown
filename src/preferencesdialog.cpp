@@ -31,6 +31,13 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings,
     ui->openCompilersFolderButton->setToolTip(userCompilersDir().absolutePath());
     ui->editHTMLTemplateButton->setToolTip(HTML_TEMPLATE_FILE_PATH);
 
+    QButtonGroup *emphRadioGroup = new QButtonGroup(this);
+    emphRadioGroup->addButton(ui->emphAsteriskRadioButton);
+    emphRadioGroup->addButton(ui->emphUnderscoreRadioButton);
+    QButtonGroup *strongRadioGroup = new QButtonGroup(this);
+    strongRadioGroup->addButton(ui->strongAsteriskRadioButton);
+    strongRadioGroup->addButton(ui->strongUnderscoreRadioButton);
+
 #ifdef Q_WS_WIN
     QFont font = ui->infoLabel1->font();
     font.setPointSize(8);
@@ -303,6 +310,11 @@ void PreferencesDialog::updateUIFromSettings()
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_HIGHLIGHT_CURRENT_LINE, DEF_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox);
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_OPEN_TARGET_AFTER_COMPILING, DEF_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox);
     PREF_TO_UI_STRING(SETTING_EXTENSIONS, DEF_EXTENSIONS, ui->extensionsLineEdit);
+
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_FORMAT_EMPH_WITH_UNDERSCORES, DEF_FORMAT_EMPH_WITH_UNDERSCORES, ui->emphUnderscoreRadioButton);
+    ui->emphAsteriskRadioButton->setChecked(!ui->emphUnderscoreRadioButton->isChecked());
+    PREF_TO_UI_BOOL_CHECKBOX(SETTING_FORMAT_STRONG_WITH_UNDERSCORES, DEF_FORMAT_STRONG_WITH_UNDERSCORES, ui->strongUnderscoreRadioButton);
+    ui->strongAsteriskRadioButton->setChecked(!ui->strongUnderscoreRadioButton->isChecked());
 }
 
 void PreferencesDialog::updateSettingsFromUI()
@@ -317,6 +329,8 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox->isChecked());
     settings->setValue(SETTING_STYLE, ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString());
     settings->setValue(SETTING_EXTENSIONS, ui->extensionsLineEdit->text());
+    settings->setValue(SETTING_FORMAT_EMPH_WITH_UNDERSCORES, ui->emphUnderscoreRadioButton->isChecked());
+    settings->setValue(SETTING_FORMAT_STRONG_WITH_UNDERSCORES, ui->strongUnderscoreRadioButton->isChecked());
 
     QString selectedCompilerPath = ui->compilersComboBox->itemData(ui->compilersComboBox->currentIndex()).toString();
     QMap<QString, QVariant> compilerArgsMap = settings->value(SETTING_COMPILER_ARGS).toMap();

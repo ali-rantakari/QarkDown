@@ -15,6 +15,11 @@ QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
 
     _indentString = "    ";
     _spacesIndentWidthHint = 4;
+
+    _emphFormatString = "_";
+    _strongFormatString = "**";
+    _codeFormatString = "`";
+
     _anchorClickKeyModifiers = Qt::NoModifier;
     _highlightCurrentLine = true;
     _lineHighlightColor = DEF_LINE_HIGHLIGHT_COLOR;
@@ -45,6 +50,25 @@ void QarkdownTextEdit::setSpacesIndentWidthHint(int value)
 {
     _spacesIndentWidthHint = value;
 }
+
+
+bool QarkdownTextEdit::formatEmphasisWithUnderscores()
+{
+    return (_emphFormatString == "_");
+}
+void QarkdownTextEdit::setFormatEmphasisWithUnderscores(bool value)
+{
+    _emphFormatString = value ? "_" : "*";
+}
+bool QarkdownTextEdit::formatStrongWithUnderscores()
+{
+    return (_strongFormatString == "__");
+}
+void QarkdownTextEdit::setFormatStrongWithUnderscores(bool value)
+{
+    _strongFormatString = value ? "__" : "**";
+}
+
 
 Qt::KeyboardModifiers QarkdownTextEdit::anchorClickKeyboardModifiers()
 {
@@ -403,11 +427,11 @@ void QarkdownTextEdit::toggleFormattingForCurrentSelection(FormatStyle formatSty
 
     QString formatStr;
     if (formatStyle == Emphasized)
-        formatStr = "_";
+        formatStr = _emphFormatString;
     else if (formatStyle == Strong)
-        formatStr = "**";
+        formatStr = _strongFormatString;
     else if (formatStyle == Code)
-        formatStr = "`";
+        formatStr = _codeFormatString;
     int formatStrLength = formatStr.length();
 
     QTextCursor tempCursor(textCursor());

@@ -11,6 +11,8 @@
 #define SETTING_CLICKABLE_LINKS "ClickableLinks"
 #define SETTING_HIGHLIGHT_CURRENT_LINE "HighlightCurrentLine"
 #define SETTING_STYLE "HighlightingStyle"
+#define SETTING_FORMAT_EMPH_WITH_UNDERSCORES "FormatEmphWithUnderscores"
+#define SETTING_FORMAT_STRONG_WITH_UNDERSCORES "FormatStrongWithUnderscores"
 
 #define SETTING_LAST_FILE "LastFile"
 #define SETTING_WINDOW_GEOMETRY "LastWindowGeometry"
@@ -37,6 +39,8 @@
 #define DEF_LINE_HIGHLIGHT_COLOR QColor(Qt::yellow).lighter(180)
 #define DEF_STYLE               ":/styles/Default"
 #define DEF_OPEN_TARGET_AFTER_COMPILING true
+#define DEF_FORMAT_EMPH_WITH_UNDERSCORES true
+#define DEF_FORMAT_STRONG_WITH_UNDERSCORES false
 
 #ifdef Q_WS_MACX
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-osx"
