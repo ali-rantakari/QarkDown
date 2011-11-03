@@ -36,7 +36,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     updateCheck = new HGUpdateCheck(QString("http://hasseg.org/test/update.php"),
                                     settings, this);
-    updateCheck->checkForUpdatesInBackgroundIfNecessary();
+    updateCheck->handleAppStartup();
 }
 
 MainWindow::~MainWindow()

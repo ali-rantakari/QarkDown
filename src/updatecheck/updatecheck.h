@@ -13,7 +13,11 @@ class HGUpdateCheck : public QObject
 public:
     HGUpdateCheck(QString baseURL, QSettings *settings,
                   QWidget *parentWidget);
-    ~HGUpdateCheck();
+
+    void handleAppStartup();
+
+    bool shouldCheckForUpdatesOnStartup();
+    void setShouldCheckForUpdatesOnStartup(bool value);
 
     void checkForUpdatesInBackgroundIfNecessary();
     void checkForUpdatesNow(bool userInitiated = true);

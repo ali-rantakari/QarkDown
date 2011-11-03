@@ -40,17 +40,10 @@ HGUpdateCheck::HGUpdateCheck(QString baseURL,
             this, SLOT(sslErrors(QNetworkReply*,QList<QSslError>)));
 }
 
-HGUpdateCheck::~HGUpdateCheck()
-{
-    delete _nam;
-    delete _updateInfoDialog;
-    delete _progressDialog;
-    if (_activeReply != NULL)
-        delete _activeReply;
-}
-
 #define kSettingKeyLastUpdateCheckTime "LastUpdateCheckTime"
 #define kSettingKeyLastSkippedVersion "LastSkippedVersion"
+#define kSettingKeyShouldCheckForUpdatesAtStartup "ShouldCheckForUpdatesAtStartup"
+#define kSettingKeyFirstStartupCompleted "FirstStartupCompleted"
 
 #define kRequestKindAttribute QNetworkRequest::User
 #define kRequestKind_UpdateCheck "UpdateCheck"
@@ -58,6 +51,57 @@ HGUpdateCheck::~HGUpdateCheck()
 
 #define kRequestUserInitiatedAttribute (QNetworkRequest::Attribute)(QNetworkRequest::User+1)
 
+
+void HGUpdateCheck::handleAppStartup()
+{
+    bool firstStartupCompleted = _settings->value(kSettingKeyFirstStartupCompleted,
+                                                  QVariant(false)).toBool();
+    if (!firstStartupCompleted)
+    {
+        _settings->setValue(kSettingKeyFirstStartupCompleted, true);
+        _settings->sync();
+        return;
+    }
+
+    if (!_settings->contains(kSettingKeyShouldCheckForUpdatesAtStartup))
+    {
+        QMessageBox shouldCheckDialog;
+        shouldCheckDialog.setIconPixmap(QPixmap(":/smallAppIcon.png"));
+        shouldCheckDialog.setText("Check for Updates on Startup?");
+        shouldCheckDialog.setInformativeText(
+                    "Would you like "+qApp->applicationName()+
+                    " to check for updates on startup? If not, you can "
+                    "check manually from the help menu.");
+        shouldCheckDialog.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
+        shouldCheckDialog.setDefaultButton(QMessageBox::Yes);
+        int response = shouldCheckDialog.exec();
+        if (response == QMessageBox::Yes)
+        {
+            setShouldCheckForUpdatesOnStartup(true);
+            checkForUpdatesInBackgroundIfNecessary();
+        }
+        else
+            setShouldCheckForUpdatesOnStartup(false);
+        return;
+    }
+
+    if (!shouldCheckForUpdatesOnStartup())
+        return;
+
+    checkForUpdatesInBackgroundIfNecessary();
+}
+
+
+bool HGUpdateCheck::shouldCheckForUpdatesOnStartup()
+{
+    _settings->sync();
+    return _settings->value(kSettingKeyShouldCheckForUpdatesAtStartup).toBool();
+}
+void HGUpdateCheck::setShouldCheckForUpdatesOnStartup(bool value)
+{
+    _settings->setValue(kSettingKeyShouldCheckForUpdatesAtStartup, value);
+    _settings->sync();
+}
 
 void HGUpdateCheck::checkForUpdatesInBackgroundIfNecessary()
 {
@@ -81,6 +125,17 @@ void HGUpdateCheck::checkForUpdatesInBackgroundIfNecessary()
 
 void HGUpdateCheck::checkForUpdatesNow(bool userInitiated)
 {
+    if (_activeReply != NULL)
+    {
+        qDebug() << "HGUpdateCheck: Already checking for updates!";
+        if (userInitiated)
+            QMessageBox::information((QWidget*)parent(),
+                                     qApp->applicationName(),
+                                     qApp->applicationName()+" is already "
+                                     "checking for updates.");
+        return;
+    }
+
     qDebug() << "HGUpdateCheck: Checking for updates.";
     QNetworkRequest request(QUrl(_baseURL + "?versioncheck=y"));
     request.setAttribute(kRequestKindAttribute, kRequestKind_UpdateCheck);
