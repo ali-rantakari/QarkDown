@@ -15,7 +15,7 @@ public:
                   QWidget *parentWidget);
     ~HGUpdateCheck();
 
-    void checkForUpdatesIfNecessary();
+    void checkForUpdatesInBackgroundIfNecessary();
     void checkForUpdatesNow(bool userInitiated = true);
 
 private:

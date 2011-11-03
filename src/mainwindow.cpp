@@ -34,9 +34,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     statusBar()->show();
 
-    updateCheck = new HGUpdateCheck(QString("http://hasseg.org/qarkdown"),
+    updateCheck = new HGUpdateCheck(QString("http://hasseg.org/test/update.php"),
                                     settings, this);
-    updateCheck->checkForUpdatesIfNecessary();
+    updateCheck->checkForUpdatesInBackgroundIfNecessary();
 }
 
 MainWindow::~MainWindow()

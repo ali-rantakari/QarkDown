@@ -59,15 +59,14 @@ HGUpdateCheck::~HGUpdateCheck()
 #define kRequestUserInitiatedAttribute (QNetworkRequest::Attribute)(QNetworkRequest::User+1)
 
 
-void HGUpdateCheck::checkForUpdatesIfNecessary()
+void HGUpdateCheck::checkForUpdatesInBackgroundIfNecessary()
 {
-    // TODO: check last update time etc.
-    QDate today;
+    QDate today = QDate::currentDate();
     _settings->sync();
     QDate lastUpdateCheck = _settings->value(kSettingKeyLastUpdateCheckTime).toDate();
     if (lastUpdateCheck.isValid())
     {
-        qDebug() << "HGUpdateCheck: Last update check was" << lastUpdateCheck;
+        qDebug() << "HGUpdateCheck: Last update check was" << lastUpdateCheck << "(today is:)" << today;
         if (lastUpdateCheck == today)
         {
             qDebug() << "HGUpdateCheck: Checked today already.";
@@ -141,7 +140,7 @@ void HGUpdateCheck::handleLatestVersionInfo(QString latestVersion, bool userInit
         return;
     }
 
-    _settings->setValue(kSettingKeyLastUpdateCheckTime, QDate());
+    _settings->setValue(kSettingKeyLastUpdateCheckTime, QDate::currentDate());
     _settings->sync();
 
     qDebug() << "HGUpdateCheck: up to date.";
