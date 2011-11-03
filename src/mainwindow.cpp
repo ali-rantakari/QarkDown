@@ -33,10 +33,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     setCentralWidget(editor);
 
     statusBar()->show();
+
+    updateCheck = new HGUpdateCheck(QString("http://hasseg.org/qarkdown"),
+                                    settings, this);
+    updateCheck->checkForUpdatesIfNecessary();
 }
 
 MainWindow::~MainWindow()
 {
+    delete updateCheck;
     delete settings;
     delete preferencesDialog;
     delete compiler;
@@ -284,8 +289,8 @@ void MainWindow::applyHighlighterPreferences()
     highlighter->setMakeLinksClickable(clickableLinks);
 
     // Apply style
-    connect(highlighter, SIGNAL(styleParsingErrors(QStringList*)),
-            this, SLOT(reportStyleParsingErrors(QStringList*)));
+    connect(highlighter, SIGNAL(styleParsingErrors(QList<QPair<int, QString> >*)),
+            this, SLOT(reportStyleParsingErrors(QList<QPair<int, QString> >*)));
     QString styleFilePath = settings->value(SETTING_STYLE,
                                             QVariant(DEF_STYLE)).toString();
     if (!QFile::exists(styleFilePath))
@@ -585,11 +590,11 @@ void MainWindow::performStartupTasks()
             this, SLOT(anchorClicked(QUrl)));
 }
 
-void MainWindow::reportStyleParsingErrors(QStringList *list)
+void MainWindow::reportStyleParsingErrors(QList<QPair<int, QString> > *list)
 {
     QString msg;
     for (int i = 0; i < list->size(); i++)
-        msg += "-- " + list->at(i) + "\n";
+        msg += QString("-- Line %1: %2\n").arg(list->at(i).first).arg(list->at(i).second);
     QMessageBox::warning(this, "Errors in parsing style", msg);
 }
 

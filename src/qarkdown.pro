@@ -10,7 +10,9 @@ HEADERS = \
     editor/linenumberingplaintextedit.h \
     peg-markdown-highlight/pmh_styleparser.h \
     markdowncompiler.h \
-    logger.h
+    logger.h \
+    updatecheck/updatecheck.h \
+    updatecheck/hgupdateinfodialog.h
 SOURCES = \
     main.cpp \
     qarkdownapplication.cpp \
@@ -22,16 +24,21 @@ SOURCES = \
     editor/linenumberingplaintextedit.cpp \
     peg-markdown-highlight/pmh_styleparser.c \
     markdowncompiler.cpp \
-    logger.cpp
+    logger.cpp \
+    updatecheck/updatecheck.cpp \
+    updatecheck/hgupdateinfodialog.cpp
 
 FORMS += \
-    preferencesdialog.ui
+    preferencesdialog.ui \
+    updatecheck/hgupdateinfodialog.ui
 
 OTHER_FILES += \
     cfg/win.rc \
     cfg/Info.plist \
     cfg/linux.qrc \
     template.html
+
+QT += network webkit
 
 win32 {
     RC_FILE += cfg/win.rc
@@ -61,3 +68,8 @@ CONFIG(release, debug|release) {
 CONFIG(debug, debug|release) {
     DEFINES += BUILD_DEBUG
 }
+
+
+
+
+

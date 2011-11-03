@@ -4,6 +4,7 @@
 #include <QTextCharFormat>
 #include <QThread>
 #include <QPlainTextEdit>
+#include <QPair>
 
 extern "C" {
 #include "pmh_parser.h"
@@ -37,12 +38,13 @@ public:
     HGMarkdownHighlighter(QTextDocument *parent = 0, double aWaitInterval = 1);
     ~HGMarkdownHighlighter();
     QColor currentLineHighlightColor;
+    QList<QPair<int, QString> > *styleParsingErrorList;
 
     void highlightNow();
     void parseAndHighlightNow();
 
     void setStyles(QVector<HighlightingStyle> &styles);
-    void getStylesFromStylesheet(QString filePath, QPlainTextEdit *editor);
+    bool getStylesFromStylesheet(QString filePath, QPlainTextEdit *editor);
 
     double waitInterval();
     void setWaitInterval(double value);
@@ -52,7 +54,7 @@ public:
     void handleStyleParsingError(char *error_message, int line_number);
 
 signals:
-    void styleParsingErrors(QStringList *errors);
+    void styleParsingErrors(QList<QPair<int, QString> > *errors);
 
 protected:
     void beginListeningForContentChanged();
@@ -73,7 +75,6 @@ private:
     pmh_element **cached_elements;
     QVector<HighlightingStyle> *highlightingStyles;
     QString cachedContent;
-    QStringList *styleParsingErrorList;
 
     void clearFormatting();
     void highlight();

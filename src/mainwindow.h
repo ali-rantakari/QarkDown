@@ -10,6 +10,7 @@
 #include "preferencesdialog.h"
 #include "editor/qarkdowntextedit.h"
 #include "markdowncompiler.h"
+#include "updatecheck/updatecheck.h"
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
@@ -55,7 +56,7 @@ public slots:
     void aboutToQuitHandler();
     void handleContentsChange(int position, int charsRemoved, int charsAdded);
 
-    void reportStyleParsingErrors(QStringList *list);
+    void reportStyleParsingErrors(QList<QPair<int, QString> > *list);
 
 private:
     QString getMarkdownFilesFilter();
@@ -71,6 +72,7 @@ private:
     void setDirty(bool value);
     bool compileToHTMLFile(QString targetPath);
 
+    HGUpdateCheck *updateCheck;
     MarkdownCompiler *compiler;
     QString lastCompileTargetPath;
 

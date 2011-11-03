@@ -30,7 +30,7 @@ HGMarkdownHighlighter::HGMarkdownHighlighter(QTextDocument *parent,
     workerThread = NULL;
     cached_elements = NULL;
     _makeLinksClickable = false;
-    styleParsingErrorList = new QStringList();
+    styleParsingErrorList = new QList<QPair<int, QString> >();
     _waitIntervalMilliseconds = (int)(aWaitInterval*1000);
     timer = new QTimer(this);
     timer->setSingleShot(true);
@@ -164,6 +164,36 @@ QBrush brushFromARGBStyle(pmh_attr_argb_color *color)
     return QBrush(colorFromARGBStyle(color));
 }
 
+QString availableFontFamilyFromPreferenceList(char *fontFamilyList)
+{
+    QString familyList(fontFamilyList);
+    QStringList preferredFamilies = familyList.split(',', QString::SkipEmptyParts);
+
+    QFontDatabase fontDB;
+    QStringList availableFamilies = fontDB.families();
+
+    foreach (QString familyPreference, preferredFamilies)
+    {
+        QString trimmedPref = familyPreference.trimmed().toLower();
+        // Docs say: If a family exists in several foundries, the returned
+        // name for that font is in the form "family [foundry]".
+        // Examples: "Times [Adobe]", "Times [Cronyx]", "Palatino".
+        foreach (QString availableFamily, availableFamilies)
+        {
+            QString trimmedAvailableFamily(availableFamily);
+            int foundryNameStartIndex = trimmedAvailableFamily.lastIndexOf("[");
+            if (foundryNameStartIndex != -1)
+                trimmedAvailableFamily = trimmedAvailableFamily.left(foundryNameStartIndex);
+            trimmedAvailableFamily = trimmedAvailableFamily.trimmed().toLower();
+            if (trimmedAvailableFamily == trimmedPref)
+                return availableFamily;
+        }
+    }
+
+    return QString();
+}
+
+
 QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list)
 {
     QTextCharFormat format;
@@ -173,6 +203,7 @@ QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list)
             format.setForeground(brushFromARGBStyle(list->value->argb_color));
         else if (list->type == pmh_attr_type_background_color)
             format.setBackground(brushFromARGBStyle(list->value->argb_color));
+        //else if (list->type == pmh_attr_type_caret_color) {}
         else if (list->type == pmh_attr_type_font_style)
         {
             if (list->value->font_styles->bold)
@@ -181,6 +212,16 @@ QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list)
                 format.setFontItalic(true);
             if (list->value->font_styles->underlined)
                 format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
+        }
+        else if (list->type == pmh_attr_type_font_size_pt)
+        {
+            format.setFontPointSize(list->value->font_size_pt);
+        }
+        else if (list->type == pmh_attr_type_font_family)
+        {
+            QString availableFamily = availableFontFamilyFromPreferenceList(list->value->font_family);
+            if (!availableFamily.isNull())
+                format.setFontFamily(availableFamily);
         }
         list = list->next;
     }
@@ -211,11 +252,12 @@ void styleParserErrorCallback(char *error_message, int line_number, void *contex
 void HGMarkdownHighlighter::handleStyleParsingError(char *error_message,
                                                     int line_number)
 {
-    styleParsingErrorList->append(QString("(Line %1): ").arg(line_number)
-                                  + QString(error_message));
+    styleParsingErrorList->append(QPair<int,QString>(
+                                      line_number,
+                                      QString(error_message)));
 }
 
-void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainTextEdit *editor)
+bool HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainTextEdit *editor)
 {
     QString stylesheet;
     QFile file(filePath);
@@ -232,8 +274,7 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
     pmh_style_collection *raw_styles = pmh_parse_styles((char *)stylesheet_cstring,
                                                         &styleParserErrorCallback,
                                                         this);
-    if (styleParsingErrorList->count() > 0)
-        emit styleParsingErrors(styleParsingErrorList);
+    bool errorsFound = (0 < styleParsingErrorList->count());
 
     // Set language element styles
     styles->clear();
@@ -301,6 +342,10 @@ void HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
     }
 
     pmh_free_style_collection(raw_styles);
+
+    if (errorsFound)
+        emit styleParsingErrors(styleParsingErrorList);
+    return errorsFound;
 }
 
 void HGMarkdownHighlighter::clearFormatting()
