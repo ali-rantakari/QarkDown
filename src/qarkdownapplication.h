@@ -14,6 +14,9 @@ public:
     QString applicationStoragePath();
     bool copyResourceToFile(QString resourcePath, QString targetFilePath);
 
+    void commitData(QSessionManager &manager);
+    void saveState(QSessionManager &manager);
+
 protected:
     bool event(QEvent *event);
 

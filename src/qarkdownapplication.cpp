@@ -72,3 +72,16 @@ bool QarkdownApplication::event(QEvent *event)
 
     return QApplication::event(event);
 }
+
+
+void QarkdownApplication::commitData(QSessionManager &manager)
+{
+    qDebug() << "commitData";
+    emit commitDataRequest(manager);
+}
+
+void QarkdownApplication::saveState(QSessionManager &manager)
+{
+    qDebug() << "saveState";
+    emit saveStateRequest(manager);
+}

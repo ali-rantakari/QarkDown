@@ -584,12 +584,13 @@ void MainWindow::performStartupTasks()
     if (rememberLastFile && settings->contains(SETTING_LAST_FILE))
         openFile(settings->value(SETTING_LAST_FILE).toString());
 
-    //connect(qApp, SIGNAL(saveStateRequest(QSessionManager&)),
-    //        this, SLOT(saveStateHandler(QSessionManager&)), Qt::DirectConnection);
+    connect(qApp, SIGNAL(saveStateRequest(QSessionManager&)),
+            this, SLOT(commitDataHandler(QSessionManager&)), Qt::DirectConnection);
     connect(qApp, SIGNAL(commitDataRequest(QSessionManager&)),
             this, SLOT(commitDataHandler(QSessionManager&)), Qt::DirectConnection);
     connect(qApp, SIGNAL(aboutToQuit()),
             this, SLOT(aboutToQuitHandler()), Qt::DirectConnection);
+
     connect(editor->document(), SIGNAL(contentsChange(int,int,int)),
             this, SLOT(handleContentsChange(int,int,int)));
     connect(preferencesDialog, SIGNAL(updated()),
@@ -624,7 +625,7 @@ void MainWindow::commitDataHandler(QSessionManager &manager)
 
         int ret = QMessageBox::warning(
                     this,
-                    tr("QarkDown"),
+                    qApp->applicationName(),
                     tr("Save changes to file?"),
                     QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel
                     );
