@@ -50,7 +50,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::show()
 {
-    QSize defaultSize(640, 512);
+    QSize defaultSize(500, 700);
     resize(defaultSize);
 
     bool rememberWindow = settings->value(SETTING_REMEMBER_WINDOW,
@@ -276,6 +276,11 @@ void MainWindow::about()
             "\n\n"
             "http://hasseg.org/qarkdown";
     QMessageBox::information(this, title, msg);
+}
+
+void MainWindow::checkForUpdates()
+{
+    updateCheck->checkForUpdatesNow();
 }
 
 void MainWindow::applyHighlighterPreferences()
@@ -565,6 +570,7 @@ void MainWindow::setupFileMenu()
     QMenu *helpMenu = new QMenu(tr("&Help"), this);
     menuBar()->addMenu(helpMenu);
     helpMenu->addAction(tr("About QarkDown"), this, SLOT(about()));
+    helpMenu->addAction(tr("Check for Updates..."), this, SLOT(checkForUpdates()));
 
     updateRecentFilesMenu();
 }

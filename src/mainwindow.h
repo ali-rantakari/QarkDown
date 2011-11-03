@@ -35,6 +35,7 @@ public slots:
     void decreaseFontSize();
     void showPreferences();
     void about();
+    void checkForUpdates();
 
     void selectTextToSearchFor();
     void findNextSearchMatch();

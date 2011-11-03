@@ -2,6 +2,7 @@
 #include <QDebug>
 #include <QTextStream>
 #include <QDesktopServices>
+#include <QMessageBox>
 
 HGUpdateCheck::HGUpdateCheck(QString baseURL,
                              QSettings *settings,
@@ -10,6 +11,15 @@ HGUpdateCheck::HGUpdateCheck(QString baseURL,
 {
     _baseURL = baseURL;
     _settings = settings;
+    _activeReply = NULL;
+    _canceled = false;
+
+    // Setting min and max to 0 makes the progress bar indeterminate:
+    _progressDialog = new QProgressDialog("Checking for Updates...", "Cancel",
+                                          0,0, parentWidget);
+    _progressDialog->setWindowModality(Qt::WindowModal);
+    connect(_progressDialog, SIGNAL(canceled()),
+            this, SLOT(canceledFromProgressDialog()));
 
     _updateInfoDialog = new HGUpdateInfoDialog(parentWidget);
     connect(_updateInfoDialog, SIGNAL(skipThisVersion()),
@@ -22,34 +32,65 @@ HGUpdateCheck::HGUpdateCheck(QString baseURL,
     _nam = new QNetworkAccessManager(this);
     connect(_nam, SIGNAL(finished(QNetworkReply*)),
             this, SLOT(replyFinished(QNetworkReply*)));
+    connect(_nam, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)),
+            this, SLOT(authenticationRequired(QNetworkReply*,QAuthenticator*)));
+    connect(_nam, SIGNAL(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)),
+            this, SLOT(proxyAuthenticationRequired(QNetworkProxy,QAuthenticator*)));
+    connect(_nam, SIGNAL(sslErrors(QNetworkReply*,QList<QSslError>)),
+            this, SLOT(sslErrors(QNetworkReply*,QList<QSslError>)));
 }
 
 HGUpdateCheck::~HGUpdateCheck()
 {
     delete _nam;
     delete _updateInfoDialog;
+    delete _progressDialog;
+    if (_activeReply != NULL)
+        delete _activeReply;
 }
 
-#define kSettingKeyLastUpdateTime "LastUpdateCheckTime"
+#define kSettingKeyLastUpdateCheckTime "LastUpdateCheckTime"
 #define kSettingKeyLastSkippedVersion "LastSkippedVersion"
 
 #define kRequestKindAttribute QNetworkRequest::User
 #define kRequestKind_UpdateCheck "UpdateCheck"
 #define kRequestKind_WhatsChanged "WhatsChanged"
 
+#define kRequestUserInitiatedAttribute (QNetworkRequest::Attribute)(QNetworkRequest::User+1)
+
+
 void HGUpdateCheck::checkForUpdatesIfNecessary()
 {
     // TODO: check last update time etc.
+    QDate today;
+    _settings->sync();
+    QDate lastUpdateCheck = _settings->value(kSettingKeyLastUpdateCheckTime).toDate();
+    if (lastUpdateCheck.isValid())
+    {
+        qDebug() << "HGUpdateCheck: Last update check was" << lastUpdateCheck;
+        if (lastUpdateCheck == today)
+        {
+            qDebug() << "HGUpdateCheck: Checked today already.";
+            return;
+        }
+    }
+    else
+        qDebug() << "HGUpdateCheck: Last update check was never.";
 
-    checkForUpdatesNow();
+    checkForUpdatesNow(false);
 }
 
-void HGUpdateCheck::checkForUpdatesNow()
+void HGUpdateCheck::checkForUpdatesNow(bool userInitiated)
 {
+    qDebug() << "HGUpdateCheck: Checking for updates.";
     QNetworkRequest request(QUrl(_baseURL + "?versioncheck=y"));
     request.setAttribute(kRequestKindAttribute, kRequestKind_UpdateCheck);
-    //qDebug() << "send:" << request.url();
-    _nam->get(request);
+    request.setAttribute(kRequestUserInitiatedAttribute, QVariant(userInitiated));
+    //qDebug() << "HGUpdateCheck: send:" << request.url();
+    if (userInitiated)
+        _progressDialog->show();
+    _canceled = false;
+    _activeReply = _nam->get(request);
 }
 
 int compareVersionNumbers(QString first, QString second)
@@ -71,17 +112,21 @@ int compareVersionNumbers(QString first, QString second)
     return 0;
 }
 
-void HGUpdateCheck::handleLatestVersionInfo(QString latestVersion)
+void HGUpdateCheck::handleLatestVersionInfo(QString latestVersion, bool userInitiated)
 {
     _latestVersion = latestVersion;
 
-    QString lastSkippedVersion = _settings->value(kSettingKeyLastSkippedVersion).toString();
-    if (!lastSkippedVersion.isNull()
-        && compareVersionNumbers(lastSkippedVersion,
-                                 latestVersion) < 1)
+    if (!userInitiated)
     {
-        qDebug() << "user wants to skip this version.";
-        return;
+        _settings->sync();
+        QString lastSkippedVersion = _settings->value(kSettingKeyLastSkippedVersion).toString();
+        if (!lastSkippedVersion.isNull()
+            && compareVersionNumbers(lastSkippedVersion,
+                                     latestVersion) < 1)
+        {
+            qDebug() << "HGUpdateCheck: user wants to skip this version.";
+            return;
+        }
     }
 
     if (compareVersionNumbers(qApp->applicationVersion(),
@@ -90,14 +135,27 @@ void HGUpdateCheck::handleLatestVersionInfo(QString latestVersion)
         // Update available
         QNetworkRequest request(QUrl(_baseURL + "?whatschanged=y"));
         request.setAttribute(kRequestKindAttribute, kRequestKind_WhatsChanged);
-        //qDebug() << "send:" << request.url();
-        _nam->get(request);
+        //qDebug() << "HGUpdateCheck: send:" << request.url();
+        _canceled = false;
+        _activeReply = _nam->get(request);
         return;
     }
 
-    _settings->setValue(kSettingKeyLastUpdateTime, QDate());
+    _settings->setValue(kSettingKeyLastUpdateCheckTime, QDate());
+    _settings->sync();
 
-    qDebug() << "up to date.";
+    qDebug() << "HGUpdateCheck: up to date.";
+
+    if (userInitiated)
+    {
+        QMessageBox infoBox;
+        infoBox.setIcon(QMessageBox::Information);
+        infoBox.setText("You're Up to Date");
+        infoBox.setInformativeText(qApp->applicationName() + " "
+                                   +qApp->applicationVersion() + " is currently "
+                                   "the latest version.");
+        infoBox.exec();
+    }
 }
 
 void HGUpdateCheck::handleWhatsChanged(QString whatsChangedHTML)
@@ -119,11 +177,54 @@ void HGUpdateCheck::handleUpdateAccepted()
     QDesktopServices::openUrl(QUrl(_baseURL));
 }
 
+void HGUpdateCheck::handleError(QString errorMessage, bool userInitiated)
+{
+    _progressDialog->hide();
+
+    if (!userInitiated)
+        return;
+
+    QMessageBox errorMessageBox;
+    errorMessageBox.setIcon(QMessageBox::Critical);
+    errorMessageBox.setText("Could Not Check for Updates");
+    errorMessageBox.setInformativeText(errorMessage + "\n\n"
+                                       "You can go to the application website "
+                                       "to check for updates manually:\n\n"
+                                       + _baseURL);
+    errorMessageBox.setStandardButtons(QMessageBox::Close);
+    errorMessageBox.addButton("Go to Website", QMessageBox::AcceptRole);
+    int ret = errorMessageBox.exec();
+    if (ret != QMessageBox::Close)
+        QDesktopServices::openUrl(QUrl(_baseURL));
+
+}
+
+
+
+void HGUpdateCheck::canceledFromProgressDialog()
+{
+    qDebug() << "HGUpdateCheck: canceled.";
+    if (_activeReply != NULL)
+    {
+        _canceled = true;
+        _activeReply->abort();
+        _activeReply = NULL;
+    }
+}
+
 
 void HGUpdateCheck::replyFinished(QNetworkReply *reply)
 {
+    if (_canceled)
+    {
+        reply->deleteLater();
+        return;
+    }
+
+    _activeReply = NULL;
     QNetworkRequest request = reply->request();
     QVariant requestKind = request.attribute(kRequestKindAttribute);
+    bool userInitiated = request.attribute(kRequestUserInitiatedAttribute).toBool();
 
     // follow redirects:
     QUrl redirectUrl = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
@@ -132,21 +233,38 @@ void HGUpdateCheck::replyFinished(QNetworkReply *reply)
         redirectUrl = redirectUrl.resolved(redirectUrl);
         QNetworkRequest redirectRequest(redirectUrl);
         redirectRequest.setAttribute(kRequestKindAttribute, requestKind);
-        //qDebug() << "redirect:" << redirectRequest.url();
-        _nam->get(redirectRequest);
+        redirectRequest.setAttribute(kRequestUserInitiatedAttribute, QVariant(userInitiated));
+        //qDebug() << "HGUpdateCheck: redirect:" << redirectRequest.url();
+        _canceled = false;
+        _activeReply = _nam->get(redirectRequest);
         reply->deleteLater();
         return;
     }
+
+    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (statusCode != 200)
+    {
+        qDebug() << "HGUpdateCheck: got status:" << statusCode;
+        QString statusText = reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+        QString errorMessage = statusText.trimmed().isEmpty()
+                               ? QString("Server response: HTTP status %1").arg(statusCode)
+                               : ("Server response: " + statusText);
+        handleError(errorMessage, userInitiated);
+        reply->deleteLater();
+        return;
+    }
+
+    _progressDialog->hide();
 
     QTextStream textStream(reply);
     textStream.setCodec("UTF-8");
     QString responseStr = textStream.readAll();
 
-    qDebug() << "got response:" << responseStr;
+    //qDebug() << "HGUpdateCheck: got response:" << responseStr;
 
     if (requestKind == kRequestKind_UpdateCheck)
     {
-        handleLatestVersionInfo(responseStr);
+        handleLatestVersionInfo(responseStr, userInitiated);
     }
     else if (requestKind == kRequestKind_WhatsChanged)
     {
@@ -154,4 +272,24 @@ void HGUpdateCheck::replyFinished(QNetworkReply *reply)
     }
 
     reply->deleteLater();
+}
+
+void HGUpdateCheck::authenticationRequired(QNetworkReply *reply, QAuthenticator *authenticator)
+{
+    Q_UNUSED(authenticator);
+    bool userInitiated = reply->request().attribute(kRequestUserInitiatedAttribute).toBool();
+    handleError("Server requests for authentication.", userInitiated);
+}
+
+void HGUpdateCheck::proxyAuthenticationRequired(const QNetworkProxy &proxy, QAuthenticator *authenticator)
+{
+    Q_UNUSED(proxy); Q_UNUSED(authenticator);
+    handleError("Proxy requests for authentication.", false);
+}
+
+void HGUpdateCheck::sslErrors(QNetworkReply *reply, const QList<QSslError> &errors)
+{
+    Q_UNUSED(errors);
+    bool userInitiated = reply->request().attribute(kRequestUserInitiatedAttribute).toBool();
+    handleError("SSL Error(s).", userInitiated);
 }
