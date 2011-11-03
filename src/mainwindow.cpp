@@ -26,7 +26,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     // PreferencesDialog depends on the HGUpdateCheck settings being
     // set, so we have to set that up first:
     HGUpdateCheck::setUpdateCheckSettings(settings);
-    updateCheck = new HGUpdateCheck(QString("http://hasseg.org/test/update.php"), this);
+    updateCheck = new HGUpdateCheck(QString("http://hasseg.org/qarkdown"), this);
     updateCheck->handleAppStartup();
 
     preferencesDialog = new PreferencesDialog(settings, compiler);
