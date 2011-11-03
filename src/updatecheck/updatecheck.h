@@ -11,21 +11,21 @@ class HGUpdateCheck : public QObject
 {
     Q_OBJECT
 public:
-    HGUpdateCheck(QString baseURL, QSettings *settings,
-                  QWidget *parentWidget);
+    HGUpdateCheck(QString baseURL, QWidget *parentWidget);
 
     void handleAppStartup();
 
-    bool shouldCheckForUpdatesOnStartup();
-    void setShouldCheckForUpdatesOnStartup(bool value);
+    static void setUpdateCheckSettings(QSettings *settings);
+    static bool shouldCheckForUpdatesOnStartup();
+    static void setShouldCheckForUpdatesOnStartup(bool value);
 
     void checkForUpdatesInBackgroundIfNecessary();
     void checkForUpdatesNow(bool userInitiated = true);
 
 private:
+    static QSettings *_settings;
     QProgressDialog *_progressDialog;
     QString _baseURL;
-    QSettings *_settings;
     QNetworkAccessManager *_nam;
     QString _latestVersion;
     QNetworkReply *_activeReply;

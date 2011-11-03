@@ -4,13 +4,10 @@
 #include <QDesktopServices>
 #include <QMessageBox>
 
-HGUpdateCheck::HGUpdateCheck(QString baseURL,
-                             QSettings *settings,
-                             QWidget *parentWidget)
+HGUpdateCheck::HGUpdateCheck(QString baseURL, QWidget *parentWidget)
     : QObject(parentWidget)
 {
     _baseURL = baseURL;
-    _settings = settings;
     _activeReply = NULL;
     _canceled = false;
 
@@ -51,6 +48,13 @@ HGUpdateCheck::HGUpdateCheck(QString baseURL,
 
 #define kRequestUserInitiatedAttribute (QNetworkRequest::Attribute)(QNetworkRequest::User+1)
 
+
+QSettings* HGUpdateCheck::_settings = NULL;
+
+void HGUpdateCheck::setUpdateCheckSettings(QSettings *settings)
+{
+    _settings = settings;
+}
 
 void HGUpdateCheck::handleAppStartup()
 {

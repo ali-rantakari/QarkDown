@@ -22,10 +22,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     settings = new QSettings("org.hasseg", "QarkDown");
     compiler = new MarkdownCompiler(settings);
+
+    // PreferencesDialog depends on the HGUpdateCheck settings being
+    // set, so we have to set that up first:
+    HGUpdateCheck::setUpdateCheckSettings(settings);
+    updateCheck = new HGUpdateCheck(QString("http://hasseg.org/test/update.php"), this);
+    updateCheck->handleAppStartup();
+
     preferencesDialog = new PreferencesDialog(settings, compiler);
 
     recentFilesMenuActions = new QList<QAction *>();
-
 
     setupFileMenu();
     setupEditor();
@@ -33,10 +39,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     setCentralWidget(editor);
 
     statusBar()->show();
-
-    updateCheck = new HGUpdateCheck(QString("http://hasseg.org/test/update.php"),
-                                    settings, this);
-    updateCheck->handleAppStartup();
 }
 
 MainWindow::~MainWindow()
