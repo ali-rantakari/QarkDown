@@ -3,6 +3,7 @@
 #include <QFileOpenEvent>
 #include <QDesktopServices>
 
+
 struct applicationVersion
 {
     int major;
@@ -10,15 +11,35 @@ struct applicationVersion
     int tiny;
 } appVersion = {0, 3, 0};
 
+#define kCopyrightYearStr "2011"
+#define kWebsiteURL "http://hasseg.org/qarkdown"
+
 QarkdownApplication::QarkdownApplication(int &argc, char **argv) :
     QApplication(argc, argv)
 {
+    setQuitOnLastWindowClosed(false);
     mainWindow = NULL;
 #ifdef Q_OS_LINUX
     setWindowIcon(QIcon(":/appIcon.png"));
 #endif
     QCoreApplication::setApplicationName("QarkDown");
+    QCoreApplication::setOrganizationName("Ali Rantakari");
+    QCoreApplication::setOrganizationDomain("hasseg.org");
     QCoreApplication::setApplicationVersion(QString().sprintf("%i.%i.%i", appVersion.major, appVersion.minor, appVersion.tiny));
+}
+
+QarkdownApplication::~QarkdownApplication()
+{
+}
+
+QString QarkdownApplication::copyrightYear()
+{
+    return kCopyrightYearStr;
+}
+
+QString QarkdownApplication::websiteURL()
+{
+    return kWebsiteURL;
 }
 
 QString QarkdownApplication::applicationStoragePath()
@@ -71,17 +92,4 @@ bool QarkdownApplication::event(QEvent *event)
     }
 
     return QApplication::event(event);
-}
-
-
-void QarkdownApplication::commitData(QSessionManager &manager)
-{
-    qDebug() << "commitData";
-    emit commitDataRequest(manager);
-}
-
-void QarkdownApplication::saveState(QSessionManager &manager)
-{
-    qDebug() << "saveState";
-    emit saveStateRequest(manager);
 }

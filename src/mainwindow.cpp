@@ -3,20 +3,23 @@
 #include "mainwindow.h"
 #include "defines.h"
 #include "logger.h"
+#include "qarkdownapplication.h"
 
 /*
 TODO:
+- Make sure that the quit save confirmation works correctly everywhere
+
 - Multiple files open; file switcher dock widget
 
-- Confirmation when quitting with unsaved changes
 - Fix the tab/shift-tab indentation to work in a more "standard" manner
 - Fix text alpha issue on Windows (???)
 
-- Document the highlighter interface
 - Use QTextOption::ShowTabsAndSpaces
-- Update mechanism
+- Use tr() for all UI strings
+- Use Sparkle on OS X
 */
 
+#define kUntitledFileUIName "Untitled"
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
@@ -26,7 +29,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     // PreferencesDialog depends on the HGUpdateCheck settings being
     // set, so we have to set that up first:
     HGUpdateCheck::setUpdateCheckSettings(settings);
-    updateCheck = new HGUpdateCheck(QString("http://hasseg.org/qarkdown"), this);
+    updateCheck = new HGUpdateCheck(((QarkdownApplication *)qApp)->websiteURL(), this);
     updateCheck->handleAppStartup();
 
     preferencesDialog = new PreferencesDialog(settings, compiler);
@@ -269,15 +272,22 @@ void MainWindow::decreaseFontSize()
 
 void MainWindow::about()
 {
-    QString title = "About " + QCoreApplication::applicationName();
+    QString title = tr("About %1").arg(QCoreApplication::applicationName());
     QString msg =
-            QCoreApplication::applicationName() +
-            " version " + QCoreApplication::applicationVersion() +
-            "\n\n"
-            "Copyright 2011 Ali Rantakari"
-            "\n\n"
-            "http://hasseg.org/qarkdown";
-    QMessageBox::information(this, title, msg);
+            tr("Version %1"
+               "\n\n"
+               "Copyright © %2 %3"
+               "\n\n"
+               "%4")
+            .arg(QCoreApplication::applicationVersion())
+            .arg(((QarkdownApplication *)qApp)->copyrightYear())
+            .arg(QCoreApplication::organizationName())
+            .arg(((QarkdownApplication *)qApp)->websiteURL());
+    QMessageBox aboutBox;
+    aboutBox.setIconPixmap(QPixmap(":/smallAppIcon.png"));
+    aboutBox.setText(title);
+    aboutBox.setInformativeText(msg);
+    aboutBox.exec();
 }
 
 void MainWindow::checkForUpdates()
@@ -361,6 +371,11 @@ void MainWindow::preferencesUpdated()
     highlighter->highlightNow();
 }
 
+bool MainWindow::isDirty()
+{
+    return editor->document()->isModified();
+}
+
 void MainWindow::setDirty(bool value)
 {
     editor->document()->setModified(value);
@@ -368,7 +383,7 @@ void MainWindow::setDirty(bool value)
     if (!openFilePath.isNull())
         setWindowTitle(QFileInfo(openFilePath).fileName()+dirtyFlagStr);
     else
-        setWindowTitle("<untitled>"+dirtyFlagStr);
+        setWindowTitle(kUntitledFileUIName+dirtyFlagStr);
 }
 
 
@@ -524,7 +539,7 @@ void MainWindow::setupFileMenu()
     revertToSavedMenuAction = fileMenu->addAction(tr("&Revert to Saved"), this,
                                                   SLOT(revertToSaved()));
     revertToSavedMenuAction->setEnabled(false);
-    fileMenu->addAction(tr("E&xit"), qApp, SLOT(quit()),
+    fileMenu->addAction(tr("E&xit"), this, SLOT(quitActionHandler()),
                         QKeySequence::Quit);
 
     QMenu *editMenu = new QMenu(tr("&Edit"), this);
@@ -584,8 +599,8 @@ void MainWindow::performStartupTasks()
     if (rememberLastFile && settings->contains(SETTING_LAST_FILE))
         openFile(settings->value(SETTING_LAST_FILE).toString());
 
-    connect(qApp, SIGNAL(saveStateRequest(QSessionManager&)),
-            this, SLOT(commitDataHandler(QSessionManager&)), Qt::DirectConnection);
+    //connect(qApp, SIGNAL(saveStateRequest(QSessionManager&)),
+    //        this, SLOT(commitDataHandler(QSessionManager&)), Qt::DirectConnection);
     connect(qApp, SIGNAL(commitDataRequest(QSessionManager&)),
             this, SLOT(commitDataHandler(QSessionManager&)), Qt::DirectConnection);
     connect(qApp, SIGNAL(aboutToQuit()),
@@ -612,41 +627,88 @@ void MainWindow::anchorClicked(const QUrl &link)
     QDesktopServices::openUrl(link);
 }
 
-void MainWindow::commitDataHandler(QSessionManager &manager)
+
+bool MainWindow::confirmQuit(bool interactionAllowed)
 {
-    Logger::debug("commitDataHandler. dirty = " + editor->document()->isModified());
+    if (!isDirty())
+        return true;
 
-    if (!editor->document()->isModified())
-        return;
-
-    if (manager.allowsInteraction())
-    {
-        Logger::debug("allows interaction.");
-
-        int ret = QMessageBox::warning(
-                    this,
-                    qApp->applicationName(),
-                    tr("Save changes to file?"),
-                    QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel
-                    );
-        switch (ret)
-        {
-            case QMessageBox::Save:
-                manager.release();
-                saveFile();
-                break;
-            case QMessageBox::Discard:
-                break;
-            case QMessageBox::Cancel:
-            default:
-                manager.cancel();
-        }
-    }
-    else // no permission for interaction
+    if (!interactionAllowed)
     {
         Logger::debug("interaction not allowed -- saving.");
         saveFile();
+        return true;
     }
+
+    Logger::debug("allows interaction.");
+
+    QString fileBaseName = kUntitledFileUIName;
+    bool weHaveSavePath = false;
+    if (!openFilePath.isNull())
+    {
+        fileBaseName = QFileInfo(openFilePath).fileName();
+        weHaveSavePath = true;
+    }
+
+    QMessageBox saveConfirmMessageBox(this);
+    saveConfirmMessageBox.setWindowModality(Qt::WindowModal);
+    saveConfirmMessageBox.setIcon(QMessageBox::Warning);
+    saveConfirmMessageBox.setText(tr("Do you want to save the changes you made in the document “%1”?").arg(fileBaseName));
+    saveConfirmMessageBox.setInformativeText(tr("Your changes will be lost if you don’t save them."));
+    saveConfirmMessageBox.setDefaultButton(saveConfirmMessageBox.addButton(weHaveSavePath ? "Save" : "Save...", QMessageBox::AcceptRole));
+    saveConfirmMessageBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+    saveConfirmMessageBox.addButton(tr("Don’t Save"), QMessageBox::DestructiveRole);
+    saveConfirmMessageBox.exec();
+
+    switch (saveConfirmMessageBox.buttonRole(saveConfirmMessageBox.clickedButton()))
+    {
+        case QMessageBox::AcceptRole:
+            saveFile();
+            break;
+        case QMessageBox::DestructiveRole:
+            break;
+        case QMessageBox::RejectRole:
+        default:
+            return false;
+    }
+    return true;
+}
+
+void MainWindow::commitDataHandler(QSessionManager &manager)
+{
+    Logger::debug("commitDataHandler.");
+
+    bool interactionAllowed = manager.allowsInteraction();
+    bool okToQuit = confirmQuit(interactionAllowed);
+    if (interactionAllowed)
+        manager.release();
+    if (!okToQuit)
+        manager.cancel();
+}
+
+#ifdef QT_MAC_USE_COCOA
+void MainWindow::cocoaCommitDataHandler()
+{
+    Logger::debug("cocoaCommitDataHandler.");
+
+    bool okToQuit = confirmQuit(true);
+    if (okToQuit)
+    {
+        [[NSApp delegate] performSelector:@selector(acceptPendingTermination)];
+        qApp->quit();
+    }
+    else
+        [[NSApp delegate] performSelector:@selector(cancelPendingTermination)];
+}
+#endif
+
+void MainWindow::quitActionHandler()
+{
+    Logger::debug("quitActionHandler.");
+
+    bool okToQuit = confirmQuit(true);
+    if (okToQuit)
+        qApp->quit();
 }
 
 void MainWindow::aboutToQuitHandler()
@@ -659,6 +721,11 @@ void MainWindow::aboutToQuitHandler()
         settings->setValue(SETTING_WINDOW_STATE, saveState());
     }
     settings->sync();
+
+    // If we still have uncommitted changes at this point, just
+    // play it safe and save them:
+    if (isDirty())
+        saveFile();
 }
 
 void MainWindow::handleContentsChange(int position, int charsRemoved, int charsAdded)

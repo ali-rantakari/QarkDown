@@ -1,3 +1,52 @@
+QT += network webkit
+
+win32 {
+    RC_FILE += cfg/win.rc
+    RESOURCES += compilers-windows.qrc
+}
+
+mac {
+    OSX_FILES.files = gfx/icon.icns gfx/document.icns
+    OSX_FILES.path = Contents/Resources
+    QMAKE_BUNDLE_DATA += OSX_FILES
+    QMAKE_INFO_PLIST = cfg/Info.plist
+    RESOURCES += compilers-osx.qrc
+    CONFIG += cocoa
+    LIBS += -framework Cocoa
+} else {
+    SOURCES += main.cpp
+}
+
+mac:cocoa {
+    OBJECTIVE_SOURCES += \
+        mac/main.mm \
+        mac/mainwindow.mm \
+        mac/cocoaappdelegate.mm
+    HEADERS += \
+        mac/cocoaappdelegate.h
+} else {
+    SOURCES += \
+        main.cpp \
+        mainwindow.cpp
+}
+
+linux-g++ {
+    RESOURCES += cfg/linux.qrc
+    RESOURCES += compilers-linux.qrc
+}
+
+RESOURCES += \
+    styles.qrc \
+    misc.qrc
+
+CONFIG(release, debug|release) {
+    DEFINES += BUILD_RELEASE
+}
+CONFIG(debug, debug|release) {
+    DEFINES += BUILD_DEBUG
+}
+
+
 HEADERS = \
     defines.h\
     qarkdownapplication.h \
@@ -14,9 +63,7 @@ HEADERS = \
     updatecheck/updatecheck.h \
     updatecheck/hgupdateinfodialog.h
 SOURCES = \
-    main.cpp \
     qarkdownapplication.cpp \
-    mainwindow.cpp \
     preferencesdialog.cpp \
     peg-markdown-highlight/pmh_parser.c\
     peg-markdown-highlight/highlighter.cpp \
@@ -38,36 +85,9 @@ OTHER_FILES += \
     cfg/linux.qrc \
     template.html
 
-QT += network webkit
 
-win32 {
-    RC_FILE += cfg/win.rc
-    RESOURCES += compilers-windows.qrc
-}
 
-macx {
-    OSX_FILES.files = gfx/icon.icns gfx/document.icns
-    OSX_FILES.path = Contents/Resources
-    QMAKE_BUNDLE_DATA += OSX_FILES
-    QMAKE_INFO_PLIST = cfg/Info.plist
-    RESOURCES += compilers-osx.qrc
-}
 
-linux-g++ {
-    RESOURCES += cfg/linux.qrc
-    RESOURCES += compilers-linux.qrc
-}
-
-RESOURCES += \
-    styles.qrc \
-    misc.qrc
-
-CONFIG(release, debug|release) {
-    DEFINES += BUILD_RELEASE
-}
-CONFIG(debug, debug|release) {
-    DEFINES += BUILD_DEBUG
-}
 
 
 

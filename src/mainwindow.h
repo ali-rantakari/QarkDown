@@ -53,11 +53,19 @@ public slots:
     void recompileToHTML();
 
     void anchorClicked(const QUrl &link);
-    void commitDataHandler(QSessionManager &manager);
-    void aboutToQuitHandler();
-    void handleContentsChange(int position, int charsRemoved, int charsAdded);
 
+    bool confirmQuit(bool interactionAllowed);
+    void commitDataHandler(QSessionManager &manager);
+#ifdef QT_MAC_USE_COCOA
+    void cocoaCommitDataHandler();
+#endif
+    void aboutToQuitHandler();
+    void quitActionHandler();
+
+    void handleContentsChange(int position, int charsRemoved, int charsAdded);
     void reportStyleParsingErrors(QList<QPair<int, QString> > *list);
+
+protected:
 
 private:
     QString getMarkdownFilesFilter();
@@ -70,6 +78,7 @@ private:
     void applyPersistedFontInfo();
     void applyHighlighterPreferences();
     void applyEditorPreferences();
+    bool isDirty();
     void setDirty(bool value);
     bool compileToHTMLFile(QString targetPath);
 

@@ -9,13 +9,14 @@ class QarkdownApplication : public QApplication
     Q_OBJECT
 public:
     explicit QarkdownApplication(int &argc, char **argv);
+    ~QarkdownApplication();
+
     MainWindow *mainWindow;
 
+    QString copyrightYear();
+    QString websiteURL();
     QString applicationStoragePath();
     bool copyResourceToFile(QString resourcePath, QString targetFilePath);
-
-    void commitData(QSessionManager &manager);
-    void saveState(QSessionManager &manager);
 
 protected:
     bool event(QEvent *event);

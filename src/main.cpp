@@ -3,9 +3,22 @@
 #include "mainwindow.h"
 #include "qarkdownapplication.h"
 #include "logger.h"
+#include <QDebug>
+
+#ifdef QT_MAC_USE_COCOA
+#import "mac/cocoaappdelegate.h"
+#endif
 
 int main(int argc, char *argv[])
 {
+#ifdef QT_MAC_USE_COCOA
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    CocoaAppDelegate *cocoaAppDelegate = [[CocoaAppDelegate alloc] init];
+    [[NSApplication sharedApplication] setDelegate:cocoaAppDelegate];
+    [pool release];
+#endif
+
+    QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
     QarkdownApplication app(argc, argv);
 
     for (int i = 0; i < argc; i++)
@@ -15,9 +28,16 @@ int main(int argc, char *argv[])
     }
 
     MainWindow window;
+
+#ifdef QT_MAC_USE_COCOA
+    [cocoaAppDelegate setMainWindow:&window];
+#endif
+
     window.show();
     app.mainWindow = &window;
     if (argc > 1)
         window.openFile(argv[1]);
-    return app.exec();
+
+    int ret = app.exec();
+    return ret;
 }
