@@ -17,7 +17,7 @@ struct applicationVersion
 QarkdownApplication::QarkdownApplication(int &argc, char **argv) :
     QApplication(argc, argv)
 {
-    setQuitOnLastWindowClosed(false);
+    setQuitOnLastWindowClosed(true);
     mainWindow = NULL;
 #ifdef Q_OS_LINUX
     setWindowIcon(QIcon(":/appIcon.png"));
