@@ -13,8 +13,6 @@ mac {
     RESOURCES += compilers-osx.qrc
     CONFIG += cocoa
     LIBS += -framework Cocoa
-} else {
-    SOURCES += main.cpp
 }
 
 mac:cocoa {
@@ -47,7 +45,7 @@ CONFIG(debug, debug|release) {
 }
 
 
-HEADERS = \
+HEADERS += \
     defines.h\
     qarkdownapplication.h \
     mainwindow.h \
@@ -62,7 +60,7 @@ HEADERS = \
     logger.h \
     updatecheck/updatecheck.h \
     updatecheck/hgupdateinfodialog.h
-SOURCES = \
+SOURCES += \
     qarkdownapplication.cpp \
     preferencesdialog.cpp \
     peg-markdown-highlight/pmh_parser.c\
