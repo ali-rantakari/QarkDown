@@ -8,6 +8,8 @@
 /*
 TODO:
 - Make sure that the quit save confirmation works correctly everywhere
+- Handle main window close event as a quit() (i.e. confirm document save)
+- Start the auto-update in some "app launched" handler, not in the MainWindow constructor
 
 - Multiple files open; file switcher dock widget
 
