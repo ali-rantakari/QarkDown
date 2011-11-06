@@ -139,19 +139,19 @@ QString MarkdownCompiler::getUserReadableCompilerName(QString compilerPath)
 
 QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QString compilerPath, bool useDefaultArguments)
 {
-    Logger::info("Compiling with compiler: " + compilerPath);
+    //Logger::info("Compiling with compiler: " + compilerPath);
     _errorString = QString();
 
     QString actualCompilerPath(compilerPath);
     bool isResourcePath = compilerPath.startsWith(":/");
     if (isResourcePath) {
         actualCompilerPath = getFilesystemPathForResourcePath(compilerPath);
-        Logger::info("Adjusted path to: '"+actualCompilerPath+"'");
+        //Logger::info("Adjusted path to: '"+actualCompilerPath+"'");
     }
 
     QProcess syncCompilerProcess;
     QStringList compilerArgsList = getArgsListForCompiler(compilerPath, useDefaultArguments);
-    Logger::debug("Compiler args: "+compilerArgsList.join(", "));
+    //Logger::debug("Compiler args: "+compilerArgsList.join(", "));
 
     // We need to supply an empty QStringList as the arguments (even if we
     // don't wish to supply arguments) so that QProcess understands that the
