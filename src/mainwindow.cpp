@@ -7,17 +7,22 @@
 
 /*
 TODO:
-- Make sure that the quit save confirmation works correctly everywhere
-- Handle main window close event as a quit() (i.e. confirm document save)
-- Start the auto-update in some "app launched" handler, not in the MainWindow constructor
+- Support relative font sizes in PMH stylesheets (e.g. +3pt or -2pt)
+- Highlight whole blockquotes in PMH
 
-- Multiple files open; file switcher dock widget
+- Make sure that the quit save confirmation works correctly everywhere
+- Start using QSingleApplication ??
 
 - Fix the tab/shift-tab indentation to work in a more "standard" manner
-- Fix text alpha issue on Windows (???)
+- Windows: Fix/workaround for non-working text color alpha
+- OS X: Catch the maximize/zoom action (window button + menu item) and set custom "zoomed" size
+- OS X: Make main window title bar show the file icon + provide the file path dropdown
 
-- Use QTextOption::ShowTabsAndSpaces
+- Clear status bar when file opened successfully
 - Use tr() for all UI strings
+
+- Multiple files open; file switcher dock widget
+- Use QTextOption::ShowTabsAndSpaces
 - Use Sparkle on OS X
 */
 
@@ -686,6 +691,15 @@ void MainWindow::commitDataHandler(QSessionManager &manager)
         manager.release();
     if (!okToQuit)
         manager.cancel();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    bool okToQuit = confirmQuit(true);
+    if (okToQuit)
+        event->accept();
+    else
+        event->ignore();
 }
 
 #ifdef QT_MAC_USE_COCOA

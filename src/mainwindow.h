@@ -66,6 +66,7 @@ public slots:
     void reportStyleParsingErrors(QList<QPair<int, QString> > *list);
 
 protected:
+    void closeEvent(QCloseEvent *event);
 
 private:
     QString getMarkdownFilesFilter();
