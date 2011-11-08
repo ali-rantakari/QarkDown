@@ -289,7 +289,7 @@ void MainWindow::about()
                "%4")
             .arg(QCoreApplication::applicationVersion())
             .arg(((QarkdownApplication *)qApp)->copyrightYear())
-            .arg(QCoreApplication::organizationName())
+            .arg("Ali Rantakari")
             .arg(((QarkdownApplication *)qApp)->websiteURL());
     QMessageBox aboutBox;
     aboutBox.setIconPixmap(QPixmap(":/smallAppIcon.png"));

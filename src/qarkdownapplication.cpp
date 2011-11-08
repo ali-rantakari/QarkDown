@@ -23,8 +23,6 @@ QarkdownApplication::QarkdownApplication(int &argc, char **argv) :
     setWindowIcon(QIcon(":/appIcon.png"));
 #endif
     QCoreApplication::setApplicationName("QarkDown");
-    QCoreApplication::setOrganizationName("Ali Rantakari");
-    QCoreApplication::setOrganizationDomain("hasseg.org");
     QCoreApplication::setApplicationVersion(QString().sprintf("%i.%i.%i", appVersion.major, appVersion.minor, appVersion.tiny));
 }
 
