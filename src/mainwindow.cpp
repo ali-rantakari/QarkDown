@@ -17,8 +17,6 @@ TODO:
 - OS X: Catch the maximize/zoom action (window button + menu item) and set custom "zoomed" size
 - OS X: Make main window title bar show the file icon + provide the file path dropdown
 
-- Use tr() for all UI strings
-
 - Multiple files open; file switcher dock widget
 - Use QTextOption::ShowTabsAndSpaces
 - Use Sparkle on OS X
@@ -79,6 +77,7 @@ void MainWindow::newFile()
     editor->clear();
     openFilePath = QString();
     revertToSavedMenuAction->setEnabled(false);
+    revealFileAction->setEnabled(false);
     lastCompileTargetPath = QString();
     recompileAction->setEnabled(false);
     setDirty(false);
@@ -131,8 +130,9 @@ void MainWindow::openFile(const QString &path)
 
     openFilePath = fileName;
     revertToSavedMenuAction->setEnabled(true);
-    lastCompileTargetPath = QString();
+    revealFileAction->setEnabled(true);
     recompileAction->setEnabled(false);
+    lastCompileTargetPath = QString();
 
     setDirty(false);
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
@@ -180,6 +180,7 @@ void MainWindow::saveFile()
 
     openFilePath = saveFilePath;
     revertToSavedMenuAction->setEnabled(true);
+    revealFileAction->setEnabled(true);
     setWindowTitle(QFileInfo(openFilePath).fileName());
     setDirty(false);
 }
@@ -189,6 +190,13 @@ void MainWindow::revertToSaved()
     if (openFilePath.isNull())
         return;
     openFile(openFilePath);
+}
+
+void MainWindow::revealFileDir()
+{
+    if (openFilePath.isNull())
+        return;
+    QDesktopServices::openUrl(QUrl("file:///"+QFileInfo(openFilePath).absolutePath()));
 }
 
 void MainWindow::addToRecentFiles(QString filePath)
@@ -577,6 +585,16 @@ void MainWindow::setupFileMenu()
     revertToSavedMenuAction = fileMenu->addAction(tr("&Revert to Saved"), this,
                                                   SLOT(revertToSaved()));
     revertToSavedMenuAction->setEnabled(false);
+    revealFileAction = fileMenu->addAction(
+            #ifdef Q_OS_MAC
+                tr("Reveal in Finder"),
+            #elif defined(Q_WS_WIN)
+                tr("Reveal in Explorer"),
+            #else
+                tr("Reveal in Filesystem"),
+            #endif
+            this, SLOT(revealFileDir()));
+    revealFileAction->setEnabled(false);
     fileMenu->addAction(tr("E&xit"), this, SLOT(quitActionHandler()),
                         QKeySequence::Quit);
 
