@@ -194,7 +194,8 @@ QString availableFontFamilyFromPreferenceList(char *fontFamilyList)
 }
 
 
-QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list)
+QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list,
+                                                 QFont baseFont)
 {
     QTextCharFormat format;
     while (list != NULL)
@@ -203,7 +204,7 @@ QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list)
             format.setForeground(brushFromARGBStyle(list->value->argb_color));
         else if (list->type == pmh_attr_type_background_color)
             format.setBackground(brushFromARGBStyle(list->value->argb_color));
-        //else if (list->type == pmh_attr_type_caret_color) {}
+        //else if (list->type == pmh_attr_type_caret_color) {} // TODO
         else if (list->type == pmh_attr_type_font_style)
         {
             if (list->value->font_styles->bold)
@@ -215,7 +216,13 @@ QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list)
         }
         else if (list->type == pmh_attr_type_font_size_pt)
         {
-            format.setFontPointSize(list->value->font_size_pt);
+            qreal finalSize = list->value->font_size->size_pt;
+            int baseFontSize = baseFont.pointSize();
+            if (baseFontSize == -1)
+                baseFontSize = 12; // fallback default
+            if (list->value->font_size->is_relative)
+                finalSize += baseFontSize;
+            format.setFontPointSize(finalSize);
         }
         else if (list->type == pmh_attr_type_font_family)
         {
@@ -284,7 +291,7 @@ bool HGMarkdownHighlighter::getStylesFromStylesheet(QString filePath, QPlainText
         if (cur == NULL)
             continue;
         pmh_element_type lang_element_type = cur->lang_element_type;
-        QTextCharFormat format = getCharFormatFromStyleAttributes(cur);
+        QTextCharFormat format = getCharFormatFromStyleAttributes(cur, editor->font());
         STY(lang_element_type, format);
     }
 

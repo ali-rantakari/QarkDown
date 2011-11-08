@@ -77,6 +77,8 @@ private:
     void addToRecentFiles(QString filePath);
     void persistFontInfo();
     void applyPersistedFontInfo();
+    void applyStyleWithoutErrorReporting();
+    void applyStyle(bool reportParsingErrorsToUser = true);
     void applyHighlighterPreferences();
     void applyEditorPreferences();
     bool isDirty();

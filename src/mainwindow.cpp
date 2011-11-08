@@ -268,6 +268,10 @@ void MainWindow::increaseFontSize()
     font.setPointSize(editor->font().pointSize() + 1);
     editor->setFont(font);
     persistFontInfo();
+
+    // need to update relative font sizes:
+    applyStyleWithoutErrorReporting();
+    highlighter->parseAndHighlightNow();
 }
 
 void MainWindow::decreaseFontSize()
@@ -276,6 +280,10 @@ void MainWindow::decreaseFontSize()
     font.setPointSize(editor->font().pointSize() - 1);
     editor->setFont(font);
     persistFontInfo();
+
+    // need to update relative font sizes:
+    applyStyleWithoutErrorReporting();
+    highlighter->parseAndHighlightNow();
 }
 
 void MainWindow::about()
@@ -303,19 +311,20 @@ void MainWindow::checkForUpdates()
     updateCheck->checkForUpdatesNow();
 }
 
-void MainWindow::applyHighlighterPreferences()
+void MainWindow::applyStyleWithoutErrorReporting()
 {
-    double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
-                                               QVariant(DEF_HIGHLIGHT_INTERVAL)).toDouble();
-    highlighter->setWaitInterval(highlightInterval);
+    applyStyle(false);
+}
+void MainWindow::applyStyle(bool reportParsingErrorsToUser)
+{
+    if (reportParsingErrorsToUser)
+    {
+        connect(highlighter, SIGNAL(styleParsingErrors(QList<QPair<int, QString> >*)),
+                this, SLOT(reportStyleParsingErrors(QList<QPair<int, QString> >*)));
+    }
+    else
+        disconnect(this, SLOT(reportStyleParsingErrors(QList<QPair<int,QString> >*)));
 
-    bool clickableLinks = settings->value(SETTING_CLICKABLE_LINKS,
-                                          QVariant(DEF_CLICKABLE_LINKS)).toBool();
-    highlighter->setMakeLinksClickable(clickableLinks);
-
-    // Apply style
-    connect(highlighter, SIGNAL(styleParsingErrors(QList<QPair<int, QString> >*)),
-            this, SLOT(reportStyleParsingErrors(QList<QPair<int, QString> >*)));
     QString styleFilePath = settings->value(SETTING_STYLE,
                                             QVariant(DEF_STYLE)).toString();
     if (!QFile::exists(styleFilePath))
@@ -331,6 +340,19 @@ void MainWindow::applyHighlighterPreferences()
     highlighter->getStylesFromStylesheet(styleFilePath, editor);
     editor->setCurrentLineHighlightColor(highlighter->currentLineHighlightColor);
     editor->setLineNumberAreaColor(editor->palette().base().color().darker(140));
+}
+
+void MainWindow::applyHighlighterPreferences()
+{
+    double highlightInterval = settings->value(SETTING_HIGHLIGHT_INTERVAL,
+                                               QVariant(DEF_HIGHLIGHT_INTERVAL)).toDouble();
+    highlighter->setWaitInterval(highlightInterval);
+
+    bool clickableLinks = settings->value(SETTING_CLICKABLE_LINKS,
+                                          QVariant(DEF_CLICKABLE_LINKS)).toBool();
+    highlighter->setMakeLinksClickable(clickableLinks);
+
+    applyStyle();
 }
 
 void MainWindow::applyEditorPreferences()
