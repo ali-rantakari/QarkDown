@@ -30,6 +30,7 @@ TODO:
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
+    discardingChangesOnQuit = false;
     settings = new QSettings("org.hasseg", "QarkDown");
     compiler = new MarkdownCompiler(settings);
 
@@ -640,6 +641,8 @@ bool MainWindow::confirmQuit(bool interactionAllowed)
     if (!isDirty())
         return true;
 
+    discardingChangesOnQuit = false;
+
     if (!interactionAllowed)
     {
         Logger::debug("interaction not allowed -- saving.");
@@ -673,6 +676,7 @@ bool MainWindow::confirmQuit(bool interactionAllowed)
             saveFile();
             break;
         case QMessageBox::DestructiveRole:
+            discardingChangesOnQuit = true;
             break;
         case QMessageBox::RejectRole:
         default:
@@ -738,9 +742,9 @@ void MainWindow::aboutToQuitHandler()
     }
     settings->sync();
 
-    // If we still have uncommitted changes at this point, just
-    // play it safe and save them:
-    if (isDirty())
+    // If we still have uncommitted changes at this point, and the user
+    // has now chosen to discard them, just play it safe and save them:
+    if (isDirty() && !discardingChangesOnQuit)
         saveFile();
 }
 

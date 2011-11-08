@@ -101,6 +101,8 @@ private:
     QAction *findPreviousMenuAction;
     QAction *revertToSavedMenuAction;
     QAction *recompileAction;
+
+    bool discardingChangesOnQuit;
 };
 
 #endif
