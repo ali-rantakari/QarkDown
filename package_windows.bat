@@ -23,6 +23,8 @@ call :COPYTOPACKAGE C:\QtSDK\mingw\bin\mingwm10.dll
 call :COPYTOPACKAGE C:\QtSDK\mingw\bin\libgcc_s_dw2-1.dll
 call :COPYTOPACKAGE C:\QtSDK\Desktop\Qt\%qtversion%\mingw\bin\QtCore4.dll
 call :COPYTOPACKAGE C:\QtSDK\Desktop\Qt\%qtversion%\mingw\bin\QtGui4.dll
+call :COPYTOPACKAGE C:\QtSDK\Desktop\Qt\%qtversion%\mingw\bin\QtNetwork4.dll
+call :COPYTOPACKAGE C:\QtSDK\Desktop\Qt\%qtversion%\mingw\bin\QtWebKit4.dll
 call :COPYTOPACKAGE qarkdown-build-desktop-Qt_4_8_0_RC_for_Desktop_-_MinGW__Qt_SDK__Release\release\qarkdown.exe
 call :COPYTOPACKAGE README.md
 call :COPYTOPACKAGE LICENSE.md
