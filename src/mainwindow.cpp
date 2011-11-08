@@ -200,6 +200,11 @@ void MainWindow::revertToSaved()
     openFile(openFilePath);
 }
 
+void MainWindow::switchToPreviousFile()
+{
+    openFile(recentFilesMenuActions->at(0)->data().toString());
+}
+
 void MainWindow::revealFileDir()
 {
     if (openFilePath.isNull())
@@ -576,6 +581,8 @@ void MainWindow::updateRecentFilesMenu()
         recentFilesMenuActions->append(action);
         recentFilesMenu->addAction(action);
     }
+
+    switchToPreviousFileAction->setEnabled(0 < recentFilesMenuActions->count());
 }
 
 void MainWindow::setupFileMenu()
@@ -588,6 +595,10 @@ void MainWindow::setupFileMenu()
                         QKeySequence::Open);
     recentFilesMenu = new QMenu(tr("Open Recent..."), this);
     fileMenu->addMenu(recentFilesMenu);
+    switchToPreviousFileAction = fileMenu->addAction(tr("Switch to Previous File"),
+                                                     this, SLOT(switchToPreviousFile()),
+                                                     QKeySequence("Ctrl+Shift+P"));
+    switchToPreviousFileAction->setEnabled(false);
     fileMenu->addAction(tr("&Save"), this, SLOT(saveFile()),
                         QKeySequence::Save);
     revertToSavedMenuAction = fileMenu->addAction(tr("&Revert to Saved"), this,
