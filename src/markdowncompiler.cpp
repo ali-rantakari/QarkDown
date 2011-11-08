@@ -48,8 +48,8 @@ QString MarkdownCompiler::wrapHTMLContentInTemplate(QString htmlContent)
     else
     {
         _errorString = (parts.count() < 2)
-                       ? "HTML template does not contain a content comment."
-                       : "HTML template contains more than one content comment.";
+                       ? tr("HTML template does not contain a content comment.")
+                       : tr("HTML template contains more than one content comment.");
         return QString();
     }
 }

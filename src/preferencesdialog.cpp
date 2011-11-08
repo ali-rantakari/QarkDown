@@ -54,11 +54,11 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings,
 #endif
 
 #ifdef Q_WS_MACX
-    ui->linkInfoLabel->setText("If enabled, you can click on links while holding "
-                               "the Command key.");
+    ui->linkInfoLabel->setText(tr("If enabled, you can click on links while "
+                                  "holding the Command key."));
 #else
-    ui->linkInfoLabel->setText("If enabled, you can click on links while holding "
-                               "the Ctrl key.");
+    ui->linkInfoLabel->setText(tr("If enabled, you can click on links while "
+                                  "holding the Ctrl key."));
 #endif
 
     setupConnections();
@@ -151,7 +151,7 @@ void PreferencesDialog::updateStylesComboBoxFromSettings()
     int indexToSelect = 1;
     int i = 0;
 
-    ADD_COMBO_LABEL(builtinStylesLabel, "Built-in Styles:");
+    ADD_COMBO_LABEL(builtinStylesLabel, tr("Built-in Styles:"));
     i++;
 
     foreach (QString builtInStyleName, QDir(":/styles/").entryList())
@@ -167,7 +167,7 @@ void PreferencesDialog::updateStylesComboBoxFromSettings()
     QStringList userStyles = userStyleFiles();
     if (userStyles.length() > 0)
     {
-        ADD_COMBO_LABEL(userStylesLabel, "User Styles:");
+        ADD_COMBO_LABEL(userStylesLabel, tr("User Styles:"));
         i++;
 
         foreach (QString userStyleFile, userStyles)
@@ -186,7 +186,7 @@ void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
 {
     QString selectedStylePath = ui->stylesComboBox->itemData(ui->stylesComboBox->currentIndex()).toString();
     if (!QFile::exists(selectedStylePath)) {
-        ui->styleInfoTextBrowser->setText("<i>Cannot find style file: " + selectedStylePath + "</i>");
+        ui->styleInfoTextBrowser->setText(tr("<i>Cannot find style file: %1</i>").arg(selectedStylePath));
         return;
     }
 
@@ -208,7 +208,7 @@ void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
     }
 
     if (styleDescription.isEmpty())
-        styleDescription = "<i>The selected stylesheet has no description.</i>";
+        styleDescription = tr("<i>The selected stylesheet has no description.</i>");
     else
     {
         QPair<QString, QString> compilationOutput = compiler->compileSynchronously(styleDescription, DEF_COMPILER, true);
@@ -231,7 +231,7 @@ void PreferencesDialog::updateCompilersComboBoxFromSettings()
     int indexToSelect = 1;
     int i = 0;
 
-    ADD_COMBO_LABEL(builtinCompilersLabel, "Built-in Compilers:");
+    ADD_COMBO_LABEL(builtinCompilersLabel, tr("Built-in Compilers:"));
     i++;
 
     foreach (QString builtInCompilerName, QDir(":/compilers/").entryList())
@@ -250,7 +250,7 @@ void PreferencesDialog::updateCompilersComboBoxFromSettings()
     QStringList userCompilers = userCompilerFiles();
     if (userCompilers.length() > 0)
     {
-        ADD_COMBO_LABEL(userCompilersLabel, "User Compilers:");
+        ADD_COMBO_LABEL(userCompilersLabel, tr("User Compilers:"));
         i++;
 
         foreach (QString userCompilerFileName, userCompilers)
@@ -370,11 +370,13 @@ void PreferencesDialog::openPath(QString path, bool isFolder)
     bool couldOpen = QDesktopServices::openUrl(QUrl("file:///" + path));
     QString type = isFolder ? "folder" : "file";
     if (!couldOpen)
-        QMessageBox::information(this, "Could not open " + type,
-                                 "For some reason " + QCoreApplication::applicationName()
-                                 + " could not open the "+type+". You'll have to do it "
-                                 + "manually. The path is:\n\n"
-                                 + path);
+        QMessageBox::information(this, tr("Could not open %1").arg(type),
+                                 tr("For some reason %1 could not open the %2. "
+                                    "You'll have to do it manually. "
+                                    "The path is:\n\n%3")
+                                 .arg(QCoreApplication::applicationName())
+                                 .arg(type)
+                                 .arg(path));
 }
 
 void PreferencesDialog::openFolderEnsuringItExists(QString path)

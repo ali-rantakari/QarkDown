@@ -7,7 +7,6 @@
 
 /*
 TODO:
-- Support relative font sizes in PMH stylesheets (e.g. +3pt or -2pt)
 - Highlight whole blockquotes in PMH
 
 - Make sure that the quit save confirmation works correctly everywhere
@@ -93,7 +92,7 @@ QString MainWindow::getMarkdownFilesFilter()
     if (extensions.count() == 0)
         return "All Files (*.*)";
 
-    QString filesFilter = "Markdown Files (";
+    QString filesFilter = tr("Markdown Files") + " (";
     foreach (QString ext, extensions)
     {
         QString cleanExt = ext.trimmed();
@@ -120,8 +119,8 @@ void MainWindow::openFile(const QString &path)
     QFile file(fileName);
     if (!file.open(QFile::ReadOnly | QFile::Text))
     {
-        statusBar()->showMessage("Cannot open: " + fileName
-                                 + " (reason: " + file.errorString() + ")");
+        statusBar()->showMessage(tr("Cannot open: %1 (reason: %2)")
+                                 .arg(fileName).arg(file.errorString()));
         return;
     }
 
@@ -329,10 +328,12 @@ void MainWindow::applyStyle(bool reportParsingErrorsToUser)
                                             QVariant(DEF_STYLE)).toString();
     if (!QFile::exists(styleFilePath))
     {
-        QMessageBox::warning(this, "Error loading style",
-                             "Cannot load style file:\n'"+styleFilePath+"'"
-                             "\n\n"
-                             "Falling back to default style.");
+        QMessageBox::warning(this, tr("Error loading style"),
+                             tr("Cannot load style file:\n'%1'"
+                                "\n\n"
+                                "Falling back to default style.")
+                             .arg(styleFilePath)
+                             );
         styleFilePath = DEF_STYLE;
         settings->setValue(SETTING_STYLE, DEF_STYLE);
         settings->sync();
@@ -485,9 +486,9 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
     QString compilerPath = settings->value(SETTING_COMPILER,
                                            QVariant(DEF_COMPILER)).toString();
     if (!QFile::exists(compilerPath)) {
-        QMessageBox::warning(this, "Cannot compile",
-                             "The Markdown to HTML compiler cannot be found at:\n"
-                             "'" + compilerPath + "'");
+        QMessageBox::warning(this, tr("Cannot compile"),
+                             tr("The Markdown to HTML compiler cannot "
+                                "be found at:\n'%1'").arg(compilerPath));
         return false;
     }
     statusBar()->showMessage("Compiling to " + targetPath + "...");
@@ -497,16 +498,16 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
     if (success)
     {
         lastCompileTargetPath = targetPath;
-        statusBar()->showMessage("Compiled successfully to: " + targetPath, 3000);
+        statusBar()->showMessage(tr("Compiled successfully to: %1").arg(targetPath), 3000);
     }
     else
     {
         QString cleanCompilerPath = compiler->getUserReadableCompilerName(compilerPath);
-        QString message = "Compiling failed with compiler:\n" + cleanCompilerPath;
+        QString message = tr("Compiling failed with compiler:\n%1").arg(cleanCompilerPath);
         if (!compiler->errorString().isNull())
             message += "\n\n" + compiler->errorString();
-        QMessageBox::warning(this, "Compiling Failed", message);
-        statusBar()->showMessage("Compiling failed to: " + targetPath, 3000);
+        QMessageBox::warning(this, tr("Compiling Failed"), message);
+        statusBar()->showMessage(tr("Compiling failed to: %1").arg(targetPath), 3000);
     }
     return success;
 }
@@ -616,7 +617,8 @@ void MainWindow::setupFileMenu()
 
     QMenu *helpMenu = new QMenu(tr("&Help"), this);
     menuBar()->addMenu(helpMenu);
-    helpMenu->addAction(tr("About QarkDown"), this, SLOT(about()));
+    helpMenu->addAction(tr("About %1").arg(QCoreApplication::applicationName()),
+                        this, SLOT(about()));
     helpMenu->addAction(tr("Check for Updates..."), this, SLOT(checkForUpdates()));
 
     updateRecentFilesMenu();
@@ -629,8 +631,6 @@ void MainWindow::performStartupTasks()
     if (rememberLastFile && settings->contains(SETTING_LAST_FILE))
         openFile(settings->value(SETTING_LAST_FILE).toString());
 
-    //connect(qApp, SIGNAL(saveStateRequest(QSessionManager&)),
-    //        this, SLOT(commitDataHandler(QSessionManager&)), Qt::DirectConnection);
     connect(qApp, SIGNAL(commitDataRequest(QSessionManager&)),
             this, SLOT(commitDataHandler(QSessionManager&)), Qt::DirectConnection);
     connect(qApp, SIGNAL(aboutToQuit()),
@@ -648,8 +648,8 @@ void MainWindow::reportStyleParsingErrors(QList<QPair<int, QString> > *list)
 {
     QString msg;
     for (int i = 0; i < list->size(); i++)
-        msg += QString("-- Line %1: %2\n").arg(list->at(i).first).arg(list->at(i).second);
-    QMessageBox::warning(this, "Errors in parsing style", msg);
+        msg += tr("-- Line %1: %2\n").arg(list->at(i).first).arg(list->at(i).second);
+    QMessageBox::warning(this, tr("Errors in parsing style"), msg);
 }
 
 void MainWindow::anchorClicked(const QUrl &link)
