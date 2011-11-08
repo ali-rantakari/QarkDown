@@ -18,7 +18,6 @@ TODO:
 - OS X: Catch the maximize/zoom action (window button + menu item) and set custom "zoomed" size
 - OS X: Make main window title bar show the file icon + provide the file path dropdown
 
-- Clear status bar when file opened successfully
 - Use tr() for all UI strings
 
 - Multiple files open; file switcher dock widget
@@ -145,6 +144,7 @@ void MainWindow::openFile(const QString &path)
     }
     addToRecentFiles(openFilePath);
     updateRecentFilesMenu();
+    statusBar()->showMessage(tr("File opened: %1").arg(QFileInfo(openFilePath).fileName()), 3000);
 }
 
 void MainWindow::saveFile()
