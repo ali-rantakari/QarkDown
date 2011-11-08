@@ -5,6 +5,7 @@
 #include <QSettings>
 #include <QSessionManager>
 #include <QStringList>
+#include <QMessageBox>
 
 #include "peg-markdown-highlight/highlighter.h"
 #include "preferencesdialog.h"
@@ -54,6 +55,8 @@ public slots:
     void recompileToHTML();
 
     void anchorClicked(const QUrl &link);
+
+    QMessageBox::ButtonRole offerToSaveChangesIfNecessary();
 
     bool confirmQuit(bool interactionAllowed);
     void commitDataHandler(QSessionManager &manager);

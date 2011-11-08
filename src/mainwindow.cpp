@@ -74,6 +74,10 @@ void MainWindow::show()
 
 void MainWindow::newFile()
 {
+    QMessageBox::ButtonRole selectedButtonRole = offerToSaveChangesIfNecessary();
+    if (selectedButtonRole == QMessageBox::RejectRole)
+        return;
+
     editor->clear();
     openFilePath = QString();
     revertToSavedMenuAction->setEnabled(false);
@@ -106,6 +110,10 @@ QString MainWindow::getMarkdownFilesFilter()
 
 void MainWindow::openFile(const QString &path)
 {
+    QMessageBox::ButtonRole selectedButtonRole = offerToSaveChangesIfNecessary();
+    if (selectedButtonRole == QMessageBox::RejectRole)
+        return;
+
     QString fileName = path;
 
     if (fileName.isNull())
@@ -683,21 +691,10 @@ void MainWindow::anchorClicked(const QUrl &link)
 }
 
 
-bool MainWindow::confirmQuit(bool interactionAllowed)
+QMessageBox::ButtonRole MainWindow::offerToSaveChangesIfNecessary()
 {
     if (!isDirty())
-        return true;
-
-    discardingChangesOnQuit = false;
-
-    if (!interactionAllowed)
-    {
-        Logger::debug("interaction not allowed -- saving.");
-        saveFile();
-        return true;
-    }
-
-    Logger::debug("allows interaction.");
+        return QMessageBox::InvalidRole;
 
     QString fileBaseName = kUntitledFileUIName;
     bool weHaveSavePath = false;
@@ -717,18 +714,35 @@ bool MainWindow::confirmQuit(bool interactionAllowed)
     saveConfirmMessageBox.addButton(tr("Don’t Save"), QMessageBox::DestructiveRole);
     saveConfirmMessageBox.exec();
 
-    switch (saveConfirmMessageBox.buttonRole(saveConfirmMessageBox.clickedButton()))
+    QMessageBox::ButtonRole selectedButtonRole = saveConfirmMessageBox.buttonRole(saveConfirmMessageBox.clickedButton());
+    if (selectedButtonRole == QMessageBox::AcceptRole)
+        saveFile();
+
+    return selectedButtonRole;
+}
+
+bool MainWindow::confirmQuit(bool interactionAllowed)
+{
+    if (!isDirty())
+        return true;
+
+    discardingChangesOnQuit = false;
+
+    if (!interactionAllowed)
     {
-        case QMessageBox::AcceptRole:
-            saveFile();
-            break;
-        case QMessageBox::DestructiveRole:
-            discardingChangesOnQuit = true;
-            break;
-        case QMessageBox::RejectRole:
-        default:
-            return false;
+        Logger::debug("interaction not allowed -- saving.");
+        saveFile();
+        return true;
     }
+
+    Logger::debug("allows interaction.");
+
+    QMessageBox::ButtonRole selectedButtonRole = offerToSaveChangesIfNecessary();
+    if (selectedButtonRole == QMessageBox::RejectRole)
+        return false;
+    else if (selectedButtonRole == QMessageBox::DestructiveRole)
+        discardingChangesOnQuit = true;
+
     return true;
 }
 
