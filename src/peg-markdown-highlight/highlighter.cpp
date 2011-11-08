@@ -164,9 +164,8 @@ QBrush brushFromARGBStyle(pmh_attr_argb_color *color)
     return QBrush(colorFromARGBStyle(color));
 }
 
-QString availableFontFamilyFromPreferenceList(char *fontFamilyList)
+QString HGMarkdownHighlighter::availableFontFamilyFromPreferenceList(QString familyList)
 {
-    QString familyList(fontFamilyList);
     QStringList preferredFamilies = familyList.split(',', QString::SkipEmptyParts);
 
     QFontDatabase fontDB;
@@ -222,11 +221,13 @@ QTextCharFormat getCharFormatFromStyleAttributes(pmh_style_attribute *list,
                 baseFontSize = 12; // fallback default
             if (list->value->font_size->is_relative)
                 finalSize += baseFontSize;
-            format.setFontPointSize(finalSize);
+            if (0 < finalSize)
+                format.setFontPointSize(finalSize);
         }
         else if (list->type == pmh_attr_type_font_family)
         {
-            QString availableFamily = availableFontFamilyFromPreferenceList(list->value->font_family);
+            QString familyList(list->value->font_family);
+            QString availableFamily = HGMarkdownHighlighter::availableFontFamilyFromPreferenceList(familyList);
             if (!availableFamily.isNull())
                 format.setFontFamily(availableFamily);
         }

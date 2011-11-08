@@ -53,6 +53,8 @@ public:
 
     void handleStyleParsingError(char *error_message, int line_number);
 
+    static QString availableFontFamilyFromPreferenceList(QString familyList);
+
 signals:
     void styleParsingErrors(QList<QPair<int, QString> > *errors);
 
