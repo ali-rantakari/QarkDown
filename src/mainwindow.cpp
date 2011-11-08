@@ -431,18 +431,15 @@ bool MainWindow::isDirty()
 void MainWindow::setDirty(bool value)
 {
     editor->document()->setModified(value);
-    setWindowModified(value);
 
-#ifdef Q_OS_MAC
-    QString windowTitleSuffix;
-#else
-    QString windowTitleSuffix = (value ? " **" : "");
-#endif
+    QString windowTitleSuffix = "[*]";
 
     if (!openFilePath.isNull())
         setWindowTitle(QFileInfo(openFilePath).fileName() + windowTitleSuffix);
     else
         setWindowTitle(kUntitledFileUIName + windowTitleSuffix);
+
+    setWindowModified(value);
 }
 
 
