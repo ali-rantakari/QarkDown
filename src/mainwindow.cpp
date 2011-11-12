@@ -8,7 +8,6 @@
 /*
 TODO:
 - Support "quoted args" for compilers (remember to test on Windows !)
-- Compiling unsaved files should work
 
 - Highlight whole blockquotes in PMH
 
