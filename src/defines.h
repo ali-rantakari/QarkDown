@@ -25,7 +25,7 @@
 #define SETTING_OPEN_TARGET_AFTER_COMPILING "OpenTargetAfterCompiling"
 #define SETTING_COMPILER_ARGS "CompilerArgs"
 
-#define DEF_EXTENSIONS          "mdtext md markdown txt text"
+#define DEF_EXTENSIONS          "md markdown mdtext txt text"
 #define DEF_FONT_FAMILY         "Courier"
 #define DEF_FONT_SIZE           12
 #define DEF_TAB_WIDTH           4
