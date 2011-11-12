@@ -77,6 +77,7 @@ protected:
     void closeEvent(QCloseEvent *event);
 
 private:
+    void setOpenFilePath(QString newValue);
     QString getDefaultPathForOpenOrSaveDialog();
     QString getMarkdownFilesFilter();
     void setupEditor();

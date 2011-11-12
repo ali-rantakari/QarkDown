@@ -76,6 +76,13 @@ void MainWindow::show()
     QMainWindow::show();
 }
 
+void MainWindow::setOpenFilePath(QString newValue)
+{
+    openFilePath = newValue;
+    revertToSavedMenuAction->setEnabled(!openFilePath.isNull());
+    revealFileAction->setEnabled(!openFilePath.isNull());
+}
+
 void MainWindow::newFile()
 {
     QMessageBox::ButtonRole selectedButtonRole = offerToSaveChangesIfNecessary();
@@ -83,10 +90,8 @@ void MainWindow::newFile()
         return;
 
     editor->clear();
-    openFilePath = QString();
-    revertToSavedMenuAction->setEnabled(false);
-    revealFileAction->setEnabled(false);
-    lastCompileTargetPath = QString();
+    setOpenFilePath(QString::null);
+    lastCompileTargetPath = QString::null;
     recompileAction->setEnabled(false);
     setDirty(false);
     updateRecentFilesMenu();
@@ -155,11 +160,9 @@ void MainWindow::openFile(const QString &path)
     editor->setPlainText(inStream.readAll());
     file.close();
 
-    openFilePath = fileName;
-    revertToSavedMenuAction->setEnabled(true);
-    revealFileAction->setEnabled(true);
+    setOpenFilePath(fileName);
     recompileAction->setEnabled(false);
-    lastCompileTargetPath = QString();
+    lastCompileTargetPath = QString::null;
 
     setDirty(false);
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
@@ -202,10 +205,7 @@ void MainWindow::saveFile(QString targetPath)
     outStream << editor->toPlainText();
     file.close();
 
-    openFilePath = saveFilePath;
-    revertToSavedMenuAction->setEnabled(true);
-    revealFileAction->setEnabled(true);
-    setWindowTitle(QFileInfo(openFilePath).fileName());
+    setOpenFilePath(saveFilePath);
     setDirty(false);
 
     if (savingNewFile)
