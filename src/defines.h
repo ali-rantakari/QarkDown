@@ -13,6 +13,7 @@
 #define SETTING_STYLE "HighlightingStyle"
 #define SETTING_FORMAT_EMPH_WITH_UNDERSCORES "FormatEmphWithUnderscores"
 #define SETTING_FORMAT_STRONG_WITH_UNDERSCORES "FormatStrongWithUnderscores"
+#define SETTING_LAST_FILE_DIALOG_PATH "LastFileDialogPath"
 
 #define SETTING_LAST_FILE "LastFile"
 #define SETTING_WINDOW_GEOMETRY "LastWindowGeometry"

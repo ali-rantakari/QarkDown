@@ -7,6 +7,10 @@
 
 /*
 TODO:
+- Support "quoted args" for compilers (remember to test on Windows !)
+- Compiling unsaved files should work
+- Add "Save as..."
+
 - Highlight whole blockquotes in PMH
 
 - Make sure that the quit save confirmation works correctly everywhere
@@ -108,6 +112,16 @@ QString MainWindow::getMarkdownFilesFilter()
     return filesFilter;
 }
 
+QString MainWindow::getDefaultPathForOpenOrSaveDialog()
+{
+    if (openFilePath.isNull())
+    {
+        return settings->value(SETTING_LAST_FILE_DIALOG_PATH,
+                               QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation)).toString();
+    }
+    return QFileInfo(openFilePath).absolutePath();
+}
+
 void MainWindow::openFile(const QString &path)
 {
     QMessageBox::ButtonRole selectedButtonRole = offerToSaveChangesIfNecessary();
@@ -117,17 +131,22 @@ void MainWindow::openFile(const QString &path)
     QString fileName = path;
 
     if (fileName.isNull())
-        fileName = QFileDialog::getOpenFileName(this,
-            tr("Open File"), "", getMarkdownFilesFilter());
+        fileName = QFileDialog::getOpenFileName(this, tr("Open File"),
+                                                getDefaultPathForOpenOrSaveDialog(),
+                                                getMarkdownFilesFilter());
 
-    if (fileName.isEmpty())
+    if (fileName.isEmpty()) // canceled?
         return;
+    else
+        settings->setValue(SETTING_LAST_FILE_DIALOG_PATH, QFileInfo(fileName).absolutePath());
 
     QFile file(fileName);
     if (!file.open(QFile::ReadOnly | QFile::Text))
     {
-        statusBar()->showMessage(tr("Cannot open: %1 (reason: %2)")
-                                 .arg(fileName).arg(file.errorString()));
+        QMessageBox::warning(this, tr("Cannot Open File"),
+                             tr("Cannot open: %1 (reason: %2)")
+                             .arg(fileName)
+                             .arg(file.errorString()));
         return;
     }
 
@@ -154,25 +173,40 @@ void MainWindow::openFile(const QString &path)
     statusBar()->showMessage(tr("File opened: %1").arg(QFileInfo(openFilePath).fileName()), 3000);
 }
 
-void MainWindow::saveFile()
+void MainWindow::saveFile(QString targetPath)
 {
-    bool savingNewFile = (openFilePath.isNull());
+    bool savingNewFile = (targetPath.isNull());
 
-    QString saveFilePath(openFilePath);
+    QString saveFilePath(targetPath);
     if (saveFilePath.isNull())
-        saveFilePath = QFileDialog::getSaveFileName(this,
-            tr("Save File"), "", getMarkdownFilesFilter());
+        saveFilePath = QFileDialog::getSaveFileName(this, tr("Save File"),
+                                                    getDefaultPathForOpenOrSaveDialog(),
+                                                    getMarkdownFilesFilter());
 
-    if (saveFilePath.isEmpty())
+    if (saveFilePath.isEmpty()) // canceled?
         return;
+    else
+        settings->setValue(SETTING_LAST_FILE_DIALOG_PATH, QFileInfo(saveFilePath).absolutePath());
 
     QFile file(saveFilePath);
     if (!file.open(QFile::WriteOnly | QFile::Text))
+    {
+        QMessageBox::warning(this, tr("Cannot Save File"),
+                             tr("Cannot save: %1 (reason: %2)")
+                             .arg(saveFilePath)
+                             .arg(file.errorString()));
         return;
+    }
     QTextStream outStream(&file);
     outStream.setCodec("UTF-8");
     outStream << editor->toPlainText();
     file.close();
+
+    openFilePath = saveFilePath;
+    revertToSavedMenuAction->setEnabled(true);
+    revealFileAction->setEnabled(true);
+    setWindowTitle(QFileInfo(openFilePath).fileName());
+    setDirty(false);
 
     if (savingNewFile)
     {
@@ -186,11 +220,22 @@ void MainWindow::saveFile()
         updateRecentFilesMenu();
     }
 
-    openFilePath = saveFilePath;
-    revertToSavedMenuAction->setEnabled(true);
-    revealFileAction->setEnabled(true);
-    setWindowTitle(QFileInfo(openFilePath).fileName());
-    setDirty(false);
+    statusBar()->showMessage(tr("File saved: %1").arg(QFileInfo(saveFilePath).fileName()), 3000);
+}
+
+void MainWindow::saveCurrentFile()
+{
+    saveFile(openFilePath);
+}
+
+void MainWindow::saveMenuItemHandler()
+{
+    saveCurrentFile();
+}
+
+void MainWindow::saveAsMenuItemHandler()
+{
+    saveFile(QString::null);
 }
 
 void MainWindow::revertToSaved()
@@ -596,11 +641,15 @@ void MainWindow::setupFileMenu()
                                                      this, SLOT(switchToPreviousFile()),
                                                      QKeySequence("Ctrl+Shift+P"));
     switchToPreviousFileAction->setEnabled(false);
-    fileMenu->addAction(tr("&Save"), this, SLOT(saveFile()),
+    fileMenu->addSeparator();
+    fileMenu->addAction(tr("&Save"), this, SLOT(saveMenuItemHandler()),
                         QKeySequence::Save);
+    fileMenu->addAction(tr("Save As..."), this, SLOT(saveAsMenuItemHandler()),
+                        QKeySequence::SaveAs);
     revertToSavedMenuAction = fileMenu->addAction(tr("&Revert to Saved"), this,
                                                   SLOT(revertToSaved()));
     revertToSavedMenuAction->setEnabled(false);
+    fileMenu->addSeparator();
     revealFileAction = fileMenu->addAction(
             #ifdef Q_OS_MAC
                 tr("Reveal in Finder"),
@@ -724,7 +773,7 @@ QMessageBox::ButtonRole MainWindow::offerToSaveChangesIfNecessary()
 
     QMessageBox::ButtonRole selectedButtonRole = saveConfirmMessageBox.buttonRole(saveConfirmMessageBox.clickedButton());
     if (selectedButtonRole == QMessageBox::AcceptRole)
-        saveFile();
+        saveCurrentFile();
 
     return selectedButtonRole;
 }
@@ -739,7 +788,7 @@ bool MainWindow::confirmQuit(bool interactionAllowed)
     if (!interactionAllowed)
     {
         Logger::debug("interaction not allowed -- saving.");
-        saveFile();
+        saveCurrentFile();
         return true;
     }
 
@@ -814,7 +863,7 @@ void MainWindow::aboutToQuitHandler()
     // If we still have uncommitted changes at this point, and the user
     // has now chosen to discard them, just play it safe and save them:
     if (isDirty() && !discardingChangesOnQuit)
-        saveFile();
+        saveCurrentFile();
 }
 
 void MainWindow::handleContentsChange(int position, int charsRemoved, int charsAdded)

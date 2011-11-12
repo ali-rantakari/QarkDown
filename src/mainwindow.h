@@ -29,7 +29,10 @@ public:
 public slots:
     void newFile();
     void openFile(const QString &path = QString());
-    void saveFile();
+    void saveFile(QString targetPath);
+    void saveCurrentFile();
+    void saveMenuItemHandler();
+    void saveAsMenuItemHandler();
     void revertToSaved();
     void switchToPreviousFile();
     void revealFileDir();
@@ -74,6 +77,7 @@ protected:
     void closeEvent(QCloseEvent *event);
 
 private:
+    QString getDefaultPathForOpenOrSaveDialog();
     QString getMarkdownFilesFilter();
     void setupEditor();
     void setupFileMenu();
