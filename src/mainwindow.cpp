@@ -117,14 +117,53 @@ QString MainWindow::getMarkdownFilesFilter()
     return filesFilter;
 }
 
-QString MainWindow::getDefaultPathForOpenOrSaveDialog()
+QString MainWindow::getPathFromFileDialog(FileDialogKind dialogKind)
 {
-    if (openFilePath.isNull())
+    QString title;
+    QString defaultPath;
+    QString filesFilter;
+
+    switch (dialogKind)
     {
-        return settings->value(SETTING_LAST_FILE_DIALOG_PATH,
-                               QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation)).toString();
+        case OpenFileDialog:
+            title = tr("Open File");
+            // intentional fall-thru:
+        case SaveFileDialog:
+            if (title.isNull())
+                title = tr("Save File");
+            filesFilter = getMarkdownFilesFilter();
+
+            if (openFilePath.isNull())
+                defaultPath = settings->value(SETTING_LAST_FILE_DIALOG_PATH,
+                                              QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation)).toString();
+            else
+                defaultPath = QFileInfo(openFilePath).absolutePath();
+
+            break;
+        case CompilationOutputDialog:
+            title = tr("Save HTML Output");
+            defaultPath = settings->value(SETTING_LAST_COMPILE_DIALOG_PATH,
+                                          QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation)).toString();
+            break;
+        default:
+            title = tr("Select File");
     }
-    return QFileInfo(openFilePath).absolutePath();
+
+    QString retVal;
+    if (dialogKind == OpenFileDialog)
+        retVal = QFileDialog::getOpenFileName(this, title, defaultPath, filesFilter);
+    else
+        retVal = QFileDialog::getSaveFileName(this, title, defaultPath, filesFilter);
+
+    if (!retVal.isNull())
+    {
+        if (dialogKind == CompilationOutputDialog)
+            settings->setValue(SETTING_LAST_COMPILE_DIALOG_PATH, QFileInfo(retVal).absolutePath());
+        else
+            settings->setValue(SETTING_LAST_FILE_DIALOG_PATH, QFileInfo(retVal).absolutePath());
+    }
+
+    return retVal;
 }
 
 void MainWindow::openFile(const QString &path)
@@ -136,14 +175,10 @@ void MainWindow::openFile(const QString &path)
     QString fileName = path;
 
     if (fileName.isNull())
-        fileName = QFileDialog::getOpenFileName(this, tr("Open File"),
-                                                getDefaultPathForOpenOrSaveDialog(),
-                                                getMarkdownFilesFilter());
+        fileName = getPathFromFileDialog(OpenFileDialog);
 
     if (fileName.isEmpty()) // canceled?
         return;
-    else
-        settings->setValue(SETTING_LAST_FILE_DIALOG_PATH, QFileInfo(fileName).absolutePath());
 
     QFile file(fileName);
     if (!file.open(QFile::ReadOnly | QFile::Text))
@@ -182,14 +217,10 @@ void MainWindow::saveFile(QString targetPath)
 
     QString saveFilePath(targetPath);
     if (saveFilePath.isNull())
-        saveFilePath = QFileDialog::getSaveFileName(this, tr("Save File"),
-                                                    getDefaultPathForOpenOrSaveDialog(),
-                                                    getMarkdownFilesFilter());
+        saveFilePath = getPathFromFileDialog(SaveFileDialog);
 
     if (saveFilePath.isEmpty()) // canceled?
         return;
-    else
-        settings->setValue(SETTING_LAST_FILE_DIALOG_PATH, QFileInfo(saveFilePath).absolutePath());
 
     QFile file(saveFilePath);
     if (!file.open(QFile::WriteOnly | QFile::Text))
@@ -533,9 +564,7 @@ void MainWindow::compileToTempHTML()
 }
 void MainWindow::compileToHTMLAs()
 {
-    QString saveFilePath = QFileDialog::getSaveFileName(this,
-        tr("Save HTML Output"), "");
-
+    QString saveFilePath = getPathFromFileDialog(CompilationOutputDialog);
     if (saveFilePath.isNull())
         return;
 

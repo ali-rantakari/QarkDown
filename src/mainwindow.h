@@ -77,8 +77,15 @@ protected:
     void closeEvent(QCloseEvent *event);
 
 private:
+    enum FileDialogKind
+    {
+        OpenFileDialog,
+        SaveFileDialog,
+        CompilationOutputDialog
+    };
+
+    QString getPathFromFileDialog(FileDialogKind dialogKind);
     void setOpenFilePath(QString newValue);
-    QString getDefaultPathForOpenOrSaveDialog();
     QString getMarkdownFilesFilter();
     void setupEditor();
     void setupFileMenu();
