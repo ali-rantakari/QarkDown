@@ -66,7 +66,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>2</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
@@ -208,7 +208,7 @@
            </font>
           </property>
           <property name="text">
-           <string>Extensions for Markdown files, separated by spaces. Empty value indicates &quot;all files&quot;.</string>
+           <string>Extensions for Markdown files, separated by spaces. The first one is the default for new files. Empty value indicates &quot;all files&quot;.</string>
           </property>
           <property name="wordWrap">
            <bool>true</bool>
