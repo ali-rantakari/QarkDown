@@ -9,13 +9,10 @@
 TODO:
 - Support "quoted args" for compilers (remember to test on Windows !)
 - Compiling unsaved files should work
-- Add "Save as..."
 
 - Highlight whole blockquotes in PMH
 
-- Make sure that the quit save confirmation works correctly everywhere
-- Start using QSingleApplication ??
-
+- Apply highlighting styles incrementally (might not be very easy, though)
 - Fix the tab/shift-tab indentation to work in a more "standard" manner
 - Windows: Fix/workaround for non-working text color alpha
 - OS X: Catch the maximize/zoom action (window button + menu item) and set custom "zoomed" size
@@ -544,7 +541,10 @@ QString getTempHTMLFilePathForMarkdownFilePath(QString markdownFilePath)
     QString tempFileExtension = ".html";
 
     QCryptographicHash hash(QCryptographicHash::Sha1);
-    hash.addData(markdownFilePath.toUtf8());
+    if (!markdownFilePath.isNull())
+        hash.addData(markdownFilePath.toUtf8());
+    else
+        hash.addData("Untitled");
     QString tempFileNameBase = "qarkdown-" + hash.result().toHex();
     QString tempFilePath = tempDirPath + QDir::separator()
                            + tempFileNameBase + tempFileExtension;
@@ -555,10 +555,7 @@ QString getTempHTMLFilePathForMarkdownFilePath(QString markdownFilePath)
 
 void MainWindow::compileToTempHTML()
 {
-    if (openFilePath.isNull())
-        return;
     QString tempFilePath = getTempHTMLFilePathForMarkdownFilePath(openFilePath);
-
     if (compileToHTMLFile(tempFilePath))
         QDesktopServices::openUrl(QUrl("file:///" + tempFilePath));
 }
