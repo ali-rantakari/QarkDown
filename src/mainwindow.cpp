@@ -697,9 +697,11 @@ void MainWindow::setupFileMenu()
     QMenu *compilingMenu = new QMenu(tr("&Compiling"), this);
     menuBar()->addMenu(compilingMenu);
     compilingMenu->addAction(tr("Compile to temporary HTML file"),
-                             this, SLOT(compileToTempHTML()));
+                             this, SLOT(compileToTempHTML()),
+                             QKeySequence("Ctrl+T"));
     compilingMenu->addAction(tr("Compile to HTML file..."),
-                             this, SLOT(compileToHTMLAs()));
+                             this, SLOT(compileToHTMLAs()),
+                             QKeySequence("Ctrl+Shift+T"));
     recompileAction = compilingMenu->addAction(tr("Recompile"),
                                                this, SLOT(recompileToHTML()),
                                                QKeySequence("Ctrl+Return"));
