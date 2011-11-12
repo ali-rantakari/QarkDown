@@ -185,7 +185,6 @@ QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QS
     QString stderrString = QString::fromUtf8(syncCompilerProcess.readAllStandardError().constData());
 
     QTextStream in(&syncCompilerProcess);
-    in.setCodec("UTF-8");
     QString stdoutString = in.readAll();
 
     return QPair<QString, QString>(stdoutString, stderrString);
