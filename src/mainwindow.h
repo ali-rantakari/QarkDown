@@ -28,7 +28,7 @@ public:
 
 public slots:
     void newFile();
-    void openFile(const QString &path = QString());
+    void openFile(const QString &path = QString::null);
     void saveFile(QString targetPath);
     void saveCurrentFile();
     void saveMenuItemHandler();

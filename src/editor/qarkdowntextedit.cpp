@@ -224,7 +224,7 @@ QString QarkdownTextEdit::getAnchorHrefAtPos(QPoint pos)
         if (!href.isNull())
             return href;
     }
-    return QString();
+    return QString::null;
 }
 
 

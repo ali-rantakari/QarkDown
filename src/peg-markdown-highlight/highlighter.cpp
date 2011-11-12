@@ -189,7 +189,7 @@ QString HGMarkdownHighlighter::availableFontFamilyFromPreferenceList(QString fam
         }
     }
 
-    return QString();
+    return QString::null;
 }
 
 

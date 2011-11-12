@@ -28,7 +28,7 @@ QString MarkdownCompiler::getHTMLTemplate()
     QFile templateFile(templateFilePath);
     if (!templateFile.open(QIODevice::ReadOnly)) {
         Logger::warning("Cannot open file for reading: " + templateFile.fileName());
-        return QString();
+        return QString::null;
     }
     QTextStream stream(&templateFile);
     QString contents = stream.readAll();
@@ -50,7 +50,7 @@ QString MarkdownCompiler::wrapHTMLContentInTemplate(QString htmlContent)
         _errorString = (parts.count() < 2)
                        ? tr("HTML template does not contain a content comment.")
                        : tr("HTML template contains more than one content comment.");
-        return QString();
+        return QString::null;
     }
 }
 
@@ -64,12 +64,12 @@ QString MarkdownCompiler::getFilesystemPathForResourcePath(QString resourcePath)
     if (!QFile::exists(targetFilePath)) {
         if (!((QarkdownApplication*)qApp)->copyResourceToFile(resourcePath,
                                                               targetFilePath))
-            return QString();
+            return QString::null;
     }
 
     if (!QFileInfo(targetFilePath).isExecutable()) {
         if (!QFile(targetFilePath).setPermissions(QFile::ExeUser))
-            return QString();
+            return QString::null;
     }
 
     if (QFile::exists(resourcePath + ".dependencies"))
@@ -84,7 +84,7 @@ QString MarkdownCompiler::getFilesystemPathForResourcePath(QString resourcePath)
                 if (!((QarkdownApplication*)qApp)->copyResourceToFile(
                             depsDirPath + QDir::separator() + depFileName,
                             depTargetPath))
-                    return QString();
+                    return QString::null;
             }
         }
     }
@@ -136,11 +136,12 @@ QString MarkdownCompiler::getUserReadableCompilerName(QString compilerPath)
     return ret;
 }
 
+#define kCompileEmptyRetVal QPair<QString, QString>(QString::null, QString::null)
 
 QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QString compilerPath, bool useDefaultArguments)
 {
     //Logger::info("Compiling with compiler: " + compilerPath);
-    _errorString = QString();
+    _errorString = QString::null;
 
     QString actualCompilerPath(compilerPath);
     bool isResourcePath = compilerPath.startsWith(":/");
@@ -164,7 +165,7 @@ QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QS
     if (!syncCompilerProcess.waitForStarted()) {
         Logger::warning("Cannot start process: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
-        return QPair<QString, QString>(QString(), QString());
+        return kCompileEmptyRetVal;
     }
 
     syncCompilerProcess.write(input.toUtf8());
@@ -173,13 +174,13 @@ QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QS
     if (!syncCompilerProcess.waitForFinished()) {
         Logger::warning("Error while waiting process to finish: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
-        return QPair<QString, QString>(QString(), QString());
+        return kCompileEmptyRetVal;
     }
 
     if (syncCompilerProcess.exitStatus() != QProcess::NormalExit) {
         Logger::warning("Process returned non-normal exit status: " + actualCompilerPath);
         _errorString = syncCompilerProcess.errorString();
-        return QPair<QString, QString>(QString(), QString());
+        return kCompileEmptyRetVal;
     }
 
     QString stderrString = QString::fromUtf8(syncCompilerProcess.readAllStandardError().constData());
