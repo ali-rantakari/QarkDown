@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
         window.openFile(argv[1]);
 
 #ifndef QT_MAC_USE_COCOA
-    window->handleApplicationLaunched();
+    window.handleApplicationLaunched();
 #endif
 
     int ret = app.exec();
