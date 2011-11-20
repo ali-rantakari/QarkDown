@@ -71,6 +71,15 @@ void MainWindow::show()
     QMainWindow::show();
 }
 
+QString standardizeFilePath(QString filePath)
+{
+    QFileInfo fileInfo(filePath);
+    QString std = fileInfo.canonicalFilePath();
+    if (std.isEmpty()) // if the path does not exist
+        return filePath;
+    return std;
+}
+
 void MainWindow::setOpenFilePath(QString newValue)
 {
     openFilePath = newValue;
@@ -167,20 +176,22 @@ void MainWindow::openFile(const QString &path)
     if (selectedButtonRole == QMessageBox::RejectRole)
         return;
 
-    QString fileName = path;
+    QString filePathToOpen = path;
 
-    if (fileName.isNull())
-        fileName = getPathFromFileDialog(OpenFileDialog);
+    if (filePathToOpen.isNull())
+        filePathToOpen = getPathFromFileDialog(OpenFileDialog);
 
-    if (fileName.isEmpty()) // canceled?
+    if (filePathToOpen.isEmpty()) // canceled?
         return;
 
-    QFile file(fileName);
+    filePathToOpen = standardizeFilePath(filePathToOpen);
+
+    QFile file(filePathToOpen);
     if (!file.open(QFile::ReadOnly | QFile::Text))
     {
         QMessageBox::warning(this, tr("Cannot Open File"),
                              tr("Cannot open: %1 (reason: %2)")
-                             .arg(fileName)
+                             .arg(filePathToOpen)
                              .arg(file.errorString()));
         return;
     }
@@ -190,7 +201,7 @@ void MainWindow::openFile(const QString &path)
     editor->setPlainText(inStream.readAll());
     file.close();
 
-    setOpenFilePath(fileName);
+    setOpenFilePath(filePathToOpen);
     recompileAction->setEnabled(false);
     lastCompileTargetPath = QString::null;
 
@@ -285,12 +296,14 @@ void MainWindow::revealFileDir()
 
 void MainWindow::addToRecentFiles(QString filePath)
 {
+    QString stdFilePath = standardizeFilePath(filePath);
+
     QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
 
-    int index = recentFiles.indexOf(filePath);
+    int index = recentFiles.indexOf(stdFilePath);
     if (-1 < index)
         recentFiles.removeAt(index);
-    recentFiles.insert(0, filePath);
+    recentFiles.insert(0, stdFilePath);
 
     int maxNumRecentFiles = settings->value(SETTING_NUM_RECENT_FILES, DEF_NUM_RECENT_FILES).toInt();
     while (maxNumRecentFiles < recentFiles.count())
