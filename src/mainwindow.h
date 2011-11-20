@@ -62,6 +62,7 @@ public slots:
 
     QMessageBox::ButtonRole offerToSaveChangesIfNecessary();
 
+    void handleApplicationLaunched();
     bool confirmQuit(bool interactionAllowed);
     void commitDataHandler(QSessionManager &manager);
 #ifdef QT_MAC_USE_COCOA

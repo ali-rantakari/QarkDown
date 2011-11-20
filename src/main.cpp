@@ -21,6 +21,10 @@ int main(int argc, char *argv[])
     QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
     QarkdownApplication app(argc, argv);
 
+#ifdef QT_MAC_USE_COCOA
+    [cocoaAppDelegate registerForApplicationEvents];
+#endif
+
     for (int i = 0; i < argc; i++)
     {
         if (strcmp("-d", argv[i]) == 0)
@@ -37,6 +41,10 @@ int main(int argc, char *argv[])
     app.mainWindow = &window;
     if (argc > 1)
         window.openFile(argv[1]);
+
+#ifndef QT_MAC_USE_COCOA
+    window->handleApplicationLaunched();
+#endif
 
     int ret = app.exec();
     return ret;

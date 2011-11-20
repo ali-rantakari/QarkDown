@@ -8,10 +8,11 @@
     MainWindow *_mainWindow;
 }
 
+- (void) registerForApplicationEvents;
+- (void) setMainWindow:(MainWindow *)aMainWindow;
+
 - (NSApplicationTerminateReply) applicationShouldTerminate:(NSApplication *)sender;
 - (void) acceptPendingTermination;
 - (void) cancelPendingTermination;
-
-- (void) setMainWindow:(MainWindow *)aMainWindow;
 
 @end

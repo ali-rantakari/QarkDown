@@ -42,7 +42,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     setupFileMenu();
     setupEditor();
-    performStartupTasks();
     setCentralWidget(editor);
 
     statusBar()->show();
@@ -745,7 +744,7 @@ void MainWindow::performStartupTasks()
 {
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
                                             QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
-    if (rememberLastFile && settings->contains(SETTING_LAST_FILE))
+    if (rememberLastFile && settings->contains(SETTING_LAST_FILE) && openFilePath.isNull())
         openFile(settings->value(SETTING_LAST_FILE).toString());
 
     connect(qApp, SIGNAL(commitDataRequest(QSessionManager&)),
@@ -772,6 +771,15 @@ void MainWindow::reportStyleParsingErrors(QList<QPair<int, QString> > *list)
 void MainWindow::anchorClicked(const QUrl &link)
 {
     QDesktopServices::openUrl(link);
+}
+
+
+
+
+void MainWindow::handleApplicationLaunched()
+{
+    Logger::debug("MainWindow: handleApplicationLaunched");
+    performStartupTasks();
 }
 
 
