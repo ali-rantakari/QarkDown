@@ -34,7 +34,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     // set, so we have to set that up first:
     HGUpdateCheck::setUpdateCheckSettings(settings);
     updateCheck = new HGUpdateCheck(((QarkdownApplication *)qApp)->websiteURL(), this);
-    updateCheck->handleAppStartup();
 
     preferencesDialog = new PreferencesDialog(settings, compiler);
 
@@ -761,6 +760,8 @@ void MainWindow::setupFileMenu()
 
 void MainWindow::performStartupTasks()
 {
+    updateCheck->handleAppStartup();
+
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
                                             QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
     if (rememberLastFile && settings->contains(SETTING_LAST_FILE) && openFilePath.isNull())
