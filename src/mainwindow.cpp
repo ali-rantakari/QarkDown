@@ -56,6 +56,12 @@ MainWindow::~MainWindow()
     delete recentFilesMenuActions;
 }
 
+void MainWindow::handleApplicationLaunched()
+{
+    Logger::debug("MainWindow: handleApplicationLaunched");
+    performStartupTasks();
+}
+
 void MainWindow::show()
 {
     QSize defaultSize(500, 700);
@@ -788,12 +794,6 @@ void MainWindow::anchorClicked(const QUrl &link)
 
 
 
-
-void MainWindow::handleApplicationLaunched()
-{
-    Logger::debug("MainWindow: handleApplicationLaunched");
-    performStartupTasks();
-}
 
 
 QMessageBox::ButtonRole MainWindow::offerToSaveChangesIfNecessary()
