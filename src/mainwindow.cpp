@@ -7,6 +7,7 @@
 
 /*
 TODO:
+- Handle cases where some other process modifies the file we have open
 - Support "quoted args" for compilers (remember to test on Windows !)
 
 - Highlight whole blockquotes in PMH
@@ -520,14 +521,7 @@ bool MainWindow::isDirty()
 void MainWindow::setDirty(bool value)
 {
     editor->document()->setModified(value);
-
-    QString windowTitleSuffix = "[*]";
-
-    if (!openFilePath.isNull())
-        setWindowTitle(QFileInfo(openFilePath).fileName() + windowTitleSuffix);
-    else
-        setWindowTitle(kUntitledFileUIName + windowTitleSuffix);
-
+    setWindowFilePath(openFilePath);
     setWindowModified(value);
 }
 
