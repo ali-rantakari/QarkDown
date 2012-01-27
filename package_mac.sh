@@ -1,5 +1,8 @@
 #!/bin/bash
 
+TRUE=0
+FALSE=1
+
 echo "Remember to create a _fresh_ release build in Qt Creator first!"
 read
 
@@ -26,6 +29,23 @@ if [ -e "${APPBUNDLE}/Contents/Frameworks/QtCore.framework" ];then
 else
 	echo ">>>>>>> Running macdeployqt"
 	"${HOME}/QtSDK/Desktop/Qt/${QTVERSION}/gcc/bin/macdeployqt" "$APPBUNDLE"
+	
+	echo ">>>>>>> Removing unused frameworks from app bundle"
+	for framework in "$APPBUNDLE"/Contents/Frameworks/*.framework; do
+		bn=$(basename "${framework}")
+		bn=${bn%.*} # remove extension
+		frameworkstokeep[1]="QtCore"
+		frameworkstokeep[2]="QtGui"
+		frameworkstokeep[3]="QtNetwork"
+		frameworkstokeep[4]="QtWebKit"
+		remove=${TRUE}
+		for index in 1 2 3 4; do
+			[[ "${bn}" == "${frameworkstokeep[index]}" ]] && remove=${FALSE}
+		done
+		if [[ $remove -eq ${TRUE} ]];then
+			rm -rf "${framework}"
+		fi
+	done
 fi
 
 TEMP_DIR="QarkDown"
