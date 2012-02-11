@@ -59,7 +59,8 @@ HEADERS += \
     markdowncompiler.h \
     logger.h \
     updatecheck/updatecheck.h \
-    updatecheck/hgupdateinfodialog.h
+    updatecheck/hgupdateinfodialog.h \
+    filesearchdialog.h
 SOURCES += \
     qarkdownapplication.cpp \
     preferencesdialog.cpp \
@@ -71,17 +72,22 @@ SOURCES += \
     markdowncompiler.cpp \
     logger.cpp \
     updatecheck/updatecheck.cpp \
-    updatecheck/hgupdateinfodialog.cpp
+    updatecheck/hgupdateinfodialog.cpp \
+    filesearchdialog.cpp
 
 FORMS += \
     preferencesdialog.ui \
-    updatecheck/hgupdateinfodialog.ui
+    updatecheck/hgupdateinfodialog.ui \
+    filesearchdialog.ui
 
 OTHER_FILES += \
     cfg/win.rc \
     cfg/Info.plist \
     cfg/linux.qrc \
     template.html
+
+
+
 
 
 

@@ -9,6 +9,7 @@
 
 #include "peg-markdown-highlight/highlighter.h"
 #include "preferencesdialog.h"
+#include "filesearchdialog.h"
 #include "editor/qarkdowntextedit.h"
 #include "markdowncompiler.h"
 #include "updatecheck/updatecheck.h"
@@ -54,6 +55,7 @@ public slots:
     void preferencesUpdated();
 
     void openRecentFile();
+    void showRecentFileSearchDialog();
     void compileToTempHTML();
     void compileToHTMLAs();
     void recompileToHTML();
@@ -108,6 +110,7 @@ private:
     QString lastCompileTargetPath;
 
     PreferencesDialog *preferencesDialog;
+    FileSearchDialog *fileSearchDialog;
     QSettings *settings;
     QarkdownTextEdit *editor;
     HGMarkdownHighlighter *highlighter;
