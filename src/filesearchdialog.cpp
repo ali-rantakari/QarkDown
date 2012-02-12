@@ -55,7 +55,10 @@ void FileSearchDialog::accept()
         emit selectedFilePath(selectedPath);
     }
     else
+    {
+        // TODO: select the first one by default
         Logger::debug("No selection");
+    }
 
     clearFileList();
     QDialog::accept();
@@ -85,7 +88,7 @@ void FileSearchDialog::updateSearchResults(QString searchQuery)
     for (int i = 0; i < count; i++)
     {
         QString path = filePaths->at(i);
-        if (!queryMatchesPath(searchQuery, path))
+        if (!queryMatchesPath(searchQuery, path) || !QFile::exists(path))
             continue;
         QStandardItem *item = new QStandardItem();
         item->setText(path);
