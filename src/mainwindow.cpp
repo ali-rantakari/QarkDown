@@ -39,6 +39,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     preferencesDialog = new PreferencesDialog(settings, compiler);
     fileSearchDialog = new FileSearchDialog(this);
     fileSearchDialog->setWindowTitle(tr("Select Previous File to Open"));
+    fileSearchDialog->setWindowModality(Qt::WindowModal);
 
     recentFilesMenuActions = new QList<QAction *>();
 
@@ -550,8 +551,8 @@ void MainWindow::openRecentFile()
 void MainWindow::showRecentFileSearchDialog()
 {
     QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
-    fileSearchDialog->resetWithFilePaths(&recentFiles);
-    fileSearchDialog->exec();
+    fileSearchDialog->resetWithFilePaths(recentFiles);
+    fileSearchDialog->show();
 }
 
 void MainWindow::fileSearchDialogSelectedFilePath(QString path)

@@ -28,7 +28,7 @@ void FileSearchDialog::setupConnections()
             this, SLOT(inputTextEdited(QString)));
 }
 
-void FileSearchDialog::resetWithFilePaths(QStringList *aFilePaths)
+void FileSearchDialog::resetWithFilePaths(QStringList aFilePaths)
 {
     filePaths = aFilePaths;
     ui->lineEdit->clear();
@@ -37,7 +37,6 @@ void FileSearchDialog::resetWithFilePaths(QStringList *aFilePaths)
 
 void FileSearchDialog::clearFileList()
 {
-    filePaths = NULL;
     fileListModel->clear();
 }
 
@@ -78,13 +77,13 @@ bool FileSearchDialog::queryMatchesPath(QString query, QString path)
 
 void FileSearchDialog::updateSearchResults(QString searchQuery)
 {
-    if (filePaths == NULL)
+    if (filePaths.isEmpty())
         return;
     fileListModel->clear();
-    int count = filePaths->count();
+    int count = filePaths.count();
     for (int i = 0; i < count; i++)
     {
-        QString path = filePaths->at(i);
+        QString path = filePaths.at(i);
         if (!queryMatchesPath(searchQuery, path) || !QFile::exists(path))
             continue;
         QStandardItem *item = new QStandardItem();

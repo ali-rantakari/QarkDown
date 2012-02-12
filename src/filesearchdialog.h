@@ -17,12 +17,12 @@ public:
     explicit FileSearchDialog(QWidget *parent = 0);
     ~FileSearchDialog();
 
-    void resetWithFilePaths(QStringList *filePaths);
+    void resetWithFilePaths(QStringList filePaths);
     bool eventFilter(QObject* obj, QEvent *event);
 
 private:
     Ui::FileSearchDialog *ui;
-    QStringList *filePaths;
+    QStringList filePaths;
     QStandardItemModel *fileListModel;
     void setupConnections();
     void clearFileList();
