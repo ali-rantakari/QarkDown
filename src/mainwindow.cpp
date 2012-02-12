@@ -9,7 +9,6 @@
 TODO:
 - Highlight whole blockquotes in PMH
 
-- Windows: Fix/workaround for non-working text color alpha
 - OS X: Catch the maximize/zoom action (window button + menu item) and set custom "zoomed" size
 - Apply highlighting styles incrementally (might not be very easy, though)
 - Fix the tab/shift-tab indentation to work in a more "standard" manner
