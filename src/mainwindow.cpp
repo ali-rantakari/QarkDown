@@ -48,6 +48,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     setCentralWidget(editor);
 
     statusBar()->show();
+
+    qApp->installEventFilter(this);
 }
 
 MainWindow::~MainWindow()
@@ -80,6 +82,50 @@ void MainWindow::show()
     QMainWindow::show();
 }
 
+void MainWindow::checkIfFileModifiedByThirdParty()
+{
+    // If we don't have a known modification date, we can't do anything:
+    if (openFileKnownLastModified.isNull())
+        return;
+    bool shouldAsk = settings->value(SETTING_ASK_RELOAD_MODIFIED_FILE, DEF_ASK_RELOAD_MODIFIED_FILE).toBool();
+    if (!shouldAsk)
+        return;
+
+    QDateTime currentLastModified = QFileInfo(openFilePath).lastModified();
+    if (openFileKnownLastModified < currentLastModified)
+    {
+        openFileKnownLastModified = currentLastModified;
+
+        QMessageBox revertMessageBox(this);
+        revertMessageBox.setWindowModality(Qt::WindowModal);
+        revertMessageBox.setIcon(QMessageBox::Warning);
+        revertMessageBox.setText(
+                    tr("Do you want to reload the modified document “%1”?")
+                    .arg(QFileInfo(openFilePath).fileName()));
+        revertMessageBox.setInformativeText(
+                    tr("Another process seems to have modified this file. "
+                       "Would you like to reload it from disk?"));
+        revertMessageBox.setDefaultButton(revertMessageBox.addButton(tr("Reload"), QMessageBox::AcceptRole));
+        revertMessageBox.addButton(tr("Keep Current"), QMessageBox::RejectRole);
+        revertMessageBox.exec();
+
+        QMessageBox::ButtonRole selectedButtonRole = revertMessageBox.buttonRole(revertMessageBox.clickedButton());
+        if (selectedButtonRole == QMessageBox::AcceptRole)
+            revertToSaved();
+    }
+}
+
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj != qApp)
+        return QMainWindow::eventFilter(obj, event);
+
+    if (event->type() == QEvent::ApplicationActivate)
+        checkIfFileModifiedByThirdParty();
+
+    return false;
+}
+
 QString standardizeFilePath(QString filePath)
 {
     QFileInfo fileInfo(filePath);
@@ -94,6 +140,9 @@ void MainWindow::setOpenFilePath(QString newValue)
     openFilePath = newValue;
     revertToSavedMenuAction->setEnabled(!openFilePath.isNull());
     revealFileAction->setEnabled(!openFilePath.isNull());
+    openFileKnownLastModified = openFilePath.isNull()
+                                ? QDateTime()
+                                : QFileInfo(openFilePath).lastModified();
 }
 
 void MainWindow::newFile()
@@ -829,7 +878,7 @@ QMessageBox::ButtonRole MainWindow::offerToSaveChangesIfNecessary()
     saveConfirmMessageBox.setIcon(QMessageBox::Warning);
     saveConfirmMessageBox.setText(tr("Do you want to save the changes you made in the document “%1”?").arg(fileBaseName));
     saveConfirmMessageBox.setInformativeText(tr("Your changes will be lost if you don’t save them."));
-    saveConfirmMessageBox.setDefaultButton(saveConfirmMessageBox.addButton(weHaveSavePath ? "Save" : "Save...", QMessageBox::AcceptRole));
+    saveConfirmMessageBox.setDefaultButton(saveConfirmMessageBox.addButton(weHaveSavePath ? tr("Save") : tr("Save..."), QMessageBox::AcceptRole));
     saveConfirmMessageBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
     saveConfirmMessageBox.addButton(tr("Don’t Save"), QMessageBox::DestructiveRole);
     saveConfirmMessageBox.exec();

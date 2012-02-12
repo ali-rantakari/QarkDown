@@ -15,6 +15,7 @@
 #define SETTING_FORMAT_STRONG_WITH_UNDERSCORES "FormatStrongWithUnderscores"
 #define SETTING_LAST_FILE_DIALOG_PATH "LastFileDialogPath"
 #define SETTING_LAST_COMPILE_DIALOG_PATH "LastCompileOutputPath"
+#define SETTING_ASK_RELOAD_MODIFIED_FILE "AskToReloadFilesModifiedByOtherProcess"
 
 #define SETTING_LAST_FILE "LastFile"
 #define SETTING_WINDOW_GEOMETRY "LastWindowGeometry"
@@ -36,6 +37,7 @@
 #define DEF_REMEMBER_LAST_FILE  false
 #define DEF_REMEMBER_WINDOW     true
 #define DEF_CLICKABLE_LINKS     false
+#define DEF_ASK_RELOAD_MODIFIED_FILE true
 #define DEF_HIGHLIGHT_CURRENT_LINE true
 #define DEF_LINE_HIGHLIGHT_COLOR QColor(Qt::yellow).lighter(180)
 #define DEF_STYLE               ":/styles/Default"

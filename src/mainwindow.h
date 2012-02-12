@@ -79,6 +79,7 @@ public slots:
 
 protected:
     void closeEvent(QCloseEvent *event);
+    bool eventFilter(QObject *obj,  QEvent *event);
 
 private:
     enum FileDialogKind
@@ -105,6 +106,7 @@ private:
     bool isDirty();
     void setDirty(bool value);
     bool compileToHTMLFile(QString targetPath);
+    void checkIfFileModifiedByThirdParty();
 
     HGUpdateCheck *updateCheck;
     MarkdownCompiler *compiler;
@@ -116,6 +118,7 @@ private:
     QarkdownTextEdit *editor;
     HGMarkdownHighlighter *highlighter;
     QString openFilePath;
+    QDateTime openFileKnownLastModified;
     QString searchString;
 
     QMenu *recentFilesMenu;
