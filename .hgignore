@@ -9,4 +9,6 @@ syntax: glob
 *Setup.exe
 *setup.exe
 qarkdown-windows-installerfiles
+*.autosave
+*.swp
 
