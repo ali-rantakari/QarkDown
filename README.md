@@ -14,7 +14,7 @@ The following compilers are bundled with QarkDown:
 - On Linux:
     - [Multimarkdown] by Fletcher T. Penney
 
-Copyright (c) 2011 Ali Rantakari  
+Copyright (c) 2011-2012 Ali Rantakari  
 <http://hasseg.org/qarkdown>
 
 [Markdown]: http://daringfireball.net/projects/markdown

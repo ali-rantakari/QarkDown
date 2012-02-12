@@ -11,7 +11,7 @@ struct applicationVersion
     int tiny;
 } appVersion = {0, 3, 4};
 
-#define kCopyrightYearStr "2011"
+#define kCopyrightYearStr "2011-2012"
 #define kWebsiteURL "http://hasseg.org/qarkdown"
 
 QarkdownApplication::QarkdownApplication(int &argc, char **argv) :
