@@ -7,7 +7,6 @@
 
 /*
 TODO:
-- Switch to one of the latest files feature
 - Handle cases where some other process modifies the file we have open
 - Support "quoted args" for compilers (remember to test on Windows !)
 
@@ -38,7 +37,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     updateCheck = new HGUpdateCheck(((QarkdownApplication *)qApp)->websiteURL(), this);
 
     preferencesDialog = new PreferencesDialog(settings, compiler);
-    fileSearchDialog = new FileSearchDialog();
+    fileSearchDialog = new FileSearchDialog(this);
+    fileSearchDialog->setWindowTitle(tr("Select Previous File to Open"));
 
     recentFilesMenuActions = new QList<QAction *>();
 
@@ -552,8 +552,13 @@ void MainWindow::showRecentFileSearchDialog()
     QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
     fileSearchDialog->resetWithFilePaths(&recentFiles);
     fileSearchDialog->exec();
+    // TODO: catch signal from dialog and actually switch the file
 }
 
+void MainWindow::fileSearchDialogSelectedFilePath(QString path)
+{
+    openFile(path);
+}
 
 QString getTempHTMLFilePathForMarkdownFilePath(QString markdownFilePath)
 {
@@ -785,6 +790,8 @@ void MainWindow::performStartupTasks()
             this, SLOT(preferencesUpdated()));
     connect(editor, SIGNAL(anchorClicked(QUrl)),
             this, SLOT(anchorClicked(QUrl)));
+    connect(fileSearchDialog, SIGNAL(selectedFilePath(QString)),
+            this, SLOT(fileSearchDialogSelectedFilePath(QString)));
 }
 
 void MainWindow::reportStyleParsingErrors(QList<QPair<int, QString> > *list)

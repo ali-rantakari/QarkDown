@@ -56,6 +56,7 @@ public slots:
 
     void openRecentFile();
     void showRecentFileSearchDialog();
+    void fileSearchDialogSelectedFilePath(QString path);
     void compileToTempHTML();
     void compileToHTMLAs();
     void recompileToHTML();
