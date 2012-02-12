@@ -7,20 +7,16 @@
 
 /*
 TODO:
-- Handle cases where some other process modifies the file we have open
-- Support "quoted args" for compilers (remember to test on Windows !)
-
 - Highlight whole blockquotes in PMH
 
-- Apply highlighting styles incrementally (might not be very easy, though)
-- Fix the tab/shift-tab indentation to work in a more "standard" manner
 - Windows: Fix/workaround for non-working text color alpha
 - OS X: Catch the maximize/zoom action (window button + menu item) and set custom "zoomed" size
-- OS X: Make main window title bar show the file icon + provide the file path dropdown
+- Apply highlighting styles incrementally (might not be very easy, though)
+- Fix the tab/shift-tab indentation to work in a more "standard" manner
 
-- Multiple files open; file switcher dock widget
 - Use QTextOption::ShowTabsAndSpaces
 - Use Sparkle on OS X
+- Support "quoted args" for compilers (remember to test on Windows !)
 */
 
 #define kUntitledFileUIName "Untitled"
