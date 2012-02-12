@@ -552,7 +552,6 @@ void MainWindow::showRecentFileSearchDialog()
     QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
     fileSearchDialog->resetWithFilePaths(&recentFiles);
     fileSearchDialog->exec();
-    // TODO: catch signal from dialog and actually switch the file
 }
 
 void MainWindow::fileSearchDialogSelectedFilePath(QString path)
