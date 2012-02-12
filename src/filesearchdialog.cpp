@@ -45,20 +45,17 @@ void FileSearchDialog::clearFileList()
 
 void FileSearchDialog::accept()
 {
-    QModelIndexList selectedRows = ui->listView->selectionModel()->selectedRows();
-    if (0 < selectedRows.count())
+    if (0 < fileListModel->rowCount())
     {
-        int selectedRow = selectedRows.at(0).row();
+        QModelIndexList selectedRows = ui->listView->selectionModel()->selectedRows();
+        int selectedRow = (0 < selectedRows.count()) ? selectedRows.at(0).row() : 0;
         QStandardItem *selectedItem = fileListModel->item(selectedRow, 0);
         QString selectedPath = selectedItem->data(PATH_ROLE).toString();
         Logger::debug(QString("path: %1").arg(selectedPath));
         emit selectedFilePath(selectedPath);
     }
     else
-    {
-        // TODO: select the first one by default
         Logger::debug("No selection");
-    }
 
     clearFileList();
     QDialog::accept();
