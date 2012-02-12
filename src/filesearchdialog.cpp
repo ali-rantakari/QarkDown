@@ -33,6 +33,7 @@ void FileSearchDialog::resetWithFilePaths(QStringList aFilePaths)
     filePaths = aFilePaths;
     ui->lineEdit->clear();
     ui->lineEdit->setFocus();
+    updateSearchResults("");
 }
 
 void FileSearchDialog::clearFileList()
@@ -79,12 +80,14 @@ void FileSearchDialog::updateSearchResults(QString searchQuery)
 {
     if (filePaths.isEmpty())
         return;
+    bool queryIsEmpty = searchQuery.trimmed().isEmpty();
     fileListModel->clear();
     int count = filePaths.count();
     for (int i = 0; i < count; i++)
     {
         QString path = filePaths.at(i);
-        if (!queryMatchesPath(searchQuery, path) || !QFile::exists(path))
+        if (!queryIsEmpty &&
+            (!queryMatchesPath(searchQuery, path) || !QFile::exists(path)))
             continue;
         QStandardItem *item = new QStandardItem();
         item->setText(path);
