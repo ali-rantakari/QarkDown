@@ -71,11 +71,11 @@ void HGUpdateCheck::handleAppStartup()
     {
         QMessageBox shouldCheckDialog;
         shouldCheckDialog.setIconPixmap(QPixmap(":/smallAppIcon.png"));
-        shouldCheckDialog.setText("Check for Updates on Startup?");
+        shouldCheckDialog.setText(tr("Check for Updates on Startup?"));
         shouldCheckDialog.setInformativeText(
-                    "Would you like "+qApp->applicationName()+
-                    " to check for updates on startup? If not, you can "
-                    "check manually from the help menu.");
+                    tr("Would you like %1 to check for updates on startup? "
+                       "If not, you can check manually from the help menu.")
+                    .arg(qApp->applicationName()));
         shouldCheckDialog.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
         shouldCheckDialog.setDefaultButton(QMessageBox::Yes);
         int response = shouldCheckDialog.exec();
