@@ -1,6 +1,7 @@
 #include "filesearchdialog.h"
 #include "ui_filesearchdialog.h"
 #include "logger.h"
+#include <QFileInfo>
 
 FileSearchDialog::FileSearchDialog(QWidget *parent) :
     QDialog(parent),
@@ -86,11 +87,12 @@ void FileSearchDialog::updateSearchResults(QString searchQuery)
     for (int i = 0; i < count; i++)
     {
         QString path = filePaths.at(i);
-        if (!queryIsEmpty &&
-            (!queryMatchesPath(searchQuery, path) || !QFile::exists(path)))
+        if (!QFile::exists(path) || (!queryIsEmpty && !queryMatchesPath(searchQuery, path)))
             continue;
         QStandardItem *item = new QStandardItem();
-        item->setText(path);
+        QString basename = QFileInfo(path).fileName();
+        QString parentDirPath = QFileInfo(path).path();
+        item->setText(tr("%1  —  %2").arg(basename).arg(parentDirPath));
         item->setData(path, PATH_ROLE);
         fileListModel->appendRow(item);
     }
