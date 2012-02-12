@@ -28,7 +28,6 @@
 #define SETTING_COMPILER_ARGS "CompilerArgs"
 
 #define DEF_EXTENSIONS          "md markdown mdtext txt text"
-#define DEF_FONT_FAMILY         "Courier"
 #define DEF_FONT_SIZE           12
 #define DEF_TAB_WIDTH           4
 #define DEF_HIGHLIGHT_INTERVAL  0.5
@@ -45,12 +44,16 @@
 #define DEF_FORMAT_STRONG_WITH_UNDERSCORES false
 
 #ifdef Q_WS_MACX
+#define DEF_FONT_FAMILY         "Monaco"
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-osx"
 #elif defined(Q_WS_WIN)
+#define DEF_FONT_FAMILY         "Courier"
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-windows.exe"
 #elif defined(Q_OS_LINUX)
+#define DEF_FONT_FAMILY         "Courier"
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-linux"
 #else
+#define DEF_FONT_FAMILY         "Courier"
 #define DEF_COMPILER            ""
 #endif
 
