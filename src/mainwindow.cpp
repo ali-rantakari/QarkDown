@@ -595,7 +595,12 @@ void MainWindow::openRecentFile()
 void MainWindow::showRecentFileSearchDialog()
 {
     QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
-    fileSearchDialog->resetWithFilePaths(recentFiles);
+    QStringList otherRecents;
+    foreach (QString path, recentFiles) {
+        if (QFileInfo(path).absoluteFilePath() != QFileInfo(openFilePath).absoluteFilePath())
+            otherRecents.insert(otherRecents.count(), path);
+    }
+    fileSearchDialog->resetWithFilePaths(otherRecents);
     fileSearchDialog->show();
 }
 
