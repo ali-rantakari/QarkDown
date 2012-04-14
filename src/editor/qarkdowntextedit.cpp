@@ -6,6 +6,7 @@
 #include <QTextLayout>
 #include <QApplication>
 #include <QToolTip>
+#include <QDebug>
 
 QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
     LineNumberingPlainTextEdit(parent)
@@ -344,13 +345,34 @@ void QarkdownTextEdit::unindentSelectedLines()
     removalCursor.endEditBlock();
 }
 
+int QarkdownTextEdit::numCharsFromCursorToNextTabStop()
+{
+    QTextCursor cursor = this->textCursor();
+    int lineStartPos = cursor.block().position();
+    int lineLength = (cursor.position() - lineStartPos);
+    int numExistingTabStops = lineLength / _spacesIndentWidthHint;
+    int charsAfterTabStop = lineLength - (numExistingTabStops * _spacesIndentWidthHint);
+    if (charsAfterTabStop == 0)
+        return _spacesIndentWidthHint;
+    return _spacesIndentWidthHint - charsAfterTabStop;
+}
+
 void QarkdownTextEdit::indentAtCursor()
 {
     QTextCursor cursor = this->textCursor();
     QTextCursor insertCursor(document());
     insertCursor.beginEditBlock();
     insertCursor.setPosition(cursor.position());
-    insertCursor.insertText(_indentString);
+
+    if (_indentString.startsWith(" "))
+    {
+        int numSpacesToIndent = this->numCharsFromCursorToNextTabStop();
+        for (int i = 0; i < numSpacesToIndent; i++)
+            insertCursor.insertText(" ");
+    }
+    else
+        insertCursor.insertText(_indentString);
+
     insertCursor.endEditBlock();
 }
 

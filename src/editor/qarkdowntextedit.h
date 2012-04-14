@@ -75,6 +75,7 @@ protected:
     int guessNumOfSpacesToDeleteUponUnindenting();
     void indentSelectedLines();
     void unindentSelectedLines();
+    int numCharsFromCursorToNextTabStop();
     void indentAtCursor();
     void unindentAtCursor();
 

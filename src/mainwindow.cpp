@@ -11,7 +11,6 @@ TODO:
 
 - OS X: Catch the maximize/zoom action (window button + menu item) and set custom "zoomed" size
 - Apply highlighting styles incrementally (might not be very easy, though)
-- Fix the tab/shift-tab indentation to work in a more "standard" manner
 
 - Use QTextOption::ShowTabsAndSpaces
 - Use Sparkle on OS X
