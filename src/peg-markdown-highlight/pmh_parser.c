@@ -89,6 +89,13 @@ typedef struct pmh_RealElement pmh_realelement;
 // Parser state data:
 typedef struct
 {
+    /* The original, unmodified UTF-8 input: */
+    char *original_input;
+    
+    /* The offsets of the bytes we have stripped from original_input: */
+    unsigned long *strip_positions;
+    size_t strip_positions_len;
+    
     /* Buffer of characters to be parsed: */
     char *charbuf;
     
@@ -114,7 +121,10 @@ typedef struct
     pmh_realelement *references;
 } parser_data;
 
-static parser_data *mk_parser_data(char *charbuf,
+static parser_data *mk_parser_data(char *original_input,
+                                   unsigned long *strip_positions,
+                                   size_t strip_positions_len,
+                                   char *charbuf,
                                    pmh_realelement *parsing_elems,
                                    unsigned long offset,
                                    int extensions,
@@ -123,6 +133,9 @@ static parser_data *mk_parser_data(char *charbuf,
 {
     parser_data *p_data = (parser_data *)malloc(sizeof(parser_data));
     p_data->extensions = extensions;
+    p_data->original_input = original_input;
+    p_data->strip_positions = strip_positions;
+    p_data->strip_positions_len = strip_positions_len;
     p_data->charbuf = charbuf;
     p_data->offset = offset;
     p_data->elem_head = p_data->current_elem = parsing_elems;
@@ -341,12 +354,17 @@ static void process_raw_blocks(parser_data *p_data)
                 #endif
                 
                 // Process subspan_list:
-                parser_data *raw_p_data = mk_parser_data(p_data->charbuf,
-                                                         subspan_list,
-                                                         subspan_list->pos,
-                                                         p_data->extensions,
-                                                         p_data->head_elems,
-                                                         p_data->references);
+                parser_data *raw_p_data = mk_parser_data(
+                    p_data->original_input,
+                    p_data->strip_positions,
+                    p_data->strip_positions_len,
+                    p_data->charbuf,
+                    subspan_list,
+                    subspan_list->pos,
+                    p_data->extensions,
+                    p_data->head_elems,
+                    p_data->references
+                );
                 parse_markdown(raw_p_data);
                 free(raw_p_data);
                 
@@ -401,40 +419,73 @@ void pmh_free_elements(pmh_element **elems)
 
 
 
-
-
 #define IS_CONTINUATION_BYTE(x) ((x & 0xC0) == 0x80)
 #define HAS_UTF8_BOM(x)         ( ((*x & 0xFF) == 0xEF)\
                                   && ((*(x+1) & 0xFF) == 0xBB)\
                                   && ((*(x+2) & 0xFF) == 0xBF) )
+#define ADD_STRIP_POS(x) \
+    /* reallocate more space for the array, if needed: */ \
+    if (strip_positions_size <= strip_positions_pos) { \
+        size_t new_size = strip_positions_size * 2; \
+        unsigned long *new_arr = (unsigned long *) \
+                                 calloc(new_size, \
+                                        sizeof(unsigned long)); \
+        memcpy(new_arr, strip_positions, \
+               (sizeof(unsigned long) * strip_positions_size)); \
+        strip_positions_size = new_size; \
+        free(strip_positions); \
+        strip_positions = new_arr; \
+    } \
+    strip_positions[strip_positions_pos] = x; \
+    strip_positions_pos++;
 
 /*
 Copy `str` to `out`, while doing the following:
   - remove UTF-8 continuation bytes
   - remove possible UTF-8 BOM (byte order mark)
   - append two newlines to the end (like peg-markdown does)
+  - keep track of which bytes we have stripped (in strip_positions)
 */
-static int strcpy_preformat(char *str, char **out)
+static int strcpy_preformat(char *str, char **out,
+                            unsigned long **out_strip_positions,
+                            size_t *out_strip_positions_len)
 {
+    size_t strip_positions_size = 1024;
+    size_t strip_positions_pos = 0;
+    unsigned long *strip_positions = (unsigned long *)
+                                     calloc(strip_positions_size,
+                                            sizeof(unsigned long));
+    
+    
     // +2 in the following is due to the "\n\n" suffix:
     char *new_str = (char *)malloc(sizeof(char) * strlen(str) + 1 + 2);
     char *c = str;
     int i = 0;
     
-    if (HAS_UTF8_BOM(c))
+    if (HAS_UTF8_BOM(c)) {
         c += 3;
+        ADD_STRIP_POS(0);
+        ADD_STRIP_POS(1);
+        ADD_STRIP_POS(2);
+    }
     
     while (*c != '\0')
     {
-        if (!IS_CONTINUATION_BYTE(*c))
+        if (!IS_CONTINUATION_BYTE(*c)) {
             *(new_str+i) = *c, i++;
+        } else {
+            ADD_STRIP_POS((int)(c-str));
+        }
         c++;
     }
+    
     *(new_str+(i++)) = '\n';
     *(new_str+(i++)) = '\n';
     *(new_str+i) = '\0';
     
     *out = new_str;
+    *out_strip_positions = strip_positions;
+    *out_strip_positions_len = strip_positions_pos;
     return i;
 }
 
@@ -444,7 +495,10 @@ void pmh_markdown_to_elements(char *text, int extensions,
                               pmh_element **out_result[])
 {
     char *text_copy = NULL;
-    int text_copy_len = strcpy_preformat(text, &text_copy);
+    unsigned long *strip_positions = NULL;
+    size_t strip_positions_len = 0;
+    int text_copy_len = strcpy_preformat(text, &text_copy, &strip_positions,
+                                         &strip_positions_len);
     
     pmh_realelement *parsing_elem = (pmh_realelement *)
                                     malloc(sizeof(pmh_realelement));
@@ -453,8 +507,17 @@ void pmh_markdown_to_elements(char *text, int extensions,
     parsing_elem->end = text_copy_len;
     parsing_elem->next = NULL;
     
-    parser_data *p_data = mk_parser_data(text_copy, parsing_elem,
-                                         0, extensions, NULL, NULL);
+    parser_data *p_data = mk_parser_data(
+        text,
+        strip_positions,
+        strip_positions_len,
+        text_copy,
+        parsing_elem,
+        0,
+        extensions,
+        NULL,
+        NULL
+    );
     pmh_realelement **result = p_data->head_elems;
     
     if (*text_copy != '\0')
@@ -476,6 +539,7 @@ void pmh_markdown_to_elements(char *text, int extensions,
         process_raw_blocks(p_data);
     }
     
+    free(strip_positions);
     free(p_data);
     free(parsing_elem);
     free(text_copy);
@@ -678,7 +742,7 @@ static pmh_realelement *mk_etext(parser_data *p_data, char *string)
 Given an element where the offsets {pos, end} represent
 locations in the *parsed text* (defined by the linked list of pmh_RAW and
 pmh_EXTRA_TEXT elements in p_data->current_elem), fix these offsets to represent
-corresponding offsets in the original input (p_data->charbuf). Also split
+corresponding offsets in the parse buffer (p_data->charbuf). Also split
 the given pmh_realelement into multiple parts if its offsets span multiple
 p_data->current_elem elements. Return the (list of) elements with real offsets.
 */
@@ -734,8 +798,9 @@ static pmh_realelement *fix_offsets(parser_data *p_data, pmh_realelement *elem)
             previous_end = cursor->end;
         
         if (found_start) {
-            pmh_realelement *new_elem = mk_element(p_data, tail->type,
-                                           this_pos, cursor->end);
+            pmh_realelement *new_elem = copy_element(p_data, tail);
+            new_elem->pos = this_pos;
+            new_elem->end = cursor->end;
             new_elem->next = tail;
             if (prev != NULL)
                 prev->next = new_elem;
@@ -803,6 +868,81 @@ static void add(parser_data *p_data, pmh_realelement *elem)
         last->next = p_data->head_elems[elem->type];
         p_data->head_elems[elem->type] = elem;
     }
+}
+
+
+// Given a range in the list of spans we use for parsing (pos, end), return
+// a copy of the corresponding section in the original input, with all of
+// the UTF-8 bytes intact:
+static char *copy_input_span(parser_data *p_data,
+                             unsigned long pos, unsigned long end)
+{
+    //printf("copy_input_span: %ld - %ld\n", pos, end);
+    
+    if (end <= pos)
+        return NULL;
+    
+    char *ret = NULL;
+    
+    // Adjust (pos,end) to match actual indexes in charbuf:
+    pmh_realelement *dummy = mk_element(p_data, pmh_NO_TYPE, pos, end);
+    pmh_realelement *fixed_dummies = fix_offsets(p_data, dummy);
+    pmh_realelement *cursor = fixed_dummies;
+    while (cursor != NULL)
+    {
+        //printf("  in charbuf: %ld - %ld\n", cursor->pos, cursor->end);
+        if (cursor->end <= cursor->pos)
+        {
+            cursor = cursor->next;
+            continue;
+        }
+        
+        // Adjust cursor's span to take bytes stripped from the original
+        // input into account (i.e. match the corresponding span in
+        // p_data->original_input):
+        unsigned long adjusted_pos = cursor->pos;
+        unsigned long adjusted_end = cursor->end;
+        size_t i;
+        for (i = 0; i < p_data->strip_positions_len; i++)
+        {
+            unsigned long strip_position = p_data->strip_positions[i];
+            //printf("  strip pos #%ld: %ld\n", i, strip_position);
+            if (strip_position <= adjusted_pos)
+                adjusted_pos++;
+            if (strip_position <= adjusted_end)
+                adjusted_end++;
+            else
+                break;
+        }
+        
+        //printf("    adjusted: %ld - %ld\n", adjusted_pos, adjusted_end);
+        
+        // Copy span from original input:
+        size_t adjusted_len = adjusted_end - adjusted_pos;
+        char *str = (char *)malloc(sizeof(char)*adjusted_len + 1);
+        *str = '\0';
+        strncat(str, (p_data->original_input + adjusted_pos), adjusted_len);
+        
+        if (ret == NULL)
+            ret = str;
+        else
+        {
+            // append str to ret:
+            char *new_ret = (char *)malloc(sizeof(char)
+                                           *(strlen(str) + strlen(ret)) + 1);
+            *new_ret = '\0';
+            strcat(new_ret, ret);
+            strcat(new_ret, str);
+            free(ret);
+            free(str);
+            ret = new_ret;
+        }
+        
+        cursor = cursor->next;
+    }
+    
+    //printf("   returning: '%s'\n", ret);
+    return ret;
 }
 
 
@@ -880,6 +1020,9 @@ static void yy_input_func(char *buf, int *result, int max_size,
 #define PARSING_REFERENCES ((parser_data *)G->data)->parsing_only_references
 #define FREE_LABEL(l) { free(l->label); l->label = NULL; }
 #define FREE_ADDRESS(l) { free(l->address); l->address = NULL; }
+
+// This gives us the text matched with < > as it appears in the original input:
+#define COPY_YYTEXT_ORIG() copy_input_span((parser_data *)G->data, thunk->begin, thunk->end)
 
 
 #ifndef YY_ALLOC
@@ -1412,7 +1555,7 @@ YY_ACTION(void) yy_1_Ticks1(GREG *G, char *yytext, int yyleng, yythunk *thunk, Y
 YY_ACTION(void) yy_1_RefSrc(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
   yyprintf((stderr, "do yy_1_RefSrc\n"));
-   yy = mk_notype; yy->address = strdup(yytext); ;
+   yy = mk_notype; yy->address = COPY_YYTEXT_ORIG(); ;
 }
 YY_ACTION(void) yy_2_Label(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
@@ -1429,7 +1572,7 @@ YY_ACTION(void) yy_1_Label(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY
 {
 #define s G->val[-1]
   yyprintf((stderr, "do yy_1_Label\n"));
-   s->label = strdup(yytext); ;
+   s->label = COPY_YYTEXT_ORIG(); ;
 #undef s
 }
 YY_ACTION(void) yy_1_Reference(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
@@ -1464,7 +1607,7 @@ YY_ACTION(void) yy_2_AutoLinkEmail(GREG *G, char *yytext, int yyleng, yythunk *t
 {
 #define s G->val[-1]
   yyprintf((stderr, "do yy_2_AutoLinkEmail\n"));
-   s->address = strdup(yytext); ;
+   s->address = COPY_YYTEXT_ORIG(); ;
 #undef s
 }
 YY_ACTION(void) yy_1_AutoLinkEmail(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
@@ -1488,7 +1631,7 @@ YY_ACTION(void) yy_2_AutoLinkUrl(GREG *G, char *yytext, int yyleng, yythunk *thu
 {
 #define s G->val[-1]
   yyprintf((stderr, "do yy_2_AutoLinkUrl\n"));
-   s->address = strdup(yytext); ;
+   s->address = COPY_YYTEXT_ORIG(); ;
 #undef s
 }
 YY_ACTION(void) yy_1_AutoLinkUrl(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
@@ -1501,12 +1644,12 @@ YY_ACTION(void) yy_1_AutoLinkUrl(GREG *G, char *yytext, int yyleng, yythunk *thu
 YY_ACTION(void) yy_3_Source(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
   yyprintf((stderr, "do yy_3_Source\n"));
-   yy->address = strdup(yytext); ;
+   yy->address = COPY_YYTEXT_ORIG(); ;
 }
 YY_ACTION(void) yy_2_Source(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
   yyprintf((stderr, "do yy_2_Source\n"));
-   yy->address = strdup(yytext); ;
+   yy->address = COPY_YYTEXT_ORIG(); ;
 }
 YY_ACTION(void) yy_1_Source(GREG *G, char *yytext, int yyleng, yythunk *thunk, YY_XTYPE YY_XVAR)
 {
@@ -1520,7 +1663,8 @@ YY_ACTION(void) yy_1_ExplicitLink(GREG *G, char *yytext, int yyleng, yythunk *th
   yyprintf((stderr, "do yy_1_ExplicitLink\n"));
   
                     yy = elem_s(pmh_LINK);
-                    yy->address = strdup(l->address);
+                    if (l->address != NULL)
+                        yy->address = strdup(l->address);
                     FREE_LABEL(s);
                     FREE_ADDRESS(l);
                 ;
