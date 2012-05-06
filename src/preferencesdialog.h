@@ -28,6 +28,7 @@ private slots:
     void fontButtonClicked();
     void openStylesFolderButtonClicked();
     void openCompilersFolderButtonClicked();
+    void changeNotesFolderButtonClicked();
     void editHTMLTemplateButtonClicked();
     void stylesComboBoxCurrentIndexChanged(int index);
     void compilersComboBoxCurrentIndexChanged(int index);

@@ -8,6 +8,7 @@
 
 #include <QFontDialog>
 #include <QColorDialog>
+#include <QFileDialog>
 #include <QDesktopServices>
 #include <QMessageBox>
 #include <QTextStream>
@@ -87,6 +88,8 @@ void PreferencesDialog::setupConnections()
             this, SLOT(stylesComboBoxCurrentIndexChanged(int)));
     connect(ui->compilersComboBox, SIGNAL(currentIndexChanged(int)),
             this, SLOT(compilersComboBoxCurrentIndexChanged(int)));
+    connect(ui->changeNotesFolderButton, SIGNAL(clicked()),
+            this, SLOT(changeNotesFolderButtonClicked()));
 }
 
 void PreferencesDialog::setFontToLabel(QFont font)
@@ -312,6 +315,7 @@ void PreferencesDialog::updateUIFromSettings()
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_HIGHLIGHT_CURRENT_LINE, DEF_HIGHLIGHT_CURRENT_LINE, ui->highlightLineCheckBox);
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_OPEN_TARGET_AFTER_COMPILING, DEF_OPEN_TARGET_AFTER_COMPILING, ui->openTargetAfterCompilingCheckBox);
     PREF_TO_UI_STRING(SETTING_EXTENSIONS, DEF_EXTENSIONS, ui->extensionsLineEdit);
+    PREF_TO_UI_STRING(SETTING_NOTES_FOLDER, "", ui->notesFolderLineEdit);
 
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_FORMAT_EMPH_WITH_UNDERSCORES, DEF_FORMAT_EMPH_WITH_UNDERSCORES, ui->emphUnderscoreRadioButton);
     ui->emphAsteriskRadioButton->setChecked(!ui->emphUnderscoreRadioButton->isChecked());
@@ -335,6 +339,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_EXTENSIONS, ui->extensionsLineEdit->text());
     settings->setValue(SETTING_FORMAT_EMPH_WITH_UNDERSCORES, ui->emphUnderscoreRadioButton->isChecked());
     settings->setValue(SETTING_FORMAT_STRONG_WITH_UNDERSCORES, ui->strongUnderscoreRadioButton->isChecked());
+    settings->setValue(SETTING_NOTES_FOLDER, ui->notesFolderLineEdit->text());
 
     QString selectedCompilerPath = ui->compilersComboBox->itemData(ui->compilersComboBox->currentIndex()).toString();
     QMap<QString, QVariant> compilerArgsMap = settings->value(SETTING_COMPILER_ARGS).toMap();
@@ -397,6 +402,14 @@ void PreferencesDialog::openStylesFolderButtonClicked()
 void PreferencesDialog::openCompilersFolderButtonClicked()
 {
     openFolderEnsuringItExists(userCompilersDir().absolutePath());
+}
+
+void PreferencesDialog::changeNotesFolderButtonClicked()
+{
+    QString selection = QFileDialog::getExistingDirectory(this, tr("Select Notes Folder"));
+    if (selection.isNull())
+        return;
+    ui->notesFolderLineEdit->setText(selection);
 }
 
 void PreferencesDialog::editHTMLTemplateButtonClicked()

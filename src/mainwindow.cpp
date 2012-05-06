@@ -32,7 +32,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     preferencesDialog = new PreferencesDialog(settings, compiler);
     fileSearchDialog = new FileSearchDialog(this);
-    fileSearchDialog->setWindowTitle(tr("Select Previous File to Open"));
     fileSearchDialog->setWindowModality(Qt::WindowModal);
 
     recentFilesMenuActions = new QList<QAction *>();
@@ -171,6 +170,24 @@ QString MainWindow::getMarkdownFilesFilter()
     filesFilter.chop(1); // remove last space
     filesFilter += ")";
     return filesFilter;
+}
+
+QStringList MainWindow::getMarkdownFilesFilterList()
+{
+    QStringList extensions = settings->value(SETTING_EXTENSIONS, DEF_EXTENSIONS)
+                             .toString().split(' ', QString::SkipEmptyParts);
+    if (extensions.count() == 0)
+        return QStringList("*.*");
+
+    QStringList filterList;
+    foreach (QString ext, extensions)
+    {
+        QString cleanExt = ext.trimmed();
+        if (cleanExt.startsWith("."))
+            cleanExt = cleanExt.remove(0,1);
+        filterList.append("*." + cleanExt);
+    }
+    return filterList;
 }
 
 QString MainWindow::getPathFromFileDialog(FileDialogKind dialogKind)
@@ -599,7 +616,44 @@ void MainWindow::showRecentFileSearchDialog()
         if (QFileInfo(path).absoluteFilePath() != QFileInfo(openFilePath).absoluteFilePath())
             otherRecents.insert(otherRecents.count(), path);
     }
+    fileSearchDialog->setWindowTitle(tr("Select Previous File to Open"));
     fileSearchDialog->resetWithFilePaths(otherRecents);
+    fileSearchDialog->show();
+}
+
+void MainWindow::showNotesFolderFileSearchDialog()
+{
+    QVariant notesFolderSetting = settings->value(SETTING_NOTES_FOLDER);
+    if (notesFolderSetting.isNull() || notesFolderSetting.toString().isEmpty())
+    {
+        QMessageBox::information(this, tr("Notes Folder Not Set"),
+                                 tr("In order to open a file from the notes "
+                                    "folder, you first need to set the path "
+                                    "to your notes folder in the application "
+                                    "preferences."));
+        return;
+    }
+
+    QString notesFolderPath = notesFolderSetting.toString();
+    if (!QFile(notesFolderPath).exists())
+    {
+        QMessageBox::warning(this, tr("Notes Folder Not Found"),
+                             tr("The notes folder cannot be found at the "
+                                "path %1. Please set the correct path in "
+                                "the application preferences.").arg(notesFolderPath));
+        return;
+    }
+
+    QStringList fileNames = QDir(notesFolderPath).entryList(getMarkdownFilesFilterList());
+
+    QStringList filePaths;
+    foreach (QString fileName, fileNames)
+    {
+        filePaths.append(notesFolderPath + QDir::separator() + fileName);
+    }
+
+    fileSearchDialog->setWindowTitle(tr("Select File to Open in Notes Folder"));
+    fileSearchDialog->resetWithFilePaths(filePaths);
     fileSearchDialog->show();
 }
 
@@ -743,6 +797,9 @@ void MainWindow::setupFileMenu()
     fileMenu->addAction(tr("Switch to Recent File..."),
                         this, SLOT(showRecentFileSearchDialog()),
                         QKeySequence("Ctrl+Shift+O"));
+    fileMenu->addAction(tr("Switch to File in Notes Folder"),
+                        this, SLOT(showNotesFolderFileSearchDialog()),
+                        QKeySequence("Ctrl+Shift+N"));
     fileMenu->addSeparator();
     fileMenu->addAction(tr("&Save"), this, SLOT(saveMenuItemHandler()),
                         QKeySequence::Save);

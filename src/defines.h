@@ -16,6 +16,7 @@
 #define SETTING_LAST_FILE_DIALOG_PATH "LastFileDialogPath"
 #define SETTING_LAST_COMPILE_DIALOG_PATH "LastCompileOutputPath"
 #define SETTING_ASK_RELOAD_MODIFIED_FILE "AskToReloadFilesModifiedByOtherProcess"
+#define SETTING_NOTES_FOLDER "NotesFolder"
 
 #define SETTING_LAST_FILE "LastFile"
 #define SETTING_WINDOW_GEOMETRY "LastWindowGeometry"

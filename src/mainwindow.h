@@ -56,6 +56,7 @@ public slots:
 
     void openRecentFile();
     void showRecentFileSearchDialog();
+    void showNotesFolderFileSearchDialog();
     void fileSearchDialogSelectedFilePath(QString path);
     void compileToTempHTML();
     void compileToHTMLAs();
@@ -92,6 +93,7 @@ private:
     QString getPathFromFileDialog(FileDialogKind dialogKind);
     void setOpenFilePath(QString newValue);
     QString getMarkdownFilesFilter();
+    QStringList getMarkdownFilesFilterList();
     void setupEditor();
     void setupFileMenu();
     void updateRecentFilesMenu();
