@@ -7,17 +7,78 @@ extern "C" {
 }
 
 
+// Convert unicode code point offsets (this is what we get from the parser) to
+// QString character offsets (QString uses UTF-16 units as characters, so
+// sometimes two characters (a "surrogate pair") are needed to represent one
+// code point):
+static void convertOffsets(pmh_element **elements, QString str)
+{
+    // Walk through the whole string only once, and gather all surrogate pair indexes
+    // (technically, the indexes of the high characters (which come before the low
+    // characters) in each pair):
+    QList<int> surrogatePairIndexes;
+    int strLen = str.length();
+    int i = 0;
+    while (i < strLen)
+    {
+        if (str.at(i).isHighSurrogate())
+            surrogatePairIndexes.append(i);
+        i++;
+    }
+
+    // If the text does not contain any surrogate pairs, we're done (the indexes
+    // are already correct):
+    if (surrogatePairIndexes.length() == 0)
+        return;
+
+    // Use our list of surrogate pair indexes to shift the indexes of all
+    // language elements:
+    for (int langType = 0; langType < pmh_NUM_LANG_TYPES; langType++)
+    {
+        pmh_element *cursor = elements[langType];
+        while (cursor != NULL)
+        {
+            unsigned posShift = 0;
+            unsigned endShift = 0;
+            unsigned passedPairs = 0;
+            for (int j = 0; j < surrogatePairIndexes.length(); j++)
+            {
+                unsigned u = surrogatePairIndexes.at(j) - passedPairs;
+                if (u < cursor->pos)
+                {
+                    posShift++;
+                    endShift++;
+                }
+                else if (u < cursor->end)
+                {
+                    endShift++;
+                }
+                else
+                    break;
+                passedPairs++;
+            }
+            cursor->pos += posShift;
+            cursor->end += endShift;
+            cursor = cursor->next;
+        }
+    }
+}
+
+
 WorkerThread::~WorkerThread()
 {
     if (result != NULL)
         pmh_free_elements(result);
-    free(content);
+    content = QString::null;
 }
 void WorkerThread::run()
 {
-    if (content == NULL)
+    if (content.isNull())
         return;
-    pmh_markdown_to_elements(content, pmh_EXT_NONE, &result);
+    QByteArray ba = content.toUtf8();
+    char *content_cstring = strdup((char *)ba.data());
+    pmh_markdown_to_elements(content_cstring, pmh_EXT_NONE, &result);
+    convertOffsets(result, content);
 }
 
 
@@ -469,14 +530,10 @@ void HGMarkdownHighlighter::parse()
         return;
     }
 
-    QString content = document->toPlainText();
-    QByteArray ba = content.toUtf8();
-    char *content_cstring = strdup((char *)ba.data());
-
     if (workerThread != NULL)
         delete workerThread;
     workerThread = new WorkerThread();
-    workerThread->content = content_cstring;
+    workerThread->content = document->toPlainText();
     connect(workerThread, SIGNAL(finished()), this, SLOT(threadFinished()));
     parsePending = false;
     workerThread->start();

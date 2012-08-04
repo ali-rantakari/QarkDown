@@ -19,7 +19,7 @@ class WorkerThread : public QThread
 public:
     ~WorkerThread();
     void run();
-    char *content;
+    QString content;
     pmh_element **result;
 };
 

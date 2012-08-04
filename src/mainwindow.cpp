@@ -7,6 +7,8 @@
 
 /*
 TODO:
+- More relevant matching in the file search dialog
+
 - Highlight whole blockquotes in PMH
 
 - OS X: Catch the maximize/zoom action (window button + menu item) and set custom "zoomed" size
