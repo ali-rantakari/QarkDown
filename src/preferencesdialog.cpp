@@ -40,7 +40,7 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings,
     strongRadioGroup->addButton(ui->strongAsteriskRadioButton);
     strongRadioGroup->addButton(ui->strongUnderscoreRadioButton);
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
     QFont font = ui->infoLabel1->font();
     font.setPointSize(8);
     ui->infoLabel1->setFont(font);
@@ -52,9 +52,10 @@ PreferencesDialog::PreferencesDialog(QSettings *appSettings,
     ui->fileExtensionsInfoLabel->setFont(font);
     ui->updateCheckInfoLabel->setFont(font);
     ui->styleInfoTextBrowser->setFont(font);
+    ui->notesInfoLabel->setFont(font);
 #endif
 
-#ifdef Q_WS_MACX
+#ifdef Q_OS_MACX
     ui->linkInfoLabel->setText(tr("If enabled, you can click on links while "
                                   "holding the Command key."));
 #else

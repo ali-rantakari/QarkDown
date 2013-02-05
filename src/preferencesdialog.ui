@@ -326,7 +326,7 @@
        </spacer>
       </item>
       <item row="0" column="1">
-       <widget class="QLabel" name="fileExtensionsInfoLabel_2">
+       <widget class="QLabel" name="notesInfoLabel">
         <property name="font">
          <font>
           <pointsize>11</pointsize>

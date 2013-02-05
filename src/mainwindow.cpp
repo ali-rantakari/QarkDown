@@ -837,7 +837,7 @@ void MainWindow::setupFileMenu()
     revealFileAction = fileMenu->addAction(
             #ifdef Q_OS_MAC
                 tr("Reveal in Finder"),
-            #elif defined(Q_WS_WIN)
+            #elif defined(Q_OS_WIN)
                 tr("Reveal in Explorer"),
             #else
                 tr("Reveal in Filesystem"),
