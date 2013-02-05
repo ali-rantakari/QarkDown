@@ -580,7 +580,7 @@ void MainWindow::applyEditorPreferences()
 void MainWindow::showPreferences()
 {
     preferencesDialog->setModal(true);
-    preferencesDialog->show();
+    preferencesDialog->showMaximized();
 }
 
 void MainWindow::preferencesUpdated()
