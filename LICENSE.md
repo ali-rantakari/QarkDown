@@ -3,7 +3,7 @@
 QarkDown is licensed under the MIT License and GNU GPL version 2, or any
 later version.
 
-Copyright (c) 2011-2012 Ali Rantakari -- http://hasseg.org
+Copyright (c) 2011-2013 Ali Rantakari -- http://hasseg.org
 
 
 ## MIT License
