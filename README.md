@@ -10,19 +10,22 @@ The following compilers are bundled with QarkDown:
     - [Discount] by David Parsons
 - On Windows:
     - [Multimarkdown] by Fletcher T. Penney
-    - [peg-markdown] by John MacFarlane
 - On Linux:
     - [Multimarkdown] by Fletcher T. Penney
 
-Copyright (c) 2011-2012 Ali Rantakari  
+Copyright (c) 2011-2013 Ali Rantakari
 <http://hasseg.org/qarkdown>
 
 [Markdown]: http://daringfireball.net/projects/markdown
 [Multimarkdown]: http://fletcherpenney.net/multimarkdown/
 [Discount]: http://www.pell.portland.or.us/~orc/Code/discount/
-[peg-markdown]: https://github.com/jgm/peg-markdown
 [pmh]: http://hasseg.org/peg-markdown-highlight
 
+
+Build Requirements
+==================
+
+Qt 5.
 
 
 Installing
@@ -40,7 +43,7 @@ Just drop `QarkDown.app` into the `Applications` folder (or wherever you like).
 
 As of this writing no ready-made packages exist for Linux package managers, so you'll have to build and install QarkDown manually:
 
-- Install the Qt SDK (from Nokia's site or via your package manager if it's available there)
+- Install the Qt SDK (from the Qt web site or via your package manager if it's available there)
 - Open the `src/qarkdown.pro` file in Qt Creator
 - Select the "release" configuration and press the build button (both of these are in the toolbar on the left side of the screen, at the bottom)
 - Copy the executable (`qarkdown`) wherever you like.
