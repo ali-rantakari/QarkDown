@@ -3,10 +3,13 @@
 TRUE=0
 FALSE=1
 
+DEFAULT_QTVERSION="5.0.1"
+QT_SDK_PATH="${HOME}/Qt${DEFAULT_QTVERSION}"
+
 echo "Remember to create a _fresh_ release build in Qt Creator first!"
+echo "Assuming Qt SDK is at: ${QT_SDK_PATH}"
 read
 
-DEFAULT_QTVERSION="4.8.0"
 echo "Type in the Qt version to use, or press enter to use the default ($DEFAULT_QTVERSION)"
 read QTVERSION
 
@@ -14,38 +17,45 @@ read QTVERSION
 
 find_qarkdown_app()
 {
-	find . -name 'qarkdown.app' | grep '__Release' | grep "${1//./_}" | head -n 1
+    find . -name 'qarkdown.app' | grep '_Release' | grep "${1//./_}" | head -n 1
+}
+find_macdeployqt()
+{
+    find "$1" -name macdeployqt | head -n 1
 }
 
 APPBUNDLE=$(find_qarkdown_app "$QTVERSION")
+MACDEPLOYQT=$(find_macdeployqt "$QT_SDK_PATH")
 
 if [ "$APPBUNDLE" == "" ];then
-	echo "Error: cannot find a release build for given Qt version." >&2
-	exit 1
+    echo "Error: cannot find a release build for given Qt version." >&2
+    exit 1
+fi
+if [ "$MACDEPLOYQT" == "" ];then
+    echo "Error: cannot find macdeployqt." >&2
+    exit 1
 fi
 
 if [ -e "${APPBUNDLE}/Contents/Frameworks/QtCore.framework" ];then
-	echo ">>>>>>> Looks like macdeployqt has already been run; skipping."
+    echo ">>>>>>> Looks like macdeployqt has already been run; skipping."
 else
-	echo ">>>>>>> Running macdeployqt"
-	"${HOME}/QtSDK/Desktop/Qt/${QTVERSION}/gcc/bin/macdeployqt" "$APPBUNDLE"
-	
-	echo ">>>>>>> Removing unused frameworks from app bundle"
-	for framework in "$APPBUNDLE"/Contents/Frameworks/*.framework; do
-		bn=$(basename "${framework}")
-		bn=${bn%.*} # remove extension
-		frameworkstokeep[1]="QtCore"
-		frameworkstokeep[2]="QtGui"
-		frameworkstokeep[3]="QtNetwork"
-		frameworkstokeep[4]="QtWebKit"
-		remove=${TRUE}
-		for index in 1 2 3 4; do
-			[[ "${bn}" == "${frameworkstokeep[index]}" ]] && remove=${FALSE}
-		done
-		if [[ $remove -eq ${TRUE} ]];then
-			rm -rf "${framework}"
-		fi
-	done
+    echo ">>>>>>> Running macdeployqt"
+    "${MACDEPLOYQT}" "$APPBUNDLE"
+
+    echo ">>>>>>> Removing unused frameworks from app bundle"
+    for framework in "$APPBUNDLE"/Contents/Frameworks/*.framework; do
+        bn=$(basename "${framework}")
+        bn=${bn%.*} # remove extension
+        remove=${TRUE}
+        for tokeep in "QtCore" "QtGui" "QtWidgets" "QtNetwork" "QtWebKit" \
+                      "QtWebKitWidgets" "QtQuick" "QtQml" "QtOpenGL" \
+                      "QtPrintSupport" "QtSql" "QtV8"; do
+            [[ "${bn}" == "${tokeep}" ]] && remove=${FALSE}
+        done
+        if [[ $remove -eq ${TRUE} ]];then
+            rm -rf "${framework}"
+        fi
+    done
 fi
 
 TEMP_DIR="QarkDown"
@@ -66,8 +76,8 @@ cp "LICENSE.md" "$TEMP_DIR/."
 VERSION=$(./get_version.py)
 ZIPFILE="QarkDown-OSX-${VERSION}.zip"
 if [ -e "$ZIPFILE" ];then
-	echo ">>>>>>> Deleting existing zip file: $ZIPFILE"
-	rm -f "$ZIPFILE"
+    echo ">>>>>>> Deleting existing zip file: $ZIPFILE"
+    rm -f "$ZIPFILE"
 fi
 
 echo ">>>>>>> Zipping app to: $ZIPFILE"
