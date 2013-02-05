@@ -7,7 +7,7 @@ SET /P appversion= < version-temp.txt
 del version-temp.txt
 
 SET packagedir=qarkdown-windows-installerfiles
-SET default_qtversion=4.8.0
+SET default_qtversion=5.0.1
 SET innosetup="C:\Program Files\Inno Setup 5\ISCC.exe"
 SET installerfile=QarkDown-Installer-%appversion%
 SET zipfile=QarkDown-Windows-%appversion%.zip
@@ -16,16 +16,31 @@ echo Type in the Qt version to use, or just press enter to use the default (%def
 SET /P qtversion=[Qt version:]
 IF [%qtversion%]==[] SET qtversion=%default_qtversion%
 
+SET qtdir=C:\Qt\Qt%qtversion%\%qtversion%\mingw47_32
+
 echo ----- Creating package directory: %packagedir%
 mkdir %packagedir%
 
-call :COPYTOPACKAGE C:\QtSDK\mingw\bin\mingwm10.dll
-call :COPYTOPACKAGE C:\QtSDK\mingw\bin\libgcc_s_dw2-1.dll
-call :COPYTOPACKAGE C:\QtSDK\Desktop\Qt\%qtversion%\mingw\bin\QtCore4.dll
-call :COPYTOPACKAGE C:\QtSDK\Desktop\Qt\%qtversion%\mingw\bin\QtGui4.dll
-call :COPYTOPACKAGE C:\QtSDK\Desktop\Qt\%qtversion%\mingw\bin\QtNetwork4.dll
-call :COPYTOPACKAGE C:\QtSDK\Desktop\Qt\%qtversion%\mingw\bin\QtWebKit4.dll
-call :COPYTOPACKAGE qarkdown-build-desktop-Qt_4_8_0_RC_for_Desktop_-_MinGW__Qt_SDK__Release\release\qarkdown.exe
+call :COPYTOPACKAGE "%qtdir%\bin\libgcc_s_sjlj-1.dll"
+call :COPYTOPACKAGE "%qtdir%\bin\libstdc++-6.dll"
+call :COPYTOPACKAGE "%qtdir%\bin\libEGL.dll"
+call :COPYTOPACKAGE "%qtdir%\bin\libGLESv2.dll"
+call :COPYTOPACKAGE "%qtdir%\bin\icudt49.dll"
+call :COPYTOPACKAGE "%qtdir%\bin\icuin49.dll"
+call :COPYTOPACKAGE "%qtdir%\bin\icuuc49.dll"
+call :COPYTOPACKAGE "%qtdir%\bin\libwinpthread-1.dll"
+call :COPYTOPACKAGE %qtdir%\bin\Qt5Core.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5Gui.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5Widgets.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5Network.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5WebKit.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5Quick.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5Qml.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5OpenGL.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5PrintSupport.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5Sql.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5V8.dll
+call :COPYTOPACKAGE qarkdown-build-Desktop_Qt_5_0_1_MinGW_32bit-Release\release\qarkdown.exe
 call :COPYTOPACKAGE README.md
 call :COPYTOPACKAGE LICENSE.md
 
