@@ -454,7 +454,7 @@ void MainWindow::loadAndSetCurrentFileViewPositions()
     QTextCursor cursor = editor->textCursor();
     int savedCursorPos = scrollAndCursorPositions.second;
     int maxCursorPos = editor->document()->characterCount() - 1;
-    cursor.setPosition(MAX(0, MIN(savedCursorPos, maxCursorPos)));
+    cursor.setPosition(std::max(0, std::min(savedCursorPos, maxCursorPos)));
     editor->setTextCursor(cursor);
 }
 
