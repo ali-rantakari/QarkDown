@@ -257,7 +257,7 @@ QString MainWindow::getPathFromFileDialog(FileDialogKind dialogKind)
 
 void MainWindow::openFile(const QString &path)
 {
-    saveCurrentFileViewPosition();
+    saveCurrentFileViewPositions();
     QMessageBox::ButtonRole selectedButtonRole = offerToSaveChangesIfNecessary();
     if (selectedButtonRole == QMessageBox::RejectRole)
         return;
@@ -301,7 +301,7 @@ void MainWindow::openFile(const QString &path)
     addToRecentFiles(openFilePath);
     updateRecentFilesMenu();
 
-    loadAndSetCurrentFileViewPosition();
+    loadAndSetCurrentFileViewPositions();
     statusBar()->showMessage(tr("File opened: %1").arg(QFileInfo(openFilePath).fileName()), 3000);
 }
 
@@ -418,30 +418,44 @@ void MainWindow::addToRecentFiles(QString filePath)
     this->trimRecentFilesList(); // calls sync() on the settings
 }
 
-void MainWindow::saveViewPosition(QString filePath, int viewPosition)
+void MainWindow::saveViewPositions(QString filePath, int scrollPosition, int cursorPosition)
 {
     QString stdFilePath = standardizeFilePath(filePath);
-    QMap<QString, QVariant> positions = settings->value(SETTING_RECENT_FILE_VIEW_POSITIONS).toMap();
-    positions.insert(stdFilePath, QVariant(viewPosition));
-    settings->setValue(SETTING_RECENT_FILE_VIEW_POSITIONS, positions);
+    QMap<QString, QVariant> positionsByFile = settings->value(SETTING_RECENT_FILE_VIEW_POSITIONS).toMap();
+    QList<QVariant> thisPositions;
+    thisPositions << scrollPosition << cursorPosition;
+    positionsByFile.insert(stdFilePath, QVariant(thisPositions));
+    settings->setValue(SETTING_RECENT_FILE_VIEW_POSITIONS, positionsByFile);
     settings->sync();
 }
-int MainWindow::getViewPosition(QString filePath)
+QPair<int,int> MainWindow::getViewPositions(QString filePath)
 {
-    QMap<QString, QVariant> positions = settings->value(SETTING_RECENT_FILE_VIEW_POSITIONS).toMap();
-    return positions.value(standardizeFilePath(filePath), QVariant(0)).toInt();
+    QMap<QString, QVariant> positionsByFile = settings->value(SETTING_RECENT_FILE_VIEW_POSITIONS).toMap();
+    QList<QVariant> thisPositions = positionsByFile.value(standardizeFilePath(filePath)).toList();
+    if (thisPositions.isEmpty())
+        return QPair<int,int>(0,0);
+    return QPair<int,int>(thisPositions.at(0).toInt(), thisPositions.at(1).toInt());
 }
-void MainWindow::saveCurrentFileViewPosition()
+void MainWindow::saveCurrentFileViewPositions()
 {
     if (openFilePath.isNull())
         return;
-    saveViewPosition(openFilePath, editor->verticalScrollBar()->value());
+    saveViewPositions(openFilePath,
+                      editor->verticalScrollBar()->value(),
+                      editor->textCursor().position());
 }
-void MainWindow::loadAndSetCurrentFileViewPosition()
+void MainWindow::loadAndSetCurrentFileViewPositions()
 {
     if (openFilePath.isNull())
         return;
-    editor->verticalScrollBar()->setValue(getViewPosition(openFilePath));
+    QPair<int,int> scrollAndCursorPositions = getViewPositions(openFilePath);
+    editor->verticalScrollBar()->setValue(scrollAndCursorPositions.first);
+
+    QTextCursor cursor = editor->textCursor();
+    int savedCursorPos = scrollAndCursorPositions.second;
+    int maxCursorPos = editor->document()->characterCount() - 1;
+    cursor.setPosition(MAX(0, MIN(savedCursorPos, maxCursorPos)));
+    editor->setTextCursor(cursor);
 }
 
 

@@ -101,10 +101,10 @@ private:
     void performStartupTasks();
     void trimRecentFilesList();
     void addToRecentFiles(QString filePath);
-    void saveViewPosition(QString filePath, int viewPosition);
-    int getViewPosition(QString filePath);
-    void saveCurrentFileViewPosition();
-    void loadAndSetCurrentFileViewPosition();
+    void saveViewPositions(QString filePath, int scrollPosition, int cursorPosition);
+    QPair<int, int> getViewPositions(QString filePath);
+    void saveCurrentFileViewPositions();
+    void loadAndSetCurrentFileViewPositions();
     void persistFontInfo();
     void applyPersistedFontInfo();
     void applyStyleWithoutErrorReporting();
