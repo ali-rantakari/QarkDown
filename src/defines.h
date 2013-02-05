@@ -46,10 +46,10 @@
 #define DEF_FORMAT_EMPH_WITH_UNDERSCORES true
 #define DEF_FORMAT_STRONG_WITH_UNDERSCORES false
 
-#ifdef Q_WS_MACX
+#ifdef Q_OS_MAC
 #define DEF_FONT_FAMILY         "Monaco"
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-osx"
-#elif defined(Q_WS_WIN)
+#elif defined(Q_OS_WIN)
 #define DEF_FONT_FAMILY         "Courier"
 #define DEF_COMPILER            ":/compilers/multimarkdown/multimarkdown-windows.exe"
 #elif defined(Q_OS_LINUX)
