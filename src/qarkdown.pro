@@ -1,4 +1,4 @@
-QT += network webkit webkitwidgets widgets
+QT += network webkit widgets # webkitwidgets
 
 win32 {
     RC_FILE += cfg/win.rc
@@ -59,8 +59,8 @@ HEADERS += \
     peg-markdown-highlight/pmh_styleparser.h \
     markdowncompiler.h \
     logger.h \
-    updatecheck/updatecheck.h \
-    updatecheck/hgupdateinfodialog.h \
+#    updatecheck/updatecheck.h \
+#    updatecheck/hgupdateinfodialog.h \
     filesearchdialog.h
 SOURCES += \
     qarkdownapplication.cpp \
@@ -72,13 +72,13 @@ SOURCES += \
     peg-markdown-highlight/pmh_styleparser.c \
     markdowncompiler.cpp \
     logger.cpp \
-    updatecheck/updatecheck.cpp \
-    updatecheck/hgupdateinfodialog.cpp \
+#    updatecheck/updatecheck.cpp \
+#    updatecheck/hgupdateinfodialog.cpp \
     filesearchdialog.cpp
 
 FORMS += \
     preferencesdialog.ui \
-    updatecheck/hgupdateinfodialog.ui \
+#    updatecheck/hgupdateinfodialog.ui \
     filesearchdialog.ui
 
 OTHER_FILES += \

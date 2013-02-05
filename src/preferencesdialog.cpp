@@ -4,7 +4,7 @@
 #include "qarkdownapplication.h"
 #include "markdowncompiler.h"
 #include "logger.h"
-#include "updatecheck/updatecheck.h"
+//#include "updatecheck/updatecheck.h"
 
 #include <QtWidgets/QFontDialog>
 #include <QtWidgets/QColorDialog>
@@ -336,7 +336,8 @@ void PreferencesDialog::updateUIFromSettings()
     PREF_TO_UI_BOOL_CHECKBOX(SETTING_FORMAT_STRONG_WITH_UNDERSCORES, DEF_FORMAT_STRONG_WITH_UNDERSCORES, ui->strongUnderscoreRadioButton);
     ui->strongAsteriskRadioButton->setChecked(!ui->strongUnderscoreRadioButton->isChecked());
 
-    ui->checkForUpdatesCheckBox->setChecked(HGUpdateCheck::shouldCheckForUpdatesOnStartup());
+    ui->checkForUpdatesCheckBox->setChecked(false);
+    //ui->checkForUpdatesCheckBox->setChecked(HGUpdateCheck::shouldCheckForUpdatesOnStartup());
 }
 
 void PreferencesDialog::updateSettingsFromUI()
@@ -362,7 +363,7 @@ void PreferencesDialog::updateSettingsFromUI()
     settings->setValue(SETTING_COMPILER, selectedCompilerPath);
     settings->setValue(SETTING_COMPILER_ARGS, compilerArgsMap);
 
-    HGUpdateCheck::setShouldCheckForUpdatesOnStartup(ui->checkForUpdatesCheckBox->isChecked());
+    //HGUpdateCheck::setShouldCheckForUpdatesOnStartup(ui->checkForUpdatesCheckBox->isChecked());
 
     settings->sync();
 }
