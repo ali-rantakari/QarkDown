@@ -1,7 +1,7 @@
 #include "qarkdownapplication.h"
 #include "logger.h"
-#include <QFileOpenEvent>
-#include <QDesktopServices>
+#include <QtGui/QFileOpenEvent>
+#include <QtGui/QDesktopServices>
 
 
 struct applicationVersion
@@ -9,9 +9,9 @@ struct applicationVersion
     int major;
     int minor;
     int tiny;
-} appVersion = {0, 4, 0};
+} appVersion = {0, 4, 1};
 
-#define kCopyrightYearStr "2011-2012"
+#define kCopyrightYearStr "2011-2013"
 #define kWebsiteURL "http://hasseg.org/qarkdown"
 
 QarkdownApplication::QarkdownApplication(int &argc, char **argv) :
@@ -43,7 +43,7 @@ QString QarkdownApplication::websiteURL()
 QString QarkdownApplication::applicationStoragePath()
 {
     QString appName = QCoreApplication::applicationName();
-    QString path = QDesktopServices::storageLocation(QDesktopServices::DataLocation);
+    QString path = QStandardPaths::writableLocation(QStandardPaths::DataLocation);
     // DataLocation should be defined on all but embedded platforms but just
     // to be safe we do this:
     if (path.isEmpty())

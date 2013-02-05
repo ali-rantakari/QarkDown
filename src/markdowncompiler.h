@@ -1,9 +1,9 @@
 #ifndef MARKDOWNCOMPILER_H
 #define MARKDOWNCOMPILER_H
 
-#include <QObject>
-#include <QProcess>
-#include <QSettings>
+#include <QtCore/QObject>
+#include <QtCore/QProcess>
+#include <QtCore/QSettings>
 
 class MarkdownCompiler : public QObject
 {

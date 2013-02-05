@@ -1,7 +1,7 @@
 #include "filesearchdialog.h"
 #include "ui_filesearchdialog.h"
 #include "logger.h"
-#include <QFileInfo>
+#include <QtCore/QFileInfo>
 
 FileSearchDialog::FileSearchDialog(QWidget *parent) :
     QDialog(parent),

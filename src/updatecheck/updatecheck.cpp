@@ -1,8 +1,8 @@
 #include "updatecheck.h"
-#include <QDebug>
-#include <QTextStream>
-#include <QDesktopServices>
-#include <QMessageBox>
+#include <QtCore/QDebug>
+#include <QtCore/QTextStream>
+#include <QtGui/QDesktopServices>
+#include <QtGui/QMessageBox>
 
 HGUpdateCheck::HGUpdateCheck(QString baseURL, QWidget *parentWidget)
     : QObject(parentWidget)
@@ -98,11 +98,15 @@ void HGUpdateCheck::handleAppStartup()
 
 bool HGUpdateCheck::shouldCheckForUpdatesOnStartup()
 {
+    if (_settings == NULL)
+        return false;
     _settings->sync();
     return _settings->value(kSettingKeyShouldCheckForUpdatesAtStartup).toBool();
 }
 void HGUpdateCheck::setShouldCheckForUpdatesOnStartup(bool value)
 {
+    if (_settings == NULL)
+        return;
     _settings->setValue(kSettingKeyShouldCheckForUpdatesAtStartup, value);
     _settings->sync();
 }

@@ -1,9 +1,9 @@
 #ifndef QARKDOWNTEXTEDIT_H
 #define QARKDOWNTEXTEDIT_H
 
-#include <QPlainTextEdit>
-#include <QEvent>
-#include <QUrl>
+#include <QtCore/QEvent>
+#include <QtCore/QUrl>
+#include <QtWidgets/QPlainTextEdit>
 
 #include "linenumberingplaintextedit.h"
 #include "defines.h"

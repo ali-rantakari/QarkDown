@@ -1,5 +1,5 @@
 #include "logger.h"
-#include <QDebug>
+#include <QtCore/QDebug>
 
 Logger::Logger(QObject *parent) :
     QObject(parent)

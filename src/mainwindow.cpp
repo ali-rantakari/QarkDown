@@ -1,9 +1,22 @@
-#include <QtGui>
+#include <QtGui/QDesktopServices>
+#include <QtWidgets/QAction>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QMenuBar>
+#include <QtWidgets/QFileDialog>
+#include <QtWidgets/QInputDialog>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QStatusBar>
+#include <QtCore/QTextStream>
+#include <QtCore/QCryptographicHash>
 
 #include "mainwindow.h"
 #include "defines.h"
 #include "logger.h"
 #include "qarkdownapplication.h"
+
+#ifdef Q_OS_MAC
+#include <Cocoa/Cocoa.h>
+#endif
 
 /*
 TODO:
@@ -29,8 +42,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     // PreferencesDialog depends on the HGUpdateCheck settings being
     // set, so we have to set that up first:
-    HGUpdateCheck::setUpdateCheckSettings(settings);
-    updateCheck = new HGUpdateCheck(((QarkdownApplication *)qApp)->websiteURL(), this);
+    //HGUpdateCheck::setUpdateCheckSettings(settings);
+    //updateCheck = new HGUpdateCheck(((QarkdownApplication *)qApp)->websiteURL(), this);
 
     preferencesDialog = new PreferencesDialog(settings, compiler);
     fileSearchDialog = new FileSearchDialog(this);
@@ -49,7 +62,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
 MainWindow::~MainWindow()
 {
-    delete updateCheck;
+    //delete updateCheck;
     delete settings;
     delete preferencesDialog;
     delete compiler;
@@ -210,7 +223,7 @@ QString MainWindow::getPathFromFileDialog(FileDialogKind dialogKind)
 
             if (openFilePath.isNull())
                 defaultPath = settings->value(SETTING_LAST_FILE_DIALOG_PATH,
-                                              QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation)).toString();
+                                              QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).toString();
             else
                 defaultPath = QFileInfo(openFilePath).absolutePath();
 
@@ -218,7 +231,7 @@ QString MainWindow::getPathFromFileDialog(FileDialogKind dialogKind)
         case CompilationOutputDialog:
             title = tr("Save HTML Output");
             defaultPath = settings->value(SETTING_LAST_COMPILE_DIALOG_PATH,
-                                          QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation)).toString();
+                                          QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).toString();
             break;
         default:
             title = tr("Select File");
@@ -483,7 +496,7 @@ void MainWindow::about()
 
 void MainWindow::checkForUpdates()
 {
-    updateCheck->checkForUpdatesNow();
+    //updateCheck->checkForUpdatesNow();
 }
 
 void MainWindow::applyStyleWithoutErrorReporting()
@@ -879,7 +892,7 @@ void MainWindow::setupFileMenu()
 
 void MainWindow::performStartupTasks()
 {
-    updateCheck->handleAppStartup();
+    //updateCheck->handleAppStartup();
 
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
                                             QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
@@ -994,7 +1007,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         event->ignore();
 }
 
-#ifdef QT_MAC_USE_COCOA
+#ifdef Q_OS_MAC
 void MainWindow::cocoaCommitDataHandler()
 {
     Logger::debug("cocoaCommitDataHandler.");

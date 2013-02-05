@@ -3,9 +3,9 @@
 #include "qarkdownapplication.h"
 #include "logger.h"
 
-#include <QDir>
-#include <QCoreApplication>
-#include <QTextStream>
+#include <QtCore/QDir>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QTextStream>
 
 MarkdownCompiler::MarkdownCompiler(QSettings *appSettings, QObject *parent) :
     QObject(parent)

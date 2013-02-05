@@ -1,10 +1,10 @@
 #ifndef PREFERENCESDIALOG_H
 #define PREFERENCESDIALOG_H
 
-#include <QDialog>
-#include <QSettings>
-#include <QDir>
-#include <QStandardItemModel>
+#include <QtCore/QSettings>
+#include <QtCore/QDir>
+#include <QtWidgets/QDialog>
+#include <QtGui/QStandardItemModel>
 
 #include "markdowncompiler.h"
 

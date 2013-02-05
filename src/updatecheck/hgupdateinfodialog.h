@@ -1,7 +1,7 @@
 #ifndef HGUPDATEINFODIALOG_H
 #define HGUPDATEINFODIALOG_H
 
-#include <QDialog>
+#include <QtWidgets/QDialog>
 
 namespace Ui {
     class HGUpdateInfoDialog;

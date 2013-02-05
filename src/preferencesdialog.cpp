@@ -6,12 +6,12 @@
 #include "logger.h"
 #include "updatecheck/updatecheck.h"
 
-#include <QFontDialog>
-#include <QColorDialog>
-#include <QFileDialog>
-#include <QDesktopServices>
-#include <QMessageBox>
-#include <QTextStream>
+#include <QtWidgets/QFontDialog>
+#include <QtWidgets/QColorDialog>
+#include <QtWidgets/QFileDialog>
+#include <QtWidgets/QMessageBox>
+#include <QtGui/QDesktopServices>
+#include <QtCore/QTextStream>
 
 PreferencesDialog::PreferencesDialog(QSettings *appSettings,
                                      MarkdownCompiler *aCompiler,

@@ -1,18 +1,19 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
-#include <QSettings>
-#include <QSessionManager>
-#include <QStringList>
-#include <QMessageBox>
+#include <QtCore/QSettings>
+#include <QtCore/QStringList>
+#include <QtCore/QDateTime>
+#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QMessageBox>
+#include <QtGui/QSessionManager>
 
 #include "peg-markdown-highlight/highlighter.h"
 #include "preferencesdialog.h"
 #include "filesearchdialog.h"
 #include "editor/qarkdowntextedit.h"
 #include "markdowncompiler.h"
-#include "updatecheck/updatecheck.h"
+//#include "updatecheck/updatecheck.h"
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
@@ -69,7 +70,7 @@ public slots:
     void handleApplicationLaunched();
     bool confirmQuit(bool interactionAllowed);
     void commitDataHandler(QSessionManager &manager);
-#ifdef QT_MAC_USE_COCOA
+#ifdef Q_OS_MAC
     void cocoaCommitDataHandler();
 #endif
     void aboutToQuitHandler();
@@ -110,7 +111,7 @@ private:
     bool compileToHTMLFile(QString targetPath);
     void checkIfFileModifiedByThirdParty();
 
-    HGUpdateCheck *updateCheck;
+    //HGUpdateCheck *updateCheck;
     MarkdownCompiler *compiler;
     QString lastCompileTargetPath;
 

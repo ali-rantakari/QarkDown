@@ -1,7 +1,7 @@
 #include "hgupdateinfodialog.h"
 #include "ui_hgupdateinfodialog.h"
 
-#include <QFontDatabase>
+#include <QtGui/QFontDatabase>
 
 HGUpdateInfoDialog::HGUpdateInfoDialog(QWidget *parent) :
     QDialog(parent),

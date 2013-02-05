@@ -1,4 +1,4 @@
-QT += network webkit
+QT += network webkit webkitwidgets widgets
 
 win32 {
     RC_FILE += cfg/win.rc

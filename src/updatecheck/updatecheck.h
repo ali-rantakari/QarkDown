@@ -1,9 +1,9 @@
 #ifndef UPDATECHECK_H
 #define UPDATECHECK_H
 
-#include <QObject>
-#include <QSettings>
-#include <QProgressDialog>
+#include <QtCore/QObject>
+#include <QtCore/QSettings>
+#include <QtWidgets/QProgressDialog>
 #include <QtNetwork/QtNetwork>
 #include "hgupdateinfodialog.h"
 

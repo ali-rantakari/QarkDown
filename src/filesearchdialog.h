@@ -1,9 +1,9 @@
 #ifndef FILESEARCHDIALOG_H
 #define FILESEARCHDIALOG_H
 
-#include <QDialog>
-#include <QStandardItemModel>
-#include <QKeyEvent>
+#include <QtWidgets/QDialog>
+#include <QtGui/QStandardItemModel>
+#include <QtGui/QKeyEvent>
 
 namespace Ui {
     class FileSearchDialog;

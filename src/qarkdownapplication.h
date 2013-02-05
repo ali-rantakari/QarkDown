@@ -1,7 +1,7 @@
 #ifndef QARKDOWNAPPLICATION_H
 #define QARKDOWNAPPLICATION_H
 
-#include <QApplication>
+#include <QtWidgets/QApplication>
 #include "mainwindow.h"
 
 class QarkdownApplication : public QApplication

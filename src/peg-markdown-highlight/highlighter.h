@@ -1,10 +1,10 @@
 #ifndef HIGHLIGHTER_H
 #define HIGHLIGHTER_H
 
-#include <QTextCharFormat>
-#include <QThread>
-#include <QPlainTextEdit>
-#include <QPair>
+#include <QtGui/QTextCharFormat>
+#include <QtCore/QThread>
+#include <QtCore/QPair>
+#include <QtWidgets/QPlainTextEdit>
 
 extern "C" {
 #include "pmh_parser.h"

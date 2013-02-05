@@ -1,9 +1,9 @@
-#include <QApplication>
+#include <QtGui/QApplication>
 
 #include "mainwindow.h"
 #include "qarkdownapplication.h"
 #include "logger.h"
-#include <QDebug>
+#include <QtCore/QDebug>
 
 #ifdef QT_MAC_USE_COCOA
 #import "mac/cocoaappdelegate.h"
@@ -18,7 +18,6 @@ int main(int argc, char *argv[])
     [pool release];
 #endif
 
-    QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
     QarkdownApplication app(argc, argv);
 
 #ifdef QT_MAC_USE_COCOA

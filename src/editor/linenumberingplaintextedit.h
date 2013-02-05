@@ -1,7 +1,7 @@
 #ifndef LINENUMBERINGPLAINTEXTEDIT_H
 #define LINENUMBERINGPLAINTEXTEDIT_H
 
-#include <QPlainTextEdit>
+#include <QtWidgets/QPlainTextEdit>
 
 class LineNumberArea; // forward declaration
 
