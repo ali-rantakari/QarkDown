@@ -24,6 +24,7 @@
 
 #define SETTING_RECENT_FILES "RecentFiles"
 #define SETTING_NUM_RECENT_FILES "NumberOfRecentFiles"
+#define SETTING_RECENT_FILE_VIEW_POSITIONS "RecentFileViewPositions"
 
 #define SETTING_COMPILER "Compiler"
 #define SETTING_OPEN_TARGET_AFTER_COMPILING "OpenTargetAfterCompiling"

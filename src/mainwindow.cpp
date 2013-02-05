@@ -6,6 +6,7 @@
 #include <QtWidgets/QInputDialog>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QStatusBar>
+#include <QtWidgets/QScrollBar>
 #include <QtCore/QTextStream>
 #include <QtCore/QCryptographicHash>
 
@@ -256,6 +257,7 @@ QString MainWindow::getPathFromFileDialog(FileDialogKind dialogKind)
 
 void MainWindow::openFile(const QString &path)
 {
+    saveCurrentFileViewPosition();
     QMessageBox::ButtonRole selectedButtonRole = offerToSaveChangesIfNecessary();
     if (selectedButtonRole == QMessageBox::RejectRole)
         return;
@@ -298,6 +300,8 @@ void MainWindow::openFile(const QString &path)
     }
     addToRecentFiles(openFilePath);
     updateRecentFilesMenu();
+
+    loadAndSetCurrentFileViewPosition();
     statusBar()->showMessage(tr("File opened: %1").arg(QFileInfo(openFilePath).fileName()), 3000);
 }
 
@@ -378,6 +382,27 @@ void MainWindow::revealFileDir()
     QDesktopServices::openUrl(QUrl("file:///"+QFileInfo(openFilePath).absolutePath()));
 }
 
+void MainWindow::trimRecentFilesList()
+{
+    // Trim the "recent files" list
+    QStringList recentFiles = settings->value(SETTING_RECENT_FILES).toStringList();
+    int maxNumRecentFiles = settings->value(SETTING_NUM_RECENT_FILES, DEF_NUM_RECENT_FILES).toInt();
+    while (maxNumRecentFiles < recentFiles.count())
+        recentFiles.removeLast();
+    settings->setValue(SETTING_RECENT_FILES, recentFiles);
+
+    // Trim the "file view positions" list
+    QMap<QString, QVariant> positions = settings->value(SETTING_RECENT_FILE_VIEW_POSITIONS).toMap();
+    foreach (QString fp, positions.keys())
+    {
+        if (!recentFiles.contains(fp))
+            positions.remove(fp);
+    }
+    settings->setValue(SETTING_RECENT_FILE_VIEW_POSITIONS, positions);
+
+    settings->sync();
+}
+
 void MainWindow::addToRecentFiles(QString filePath)
 {
     QString stdFilePath = standardizeFilePath(filePath);
@@ -389,13 +414,36 @@ void MainWindow::addToRecentFiles(QString filePath)
         recentFiles.removeAt(index);
     recentFiles.insert(0, stdFilePath);
 
-    int maxNumRecentFiles = settings->value(SETTING_NUM_RECENT_FILES, DEF_NUM_RECENT_FILES).toInt();
-    while (maxNumRecentFiles < recentFiles.count())
-        recentFiles.removeLast();
-
     settings->setValue(SETTING_RECENT_FILES, recentFiles);
+    this->trimRecentFilesList(); // calls sync() on the settings
+}
+
+void MainWindow::saveViewPosition(QString filePath, int viewPosition)
+{
+    QString stdFilePath = standardizeFilePath(filePath);
+    QMap<QString, QVariant> positions = settings->value(SETTING_RECENT_FILE_VIEW_POSITIONS).toMap();
+    positions.insert(stdFilePath, QVariant(viewPosition));
+    settings->setValue(SETTING_RECENT_FILE_VIEW_POSITIONS, positions);
     settings->sync();
 }
+int MainWindow::getViewPosition(QString filePath)
+{
+    QMap<QString, QVariant> positions = settings->value(SETTING_RECENT_FILE_VIEW_POSITIONS).toMap();
+    return positions.value(standardizeFilePath(filePath), QVariant(0)).toInt();
+}
+void MainWindow::saveCurrentFileViewPosition()
+{
+    if (openFilePath.isNull())
+        return;
+    saveViewPosition(openFilePath, editor->verticalScrollBar()->value());
+}
+void MainWindow::loadAndSetCurrentFileViewPosition()
+{
+    if (openFilePath.isNull())
+        return;
+    editor->verticalScrollBar()->setValue(getViewPosition(openFilePath));
+}
+
 
 void MainWindow::persistFontInfo()
 {

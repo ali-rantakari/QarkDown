@@ -99,7 +99,12 @@ private:
     void setupFileMenu();
     void updateRecentFilesMenu();
     void performStartupTasks();
+    void trimRecentFilesList();
     void addToRecentFiles(QString filePath);
+    void saveViewPosition(QString filePath, int viewPosition);
+    int getViewPosition(QString filePath);
+    void saveCurrentFileViewPosition();
+    void loadAndSetCurrentFileViewPosition();
     void persistFontInfo();
     void applyPersistedFontInfo();
     void applyStyleWithoutErrorReporting();
