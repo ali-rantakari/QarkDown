@@ -2,7 +2,7 @@
 #include <QtCore/QDebug>
 #include <QtCore/QTextStream>
 #include <QtGui/QDesktopServices>
-#include <QtGui/QMessageBox>
+#include <QtWidgets/QMessageBox>
 
 HGUpdateCheck::HGUpdateCheck(QString baseURL, QWidget *parentWidget)
     : QObject(parentWidget)
