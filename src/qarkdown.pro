@@ -1,7 +1,5 @@
 QT += network webkit webkitwidgets widgets
 
-QMAKE_POST_LINK += ../fixmakefile.sh
-
 win32 {
     RC_FILE += cfg/win.rc
     RESOURCES += compilers-windows.qrc
@@ -15,6 +13,7 @@ mac {
     RESOURCES += compilers-osx.qrc
     CONFIG += cocoa
     LIBS += -framework Cocoa
+    QMAKE_POST_LINK += ../fixmakefile.sh
 }
 
 mac:cocoa {
