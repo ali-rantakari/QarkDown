@@ -579,6 +579,16 @@ void MainWindow::applyEditorPreferences()
 
 void MainWindow::showPreferences()
 {
+    // Fixes problem that appeared in Qt 5 where all the widgets
+    // in the prefs window would appear disabled (grayed out) if
+    // it is opened when the main window is _not_ focused.
+    // The Qt window activation/focus methods did not properly
+    // make the window into a key window, so let's go into Cocoa
+    // land:
+#ifdef Q_OS_MAC
+    [[((NSView*)this->winId()) window] makeKeyAndOrderFront:nil];
+#endif
+
     preferencesDialog->setModal(true);
     preferencesDialog->showMaximized();
 }
