@@ -12,6 +12,7 @@ public:
     explicit MarkdownCompiler(QSettings *appSettings, QObject *parent = 0);
     ~MarkdownCompiler();
 
+    QPair<QString, QString> executeCompiler(QString compilerPath, QString input, QStringList compilerArgsList);
     QPair<QString, QString> compileSynchronously(QString input, QString compilerPath, bool useDefaultArguments = false);
     bool compileToHTMLFile(QString compilerPath, QString input, QString targetPath);
     QString getUserReadableCompilerName(QString compilerPath);

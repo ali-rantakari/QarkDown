@@ -138,7 +138,7 @@ QString MarkdownCompiler::getUserReadableCompilerName(QString compilerPath)
 
 #define kCompileEmptyRetVal QPair<QString, QString>(QString::null, QString::null)
 
-QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QString compilerPath, bool useDefaultArguments)
+QPair<QString, QString> MarkdownCompiler::executeCompiler(QString compilerPath, QString input, QStringList compilerArgsList)
 {
     //Logger::info("Compiling with compiler: " + compilerPath);
     _errorString = QString::null;
@@ -151,7 +151,6 @@ QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QS
     }
 
     QProcess syncCompilerProcess;
-    QStringList compilerArgsList = getArgsListForCompiler(compilerPath, useDefaultArguments);
     //Logger::debug("Compiler args: "+compilerArgsList.join(", "));
 
     // We need to supply an empty QStringList as the arguments (even if we
@@ -168,8 +167,11 @@ QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QS
         return kCompileEmptyRetVal;
     }
 
-    syncCompilerProcess.write(input.toUtf8());
-    syncCompilerProcess.closeWriteChannel();
+    if (!input.isNull())
+    {
+        syncCompilerProcess.write(input.toUtf8());
+        syncCompilerProcess.closeWriteChannel();
+    }
 
     if (!syncCompilerProcess.waitForFinished()) {
         Logger::warning("Error while waiting process to finish: " + actualCompilerPath);
@@ -189,6 +191,11 @@ QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QS
     QString stdoutString = in.readAll();
 
     return QPair<QString, QString>(stdoutString, stderrString);
+}
+
+QPair<QString, QString> MarkdownCompiler::compileSynchronously(QString input, QString compilerPath, bool useDefaultArguments)
+{
+    return this->executeCompiler(compilerPath, input, getArgsListForCompiler(compilerPath, useDefaultArguments));
 }
 
 bool MarkdownCompiler::compileToHTMLFile(QString compilerPath, QString input,

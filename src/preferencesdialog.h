@@ -44,6 +44,7 @@ private:
     void updateUIFromSettings();
     void updateStylesComboBoxFromSettings();
     void updateStyleInfoTextFromComboBoxSelection();
+    QString versionStringForBuiltinCompiler(QString compilerPath);
     void updateCompilersComboBoxFromSettings();
     void updateCompilerArgsFieldFromComboBoxSelection();
     void updateSettingsFromUI();

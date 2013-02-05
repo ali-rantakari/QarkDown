@@ -141,9 +141,10 @@ QStringList PreferencesDialog::userCompilerFiles()
     varname->setEnabled(false);\
     varname->setForeground(QBrush(Qt::gray));\
     rootItem->appendRow(varname)
-# define ADD_COMBO_ITEM(name, data) \
+# define ADD_COMBO_ITEM(name, data, tooltip) \
     QStandardItem *item = new QStandardItem(name);\
     item->setData(QVariant(data), Qt::UserRole);\
+    item->setToolTip(tooltip); \
     rootItem->appendRow(item)
 
 void PreferencesDialog::updateStylesComboBoxFromSettings()
@@ -161,7 +162,7 @@ void PreferencesDialog::updateStylesComboBoxFromSettings()
     foreach (QString builtInStyleName, QDir(":/styles/").entryList())
     {
         QString builtinStyleFullPath = QDir(":/styles/" + builtInStyleName).absolutePath();
-        ADD_COMBO_ITEM(builtInStyleName, builtinStyleFullPath);
+        ADD_COMBO_ITEM(builtInStyleName, builtinStyleFullPath, QString::null);
         if (builtinStyleFullPath == selectedStylePath)
             indexToSelect = i;
         i++;
@@ -177,7 +178,7 @@ void PreferencesDialog::updateStylesComboBoxFromSettings()
         foreach (QString userStyleFile, userStyles)
         {
             QString userStyleFullPath = QDir(userStylesDirPath + "/" + userStyleFile).absolutePath();
-            ADD_COMBO_ITEM(QFileInfo(userStyleFile).baseName(), userStyleFullPath);
+            ADD_COMBO_ITEM(QFileInfo(userStyleFile).baseName(), userStyleFullPath, QString::null);
             if (userStyleFullPath == selectedStylePath)
                 indexToSelect = i;
             i++;
@@ -226,6 +227,17 @@ void PreferencesDialog::updateStyleInfoTextFromComboBoxSelection()
     ui->styleInfoTextBrowser->setHtml(styleDescription);
 }
 
+QString PreferencesDialog::versionStringForBuiltinCompiler(QString compilerPath)
+{
+    QStringList args;
+    if (compilerPath.contains("discount"))
+        args << "-V";
+    else
+        args << "--version";
+    QPair<QString, QString> compilerVersionOutput = compiler->executeCompiler(compilerPath, QString::null, args);
+    return compilerVersionOutput.first;
+}
+
 void PreferencesDialog::updateCompilersComboBoxFromSettings()
 {
     QString selectedCompilerPath = settings->value(SETTING_COMPILER, DEF_COMPILER).toString();
@@ -244,7 +256,8 @@ void PreferencesDialog::updateCompilersComboBoxFromSettings()
         QString builtinCompilerFullPath =
                 thisBuiltinCompilerDir.absolutePath() + "/"
                 + thisBuiltinCompilerDir.entryList(QDir::NoDotAndDotDot | QDir::Files).first();
-        ADD_COMBO_ITEM(builtInCompilerName, builtinCompilerFullPath);
+        ADD_COMBO_ITEM(builtInCompilerName, builtinCompilerFullPath,
+                       versionStringForBuiltinCompiler(builtinCompilerFullPath));
         if (builtinCompilerFullPath == selectedCompilerPath)
             indexToSelect = i;
         i++;
@@ -261,7 +274,7 @@ void PreferencesDialog::updateCompilersComboBoxFromSettings()
         {
             QString userCompilerFullPath = QDir(userCompilersDirPath + QDir::separator() + userCompilerFileName).absolutePath();
             ADD_COMBO_ITEM(QFileInfo(userCompilerFileName).baseName(),
-                           userCompilerFullPath);
+                           userCompilerFullPath, QString::null);
             if (userCompilerFullPath == selectedCompilerPath)
                 indexToSelect = i;
             i++;
