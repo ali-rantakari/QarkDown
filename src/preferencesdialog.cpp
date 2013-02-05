@@ -139,6 +139,7 @@ QStringList PreferencesDialog::userCompilerFiles()
     QStandardItem *varname = new QStandardItem(name);\
     varname->setSelectable(false);\
     varname->setEnabled(false);\
+    varname->setForeground(QBrush(Qt::gray));\
     rootItem->appendRow(varname)
 # define ADD_COMBO_ITEM(name, data) \
     QStandardItem *item = new QStandardItem(name);\
