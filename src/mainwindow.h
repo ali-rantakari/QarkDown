@@ -64,6 +64,8 @@ public slots:
     void recompileToHTML();
 
     void anchorClicked(const QUrl &link);
+    void handleCustomContextMenuRequest(QPoint);
+    void lookupInDictionary();
 
     QMessageBox::ButtonRole offerToSaveChangesIfNecessary();
 

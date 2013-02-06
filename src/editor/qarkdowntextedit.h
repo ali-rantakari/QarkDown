@@ -38,6 +38,8 @@ public:
     void setCurrentLineHighlightColor(QColor value);
 
     QTextCursor selectWordUnderCursor(QTextCursor cursor);
+    QString getSelectedText();
+    QPoint getSelectionStartBaselinePoint();
 
     enum FormatStyle
     {

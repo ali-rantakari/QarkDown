@@ -978,10 +978,13 @@ void MainWindow::performStartupTasks()
 
     connect(editor->document(), SIGNAL(contentsChange(int,int,int)),
             this, SLOT(handleContentsChange(int,int,int)));
-    connect(preferencesDialog, SIGNAL(updated()),
-            this, SLOT(preferencesUpdated()));
     connect(editor, SIGNAL(anchorClicked(QUrl)),
             this, SLOT(anchorClicked(QUrl)));
+    editor->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(editor, SIGNAL(customContextMenuRequested(QPoint)),
+            this, SLOT(handleCustomContextMenuRequest(QPoint)));
+    connect(preferencesDialog, SIGNAL(updated()),
+            this, SLOT(preferencesUpdated()));
     connect(fileSearchDialog, SIGNAL(selectedFilePath(QString)),
             this, SLOT(fileSearchDialogSelectedFilePath(QString)));
 }
@@ -999,6 +1002,52 @@ void MainWindow::anchorClicked(const QUrl &link)
     QDesktopServices::openUrl(link);
 }
 
+void MainWindow::handleCustomContextMenuRequest(QPoint point)
+{
+    if (editor->getSelectedText().trimmed().isEmpty())
+    {
+        QTextCursor clickedPosCursor = editor->selectWordUnderCursor(editor->cursorForPosition(point));
+        editor->setTextCursor(clickedPosCursor);
+    }
+
+    QMenu *menu = editor->createStandardContextMenu();
+#ifdef Q_OS_MAC
+    if ([(NSView*)editor->winId() respondsToSelector:@selector(showDefinitionForAttributedString:range:options:baselineOriginProvider:)]
+            && !editor->getSelectedText().trimmed().isEmpty()
+            )
+    {
+        QAction *a = menu->addAction(tr("Look up “%1”").arg(editor->getSelectedText()),
+                                     this, SLOT(lookupInDictionary()));
+        menu->removeAction(a);
+        menu->insertAction(menu->actions().at(0), a);
+        menu->insertSeparator(menu->actions().at(1));
+    }
+#endif
+    menu->exec(editor->mapToGlobal(point));
+    delete menu;
+}
+
+void MainWindow::lookupInDictionary()
+{
+#ifdef Q_OS_MAC
+    NSView *editorNSView = (NSView*)editor->winId();
+    if (![editorNSView respondsToSelector:@selector(showDefinitionForAttributedString:range:options:baselineOriginProvider:)])
+        return;
+
+    NSFont *nsFont = [NSFont fontWithName:@((char *)editor->font().family().toUtf8().data()) size:editor->font().pointSizeF()];
+    NSAttributedString *as = [[[NSAttributedString alloc] initWithString:@(editor->getSelectedText().toUtf8().data()) attributes:@{NSFontAttributeName:nsFont}] autorelease];
+
+    [editorNSView
+        showDefinitionForAttributedString:as
+        range:NSMakeRange(0,0) // full range
+        options:@{NSDefinitionPresentationTypeKey:NSDefinitionPresentationTypeOverlay}
+        baselineOriginProvider:^NSPoint(NSRange adjustedRange){
+            // Here we must return a "baseline origin for the first character"
+            QPoint baselinePoint = editor->getSelectionStartBaselinePoint();
+            return NSMakePoint(baselinePoint.x(), baselinePoint.y());
+        }];
+#endif
+}
 
 
 

@@ -1,12 +1,13 @@
 #include "qarkdowntextedit.h"
 #include "logger.h"
 
-#include <QKeyEvent>
-#include <QTextBlock>
-#include <QTextLayout>
-#include <QApplication>
-#include <QToolTip>
-#include <QDebug>
+#include <QtGui/QKeyEvent>
+#include <QtGui/QTextBlock>
+#include <QtGui/QTextLayout>
+#include <QtGui/QTextDocumentFragment>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QToolTip>
+#include <QtCore/QDebug>
 
 QarkdownTextEdit::QarkdownTextEdit(QWidget *parent) :
     LineNumberingPlainTextEdit(parent)
@@ -432,6 +433,30 @@ QTextCursor QarkdownTextEdit::selectWordUnderCursor(QTextCursor cursor)
 
     return cursor;
 }
+
+QString QarkdownTextEdit::getSelectedText()
+{
+    return this->textCursor().selection().toPlainText();
+}
+
+QPoint QarkdownTextEdit::getSelectionStartBaselinePoint()
+{
+    QTextCursor originalCursor = this->textCursor();
+
+    QTextCursor noSelectionCursor = this->textCursor();
+    noSelectionCursor.setPosition(originalCursor.selectionStart());
+    this->setTextCursor(noSelectionCursor);
+
+    QPoint point = this->cursorRect().topLeft();
+
+    QFontMetrics metrics(this->font());
+    point.setY(point.y() + metrics.ascent());
+    point.setX(point.x() + lineNumberAreaWidth());
+
+    this->setTextCursor(originalCursor);
+    return point;
+}
+
 
 void QarkdownTextEdit::toggleFormattingForCurrentSelection(FormatStyle formatStyle)
 {
