@@ -1016,7 +1016,7 @@ void MainWindow::handleCustomContextMenuRequest(QPoint point)
             && !editor->getSelectedText().trimmed().isEmpty()
             )
     {
-        QAction *a = menu->addAction(tr("Look up “%1”").arg(editor->getSelectedText()),
+        QAction *a = menu->addAction(tr("Look Up “%1”").arg(editor->getSelectedText()),
                                      this, SLOT(lookupInDictionary()));
         menu->removeAction(a);
         menu->insertAction(menu->actions().at(0), a);
