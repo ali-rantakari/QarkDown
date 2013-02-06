@@ -1099,6 +1099,8 @@ void MainWindow::quitActionHandler()
 {
     Logger::debug("quitActionHandler.");
 
+    saveCurrentFileViewPositions();
+
     bool okToQuit = confirmQuit(true);
     if (okToQuit)
         qApp->quit();
