@@ -302,7 +302,6 @@ void MainWindow::openFile(const QString &path)
     updateRecentFilesMenu();
 
     loadAndSetCurrentFileViewPositions();
-    statusBar()->showMessage(tr("File opened: %1").arg(QFileInfo(openFilePath).fileName()), 3000);
 }
 
 void MainWindow::saveFile(QString targetPath)
