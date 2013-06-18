@@ -40,6 +40,9 @@ call :COPYTOPACKAGE %qtdir%\bin\Qt5OpenGL.dll
 call :COPYTOPACKAGE %qtdir%\bin\Qt5PrintSupport.dll
 call :COPYTOPACKAGE %qtdir%\bin\Qt5Sql.dll
 call :COPYTOPACKAGE %qtdir%\bin\Qt5V8.dll
+call :COPYTOPACKAGE %qtdir%\bin\D3DCompiler_43.dll
+call :COPYTOPACKAGE %qtdir%\plugins\platforms\qwindows.dll
+call :COPYTOPACKAGE %qtdir%\plugins\platforms\qminimal.dll
 call :COPYTOPACKAGE qarkdown-build-Desktop_Qt_5_0_1_MinGW_32bit-Release\release\qarkdown.exe
 call :COPYTOPACKAGE README.md
 call :COPYTOPACKAGE LICENSE.md

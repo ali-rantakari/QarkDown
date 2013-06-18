@@ -28,6 +28,9 @@ Source: "qarkdown-windows-installerfiles\Qt5OpenGL.dll"; DestDir: "{app}"
 Source: "qarkdown-windows-installerfiles\Qt5PrintSupport.dll"; DestDir: "{app}"
 Source: "qarkdown-windows-installerfiles\Qt5Sql.dll"; DestDir: "{app}"
 Source: "qarkdown-windows-installerfiles\Qt5V8.dll"; DestDir: "{app}"
+Source: "qarkdown-windows-installerfiles\D3DCompiler_43.dll"; DestDir: "{app}"
+Source: "qarkdown-windows-installerfiles\qwindows.dll"; DestDir: "{app}"
+Source: "qarkdown-windows-installerfiles\qminimal.dll"; DestDir: "{app}"
 Source: "README.md"; DestDir: "{app}"; DestName: "README.txt"; Flags: isreadme
 Source: "LICENSE.md"; DestDir: "{app}"; DestName: "LICENSE.txt";
 
