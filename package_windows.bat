@@ -7,7 +7,7 @@ SET /P appversion= < version-temp.txt
 del version-temp.txt
 
 SET packagedir=qarkdown-windows-installerfiles
-SET default_qtversion=5.0.1
+SET default_qtversion=5.1.1
 SET innosetup="C:\Program Files\Inno Setup 5\ISCC.exe"
 SET installerfile=QarkDown-Installer-%appversion%
 SET zipfile=QarkDown-Windows-%appversion%.zip
@@ -40,6 +40,7 @@ call :COPYTOPACKAGE %qtdir%\bin\Qt5OpenGL.dll
 call :COPYTOPACKAGE %qtdir%\bin\Qt5PrintSupport.dll
 call :COPYTOPACKAGE %qtdir%\bin\Qt5Sql.dll
 call :COPYTOPACKAGE %qtdir%\bin\Qt5V8.dll
+call :COPYTOPACKAGE %qtdir%\bin\Qt5Sensors.dll
 call :COPYTOPACKAGE %qtdir%\bin\D3DCompiler_43.dll
 call :COPYTOPACKAGE %qtdir%\plugins\platforms\qwindows.dll
 call :COPYTOPACKAGE %qtdir%\plugins\platforms\qminimal.dll

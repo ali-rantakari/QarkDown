@@ -3,7 +3,7 @@
 TRUE=0
 FALSE=1
 
-DEFAULT_QTVERSION="5.0.1"
+DEFAULT_QTVERSION="5.1.1"
 QT_SDK_PATH="${HOME}/Qt${DEFAULT_QTVERSION}"
 
 echo "Remember to create a _fresh_ release build in Qt Creator first!"
@@ -17,7 +17,7 @@ read QTVERSION
 
 find_qarkdown_app()
 {
-    find . -name 'qarkdown.app' | grep '_Release' | grep "${1//./_}" | head -n 1
+    find . -name 'qarkdown.app' | grep '\-Release' | grep "${1//./_}" | head -n 1
 }
 find_macdeployqt()
 {
@@ -49,7 +49,7 @@ else
         remove=${TRUE}
         for tokeep in "QtCore" "QtGui" "QtWidgets" "QtNetwork" "QtWebKit" \
                       "QtWebKitWidgets" "QtQuick" "QtQml" "QtOpenGL" \
-                      "QtPrintSupport" "QtSql" "QtV8"; do
+                      "QtPrintSupport" "QtSql" "QtV8" "QtSensors"; do
             [[ "${bn}" == "${tokeep}" ]] && remove=${FALSE}
         done
         if [[ $remove -eq ${TRUE} ]];then
