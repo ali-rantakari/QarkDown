@@ -5,7 +5,6 @@
 #include <QtWidgets/QFileDialog>
 #include <QtWidgets/QInputDialog>
 #include <QtWidgets/QLineEdit>
-#include <QtWidgets/QStatusBar>
 #include <QtWidgets/QScrollBar>
 #include <QtCore/QTextStream>
 #include <QtCore/QCryptographicHash>
@@ -55,8 +54,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     setupFileMenu();
     setupEditor();
     setCentralWidget(editor);
-
-    statusBar()->show();
 
     qApp->installEventFilter(this);
 }
@@ -343,8 +340,6 @@ void MainWindow::saveFile(QString targetPath)
         addToRecentFiles(saveFilePath);
         updateRecentFilesMenu();
     }
-
-    statusBar()->showMessage(tr("File saved: %1").arg(QFileInfo(saveFilePath).fileName()), 3000);
 }
 
 void MainWindow::saveCurrentFile()
@@ -800,14 +795,12 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
                                 "be found at:\n'%1'").arg(compilerPath));
         return false;
     }
-    statusBar()->showMessage("Compiling to " + targetPath + "...");
     bool success = compiler->compileToHTMLFile(compilerPath, editor->toPlainText(),
                                                targetPath);
     recompileAction->setEnabled(true);
     if (success)
     {
         lastCompileTargetPath = targetPath;
-        statusBar()->showMessage(tr("Compiled successfully to: %1").arg(targetPath), 3000);
     }
     else
     {
@@ -816,7 +809,6 @@ bool MainWindow::compileToHTMLFile(QString targetPath)
         if (!compiler->errorString().isNull())
             message += "\n\n" + compiler->errorString();
         QMessageBox::warning(this, tr("Compiling Failed"), message);
-        statusBar()->showMessage(tr("Compiling failed to: %1").arg(targetPath), 3000);
     }
     return success;
 }
