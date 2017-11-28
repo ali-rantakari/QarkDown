@@ -3,8 +3,8 @@
 TRUE=0
 FALSE=1
 
-DEFAULT_QTVERSION="5.1.1"
-QT_SDK_PATH="${HOME}/Qt${DEFAULT_QTVERSION}"
+DEFAULT_QTVERSION="5.9.3"
+QT_SDK_PATH="${HOME}/Qt"
 
 echo "Remember to create a _fresh_ release build in Qt Creator first!"
 echo "Assuming Qt SDK is at: ${QT_SDK_PATH}"
@@ -74,7 +74,7 @@ cp "README.md" "$TEMP_DIR/."
 cp "LICENSE.md" "$TEMP_DIR/."
 
 VERSION=$(./get_version.py)
-ZIPFILE="QarkDown-OSX-${VERSION}.zip"
+ZIPFILE="QarkDown-macOS-${VERSION}.zip"
 if [ -e "$ZIPFILE" ];then
     echo ">>>>>>> Deleting existing zip file: $ZIPFILE"
     rm -f "$ZIPFILE"
