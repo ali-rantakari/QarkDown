@@ -651,7 +651,7 @@ void MainWindow::showPreferences()
 #endif
 
     preferencesDialog->setModal(true);
-    preferencesDialog->showMaximized();
+    preferencesDialog->show();
 }
 
 void MainWindow::preferencesUpdated()
