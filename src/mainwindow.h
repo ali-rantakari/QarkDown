@@ -13,7 +13,6 @@
 #include "filesearchdialog.h"
 #include "editor/qarkdowntextedit.h"
 #include "markdowncompiler.h"
-//#include "updatecheck/updatecheck.h"
 
 QT_BEGIN_NAMESPACE
 class QTextEdit;
@@ -43,7 +42,6 @@ public slots:
     void decreaseFontSize();
     void showPreferences();
     void about();
-    void checkForUpdates();
 
     void selectTextToSearchFor();
     void findNextSearchMatch();
@@ -118,7 +116,6 @@ private:
     bool compileToHTMLFile(QString targetPath);
     void checkIfFileModifiedByThirdParty();
 
-    //HGUpdateCheck *updateCheck;
     MarkdownCompiler *compiler;
     QString lastCompileTargetPath;
 

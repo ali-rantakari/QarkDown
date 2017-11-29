@@ -66,7 +66,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
@@ -175,6 +175,16 @@
         </item>
        </layout>
       </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="label_12">
+        <property name="text">
+         <string>File extensions:</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
+        </property>
+       </widget>
+      </item>
       <item row="1" column="1">
        <widget class="QCheckBox" name="tabsWithSpacesCheckBox">
         <property name="text">
@@ -182,7 +192,7 @@
         </property>
        </widget>
       </item>
-      <item row="14" column="0">
+      <item row="12" column="0">
        <spacer name="verticalSpacer_2">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
@@ -217,23 +227,6 @@
         </item>
        </layout>
       </item>
-      <item row="7" column="0">
-       <widget class="QLabel" name="label_12">
-        <property name="text">
-         <string>File extensions:</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
-        </property>
-       </widget>
-      </item>
-      <item row="8" column="1">
-       <widget class="Line" name="line_3">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
       <item row="9" column="1">
        <widget class="QCheckBox" name="rememberLastFileCheckBox">
         <property name="text">
@@ -241,17 +234,17 @@
         </property>
        </widget>
       </item>
-      <item row="12" column="1">
-       <widget class="QCheckBox" name="checkForUpdatesCheckBox">
-        <property name="text">
-         <string>Check for updates on startup</string>
-        </property>
-       </widget>
-      </item>
       <item row="10" column="1">
        <widget class="QCheckBox" name="linksClickableCheckBox">
         <property name="text">
          <string>Make links clickable</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="1">
+       <widget class="Line" name="line_3">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
         </property>
        </widget>
       </item>
@@ -264,21 +257,6 @@
         </property>
         <property name="text">
          <string>This label set in code.</string>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="13" column="1">
-       <widget class="QLabel" name="updateCheckInfoLabel">
-        <property name="font">
-         <font>
-          <pointsize>11</pointsize>
-         </font>
-        </property>
-        <property name="text">
-         <string>If selected, updates are checked only once per day. You can initiate manual update checks from the help menu.</string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>

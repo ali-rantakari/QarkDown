@@ -28,7 +28,6 @@ TODO:
 - Apply highlighting styles incrementally (might not be very easy, though)
 
 - Use QTextOption::ShowTabsAndSpaces
-- Use Sparkle on OS X
 - Support "quoted args" for compilers (remember to test on Windows !)
 */
 
@@ -39,11 +38,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     discardingChangesOnQuit = false;
     settings = new QSettings("org.hasseg", "QarkDown");
     compiler = new MarkdownCompiler(settings);
-
-    // PreferencesDialog depends on the HGUpdateCheck settings being
-    // set, so we have to set that up first:
-    //HGUpdateCheck::setUpdateCheckSettings(settings);
-    //updateCheck = new HGUpdateCheck(((QarkdownApplication *)qApp)->websiteURL(), this);
 
     preferencesDialog = new PreferencesDialog(settings, compiler);
     fileSearchDialog = new FileSearchDialog(this);
@@ -60,7 +54,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
 MainWindow::~MainWindow()
 {
-    //delete updateCheck;
     delete settings;
     delete preferencesDialog;
     delete compiler;
@@ -550,11 +543,6 @@ void MainWindow::about()
     aboutBox.exec();
 }
 
-void MainWindow::checkForUpdates()
-{
-    //updateCheck->checkForUpdatesNow();
-}
-
 void MainWindow::applyStyleWithoutErrorReporting()
 {
     applyStyle(false);
@@ -948,15 +936,12 @@ void MainWindow::setupFileMenu()
     menuBar()->addMenu(helpMenu);
     helpMenu->addAction(tr("About %1").arg(QCoreApplication::applicationName()),
                         this, SLOT(about()));
-    helpMenu->addAction(tr("Check for Updates..."), this, SLOT(checkForUpdates()));
 
     updateRecentFilesMenu();
 }
 
 void MainWindow::performStartupTasks()
 {
-    //updateCheck->handleAppStartup();
-
     bool rememberLastFile = settings->value(SETTING_REMEMBER_LAST_FILE,
                                             QVariant(DEF_REMEMBER_LAST_FILE)).toBool();
     if (rememberLastFile && settings->contains(SETTING_LAST_FILE) && openFilePath.isNull())
