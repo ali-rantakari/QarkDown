@@ -13,7 +13,6 @@ mac {
     RESOURCES += compilers-osx.qrc
     CONFIG += cocoa
     LIBS += -framework Cocoa
-    QMAKE_POST_LINK += ../fixmakefile.sh
 }
 
 mac:cocoa {
