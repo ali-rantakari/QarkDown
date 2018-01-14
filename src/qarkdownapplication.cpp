@@ -9,7 +9,7 @@ struct applicationVersion
     int major;
     int minor;
     int tiny;
-} appVersion = {0, 4, 2};
+} appVersion = {0, 4, 3};
 
 #define kCopyrightYearStr "2011-2017"
 #define kWebsiteURL "http://hasseg.org/qarkdown"
