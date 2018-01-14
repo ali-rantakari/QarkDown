@@ -33,12 +33,12 @@
 #define DEF_EXTENSIONS          "md markdown mdtext txt text"
 #define DEF_FONT_SIZE           12
 #define DEF_TAB_WIDTH           4
-#define DEF_HIGHLIGHT_INTERVAL  0.5
+#define DEF_HIGHLIGHT_INTERVAL  0.25
 #define DEF_NUM_RECENT_FILES    20
 #define DEF_INDENT_WITH_TABS    false
-#define DEF_REMEMBER_LAST_FILE  false
+#define DEF_REMEMBER_LAST_FILE  true
 #define DEF_REMEMBER_WINDOW     true
-#define DEF_CLICKABLE_LINKS     false
+#define DEF_CLICKABLE_LINKS     true
 #define DEF_ASK_RELOAD_MODIFIED_FILE true
 #define DEF_HIGHLIGHT_CURRENT_LINE true
 #define DEF_LINE_HIGHLIGHT_COLOR QColor(Qt::yellow).lighter(180)
