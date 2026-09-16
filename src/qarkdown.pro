@@ -10,6 +10,7 @@ mac {
     OSX_FILES.path = Contents/Resources
     QMAKE_BUNDLE_DATA += OSX_FILES
     QMAKE_INFO_PLIST = cfg/Info.plist
+    QMAKE_APPLE_DEVICE_ARCHS = x86_64 arm64
     RESOURCES += compilers-osx.qrc
     CONFIG += cocoa
     LIBS += -framework Cocoa
