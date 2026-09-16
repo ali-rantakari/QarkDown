@@ -284,7 +284,7 @@ void QarkdownTextEdit::mousePressEvent(QMouseEvent *e)
             return;
         }
     }
-    LineNumberingPlainTextEdit::mouseReleaseEvent(e);
+    LineNumberingPlainTextEdit::mousePressEvent(e);
 }
 
 void QarkdownTextEdit::mouseReleaseEvent(QMouseEvent *e)
