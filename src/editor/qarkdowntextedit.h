@@ -76,6 +76,7 @@ protected:
     QList<int> getLineStartPositionsInSelection(QTextCursor selection);
     int guessNumOfSpacesToDeleteUponUnindenting();
     void moveSelectedLines(int keyUpOrDown);
+    void duplicateSelectedLines();
     void indentSelectedLines();
     void unindentSelectedLines();
     int numCharsFromCursorToNextTabStop();

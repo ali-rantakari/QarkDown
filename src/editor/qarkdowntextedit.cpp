@@ -197,6 +197,19 @@ bool QarkdownTextEdit::event(QEvent *e)
             }
         }
 
+        // Duplicating lines with Shift + Alt/Option + down
+        if (ke->key() == Qt::Key_Down
+            && (ke->modifiers() & (Qt::ShiftModifier | Qt::AltModifier))
+                == (Qt::ShiftModifier | Qt::AltModifier))
+        {
+            QTextCursor cursor = this->textCursor();
+            if (!cursor.hasSelection() || !cursor.hasComplexSelection())
+            {
+                duplicateSelectedLines();
+                return true;
+            }
+        }
+
         // Moving lines with Alt/Option + up/down
         if ((ke->key() == Qt::Key_Up || ke->key() == Qt::Key_Down) && ke->modifiers() & Qt::AltModifier)
         {
@@ -399,6 +412,53 @@ void QarkdownTextEdit::moveSelectedLines(int keyUpOrDown) // keyUpOrDown can be 
         newCursor.setPosition(originalSelectionEnd + nextBlockText.length(), QTextCursor::KeepAnchor);
         this->setTextCursor(newCursor);
     }
+}
+
+void QarkdownTextEdit::duplicateSelectedLines()
+{
+    QTextCursor cursor = this->textCursor();
+    const int originalAnchor = cursor.anchor();
+    const int originalPosition = cursor.position();
+
+    // Expand the selection to encompass complete lines, as for moving lines.
+    QTextCursor startCursor(document());
+    startCursor.setPosition(cursor.selectionStart());
+    startCursor.movePosition(QTextCursor::StartOfBlock);
+
+    QTextCursor endCursor(document());
+    endCursor.setPosition(cursor.selectionEnd());
+    if (!cursor.hasSelection() || endCursor.positionInBlock() != 0)
+    {
+        endCursor.movePosition(QTextCursor::EndOfBlock);
+        if (!endCursor.atEnd())
+            endCursor.movePosition(QTextCursor::NextCharacter);
+    }
+
+    const int selectionStart = startCursor.position();
+    const int selectionEnd = endCursor.position();
+    cursor.setPosition(selectionStart);
+    cursor.setPosition(selectionEnd, QTextCursor::KeepAnchor);
+    const QString selectedText = cursor.selection().toPlainText();
+    const bool selectionEndsAtDocumentEnd = endCursor.atEnd();
+    const bool needsLeadingNewline = selectionEndsAtDocumentEnd
+        && (selectionEnd == 0
+            || document()->characterAt(selectionEnd - 1) != QChar::ParagraphSeparator);
+
+    QTextCursor insertCursor(document());
+    insertCursor.beginEditBlock();
+    insertCursor.setPosition(selectionEnd);
+    if (needsLeadingNewline)
+        insertCursor.insertText("\n");
+    insertCursor.insertText(selectedText);
+    insertCursor.endEditBlock();
+
+    // Match VS Code: preserve the original caret/selection shape on the lower
+    // copy, rather than selecting all duplicated lines.
+    QTextCursor newCursor(document());
+    const int duplicateStart = selectionEnd + (needsLeadingNewline ? 1 : 0);
+    newCursor.setPosition(duplicateStart + originalAnchor - selectionStart);
+    newCursor.setPosition(duplicateStart + originalPosition - selectionStart, QTextCursor::KeepAnchor);
+    setTextCursor(newCursor);
 }
 
 void QarkdownTextEdit::indentSelectedLines()
