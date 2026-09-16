@@ -5,7 +5,7 @@ set -euo pipefail
 TRUE=0
 FALSE=1
 
-QTVERSION="6.8.0"
+QTVERSION="6.11.2"
 QT_SDK_PATH="${HOME}/Qt"
 
 echo "Remember to create a _fresh_ release build in Qt Creator first!"
@@ -16,7 +16,7 @@ read
 
 find_qarkdown_app()
 {
-    find . -name 'qarkdown.app' | grep '\-Release' | grep "${1//./_}" | head -n 1
+    find . -name 'qarkdown.app' | grep '\_Release' | grep "${1//./_}" | head -n 1 || echo ''
 }
 find_macdeployqt()
 {
