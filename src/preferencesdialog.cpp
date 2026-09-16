@@ -380,8 +380,12 @@ void PreferencesDialog::showEvent(QShowEvent *event)
 void PreferencesDialog::fontButtonClicked()
 {
     bool ok;
+    QFontDialog::FontDialogOptions options;
+#ifdef Q_OS_MACOS
+    options |= QFontDialog::DontUseNativeDialog;
+#endif
     QFont newFont = QFontDialog::getFont(&ok, ui->fontLabel->font(),
-                                         this, tr("Select New Font"));
+                                         this, tr("Select New Font"), options);
     if (!ok)
         return;
     setFontToLabel(newFont);
