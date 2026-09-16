@@ -313,6 +313,10 @@ int QarkdownTextEdit::guessNumOfSpacesToDeleteUponUnindenting()
 void QarkdownTextEdit::moveSelectedLines(int keyUpOrDown) // keyUpOrDown can be either Qt::Key_Up or Qt::Key_Down
 {
     QTextCursor cursor = this->textCursor();
+    // QTextDocument uses the cursor that begins an edit block as the
+    // insertion point to restore after undo. Keep the user's cursor for that
+    // purpose; the cursors below are only working cursors.
+    QTextCursor undoCursor = cursor;
 
     int originalSelectionStart = cursor.selectionStart();
     int originalSelectionEnd = cursor.selectionEnd();
@@ -360,7 +364,7 @@ void QarkdownTextEdit::moveSelectedLines(int keyUpOrDown) // keyUpOrDown can be 
         prevBlockCursor.setPosition(prevBlockEnd, QTextCursor::KeepAnchor);
         QString prevBlockText = prevBlockCursor.selection().toPlainText();
 
-        cursor.beginEditBlock();
+        undoCursor.beginEditBlock();
 
         // Remove the previous block and the selected blocks
         cursor.removeSelectedText();
@@ -372,7 +376,7 @@ void QarkdownTextEdit::moveSelectedLines(int keyUpOrDown) // keyUpOrDown can be 
         insertCursor.insertText(selectedText);
         insertCursor.insertText(prevBlockText);
 
-        cursor.endEditBlock();
+        undoCursor.endEditBlock();
 
         // Restore cursor position & selection
         QTextCursor newCursor(this->document());
@@ -392,7 +396,7 @@ void QarkdownTextEdit::moveSelectedLines(int keyUpOrDown) // keyUpOrDown can be 
         nextBlockCursor.setPosition(nextBlock.position() + nextBlock.length(), QTextCursor::KeepAnchor);
         QString nextBlockText = nextBlockCursor.selection().toPlainText();
 
-        cursor.beginEditBlock();
+        undoCursor.beginEditBlock();
 
         // Remove selected blocks and the next block
         nextBlockCursor.removeSelectedText();
@@ -404,7 +408,7 @@ void QarkdownTextEdit::moveSelectedLines(int keyUpOrDown) // keyUpOrDown can be 
         insertCursor.insertText(nextBlockText);
         insertCursor.insertText(selectedText);
 
-        cursor.endEditBlock();
+        undoCursor.endEditBlock();
 
         // Restore cursor position & selection
         QTextCursor newCursor(this->document());
@@ -417,6 +421,7 @@ void QarkdownTextEdit::moveSelectedLines(int keyUpOrDown) // keyUpOrDown can be 
 void QarkdownTextEdit::duplicateSelectedLines()
 {
     QTextCursor cursor = this->textCursor();
+    QTextCursor undoCursor = cursor;
     const int originalAnchor = cursor.anchor();
     const int originalPosition = cursor.position();
 
@@ -445,12 +450,12 @@ void QarkdownTextEdit::duplicateSelectedLines()
             || document()->characterAt(selectionEnd - 1) != QChar::ParagraphSeparator);
 
     QTextCursor insertCursor(document());
-    insertCursor.beginEditBlock();
+    undoCursor.beginEditBlock();
     insertCursor.setPosition(selectionEnd);
     if (needsLeadingNewline)
         insertCursor.insertText("\n");
     insertCursor.insertText(selectedText);
-    insertCursor.endEditBlock();
+    undoCursor.endEditBlock();
 
     // Match VS Code: preserve the original caret/selection shape on the lower
     // copy, rather than selecting all duplicated lines.
@@ -469,7 +474,7 @@ void QarkdownTextEdit::indentSelectedLines()
 
     // Insert indentString to line start positions
     QTextCursor insertCursor(document());
-    insertCursor.beginEditBlock();
+    cursor.beginEditBlock();
     int shift = 0;
     foreach (int lineStart, lineStarts)
     {
@@ -477,7 +482,7 @@ void QarkdownTextEdit::indentSelectedLines()
         insertCursor.insertText(_indentString);
         shift += _indentString.length();
     }
-    insertCursor.endEditBlock();
+    cursor.endEditBlock();
 
     if (cursor.hasSelection())
     {
@@ -496,7 +501,7 @@ void QarkdownTextEdit::unindentSelectedLines()
     QList<int> lineStarts = getLineStartPositionsInSelection(cursor);
 
     QTextCursor removalCursor(document());
-    removalCursor.beginEditBlock();
+    cursor.beginEditBlock();
     int deletedChars = 0;
     foreach (int lineStart, lineStarts)
     {
@@ -521,7 +526,7 @@ void QarkdownTextEdit::unindentSelectedLines()
             }
         }
     }
-    removalCursor.endEditBlock();
+    cursor.endEditBlock();
 }
 
 int QarkdownTextEdit::numCharsFromCursorToNextTabStop()
@@ -540,7 +545,7 @@ void QarkdownTextEdit::indentAtCursor()
 {
     QTextCursor cursor = this->textCursor();
     QTextCursor insertCursor(document());
-    insertCursor.beginEditBlock();
+    cursor.beginEditBlock();
     insertCursor.setPosition(cursor.position());
 
     if (_indentString.startsWith(" "))
@@ -552,14 +557,14 @@ void QarkdownTextEdit::indentAtCursor()
     else
         insertCursor.insertText(_indentString);
 
-    insertCursor.endEditBlock();
+    cursor.endEditBlock();
 }
 
 void QarkdownTextEdit::unindentAtCursor()
 {
     QTextCursor cursor = this->textCursor();
     QTextCursor removalCursor(document());
-    removalCursor.beginEditBlock();
+    cursor.beginEditBlock();
 
     QTextBlock b = cursor.block();
     int lineStartPos = b.position();
@@ -581,7 +586,7 @@ void QarkdownTextEdit::unindentAtCursor()
         }
     }
 
-    removalCursor.endEditBlock();
+    cursor.endEditBlock();
 }
 
 
@@ -635,6 +640,10 @@ QPoint QarkdownTextEdit::getSelectionStartBaselinePoint()
 
 void QarkdownTextEdit::toggleFormattingForCurrentSelection(FormatStyle formatStyle)
 {
+    // Use the user's cursor as the edit-block cursor so undo returns to the
+    // original insertion point rather than one of the working positions.
+    QTextCursor undoCursor = textCursor();
+
     // Find formatted range
 
     QTextCursor selectionCursor = textCursor();
@@ -683,7 +692,7 @@ void QarkdownTextEdit::toggleFormattingForCurrentSelection(FormatStyle formatSty
     if (startsWithFormatStr && endsWithFormatStr)
     {
         // remove formatting
-        tempCursor.beginEditBlock();
+        undoCursor.beginEditBlock();
 
         tempCursor.setPosition(start - formatStrLength);
         tempCursor.setPosition(start, QTextCursor::KeepAnchor);
@@ -692,19 +701,19 @@ void QarkdownTextEdit::toggleFormattingForCurrentSelection(FormatStyle formatSty
         tempCursor.setPosition(end, QTextCursor::KeepAnchor);
         tempCursor.removeSelectedText();
 
-        tempCursor.endEditBlock();
+        undoCursor.endEditBlock();
     }
     else
     {
         // add formatting
-        tempCursor.beginEditBlock();
+        undoCursor.beginEditBlock();
 
         tempCursor.setPosition(start);
         tempCursor.insertText(formatStr);
         tempCursor.setPosition(end + formatStrLength);
         tempCursor.insertText(formatStr);
 
-        tempCursor.endEditBlock();
+        undoCursor.endEditBlock();
 
         if (textCursor().hasSelection())
         {
