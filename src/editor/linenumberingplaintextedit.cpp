@@ -14,6 +14,11 @@ LineNumberingPlainTextEdit::LineNumberingPlainTextEdit(QWidget *parent) :
     connect(this, SIGNAL(updateRequest(QRect,int)),
             this, SLOT(updateLineNumberArea(QRect,int)));
 
+    // "… the plain text edit scrolls the document vertically to make the
+    // cursor visible at the center of the viewport. This also allows the
+    // text edit to scroll below the end of the document."
+    setCenterOnScroll(true);
+
     _lineNumberAreaColor = QColor(Qt::lightGray).lighter(120);
 
     updateLineNumberAreaWidth(0);
