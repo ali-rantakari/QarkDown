@@ -10,6 +10,8 @@
 #include <QtWidgets/QFileDialog>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QButtonGroup>
+#include <QtGui/QAction>
+#include <QtGui/QKeySequence>
 #include <QtGui/QDesktopServices>
 #include <QtCore/QTextStream>
 
@@ -75,6 +77,12 @@ PreferencesDialog::~PreferencesDialog()
 
 void PreferencesDialog::setupConnections()
 {
+    QAction *closeAction = new QAction(this);
+    closeAction->setShortcut(QKeySequence::Close);
+    closeAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    addAction(closeAction);
+
+    connect(closeAction, SIGNAL(triggered()), this, SLOT(reject()));
     connect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accepted()));
     connect(ui->buttonBox, SIGNAL(rejected()), this, SLOT(rejected()));
     connect(ui->fontButton, SIGNAL(clicked()), this, SLOT(fontButtonClicked()));
