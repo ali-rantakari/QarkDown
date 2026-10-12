@@ -5,6 +5,7 @@
 #include <QtGui/QTextBlock>
 #include <QtGui/QTextLayout>
 #include <QtGui/QTextDocumentFragment>
+#include <QtCore/QRegularExpression>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QToolTip>
 #include <QtCore/QDebug>
@@ -166,6 +167,38 @@ bool QarkdownTextEdit::event(QEvent *e)
     if (e->type() == QEvent::KeyPress)
     {
         QKeyEvent *ke = static_cast<QKeyEvent *>(e);
+
+        // Cmd+Enter on macOS (Ctrl+Enter elsewhere) creates a new item below
+        // the current line while preserving the current list item's marker
+        // and indentation.
+#if defined(Q_OS_MAC) || defined(Q_OS_MACOS) || defined(Q_OS_DARWIN)
+        bool isCommandModifier = (ke->modifiers() == Qt::MetaModifier
+                             || ke->modifiers() == Qt::ControlModifier);
+#else
+        bool isCommandModifier = (ke->modifiers() == Qt::ControlModifier);
+#endif
+        if ((ke->key() == Qt::Key_Return || ke->key() == Qt::Key_Enter)
+            && isCommandModifier)
+        {
+            QTextCursor cursor = this->textCursor();
+            QTextBlock block = cursor.block();
+            QString line = block.text();
+            QRegularExpression listItemRegex("^([ \\t]*)([-*]) ");
+            QRegularExpressionMatch match = listItemRegex.match(line);
+
+            QString newLine;
+            if (match.hasMatch())
+                newLine = match.captured(1) + match.captured(2) + " ";
+
+            QTextCursor insertionCursor(this->document());
+            insertionCursor.setPosition(block.position() + block.length() - 1);
+            insertionCursor.insertText("\n" + newLine);
+
+            cursor.clearSelection();
+            cursor.setPosition(insertionCursor.position());
+            setTextCursor(cursor);
+            return true;
+        }
 
         // Indenting with tab/backtab
         if (ke->key() == Qt::Key_Tab || ke->key() == Qt::Key_Backtab)
